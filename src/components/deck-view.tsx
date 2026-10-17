@@ -17,6 +17,8 @@ export function DeckView() {
   const { deck, ready, remove, importCards, clear } = useDeck();
   const { lookups, pricedAt, record, markDone } = useSavedPrices();
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  // Seconds to wait after hitting the server's rate limit.
+  const [pausedFor, setPausedFor] = useState<number | null>(null);
   const controller = useRef<AbortController | null>(null);
 
   // Stop pricing if the visitor leaves the page.
@@ -26,6 +28,7 @@ export function DeckView() {
     controller.current?.abort();
     const current = new AbortController();
     controller.current = current;
+    setPausedFor(null);
     setProgress({ done: 0, total: names.length });
 
     await forEachLimited(
@@ -35,6 +38,13 @@ export function DeckView() {
         let result: Lookup;
         try {
           const res = await fetch(`/api/price?name=${encodeURIComponent(name)}`, { signal: current.signal });
+          if (res.status === 429) {
+            // Stop here; cards not checked yet stay "unchecked" for a later run.
+            setPausedFor(Number(res.headers.get("Retry-After")) || 60);
+            current.abort();
+            setProgress(null);
+            return;
+          }
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           result = (await res.json()) as PriceResponse;
         } catch {
@@ -115,6 +125,12 @@ export function DeckView() {
                 </button>
               )}
             </div>
+            {pausedFor !== null && !progress && (
+              <p role="status" className="text-sm text-amber-700 dark:text-amber-400">
+                Paused: too many price checks in a short time. Wait about {pausedFor} seconds, then
+                continue with the unchecked cards.
+              </p>
+            )}
             {progress && (
               <div
                 role="progressbar"
@@ -322,7 +338,7 @@ function CardsTable({
             className="flex items-center gap-3 border-b border-zinc-100 py-2 text-sm last:border-0 dark:border-zinc-900"
           >
             <span className="w-8 shrink-0 text-right text-zinc-500 tabular-nums">{card.qty}×</span>
-            <Link href={cardHref(card.name)} className="min-w-0 flex-1 truncate hover:underline">
+            <Link href={cardHref(card.name)} prefetch={false} className="min-w-0 flex-1 truncate hover:underline">
               {card.name}
             </Link>
             <span className="shrink-0 text-right text-xs">

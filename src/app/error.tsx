@@ -1,0 +1,36 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect } from "react";
+
+// Shown when a page throws. Source outages are handled inside each panel, so
+// reaching this means something unexpected; log it for the host's logs.
+export default function Error({ error, retry }: { error: unknown; retry: () => void }) {
+  useEffect(() => {
+    console.error(error);
+  }, [error]);
+
+  return (
+    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 px-4 py-16 sm:px-6">
+      <h1 className="text-2xl font-semibold">Something went wrong</h1>
+      <p className="text-zinc-600 dark:text-zinc-400">
+        The page couldn’t load. This is usually temporary.
+      </p>
+      <div className="flex flex-wrap gap-3">
+        <button
+          type="button"
+          onClick={() => retry()}
+          className="h-10 rounded-lg bg-amber-500 px-4 text-sm font-medium text-zinc-950 hover:bg-amber-400"
+        >
+          Try again
+        </button>
+        <Link
+          href="/"
+          className="flex h-10 items-center rounded-lg border border-zinc-300 px-4 text-sm font-medium hover:border-amber-500 dark:border-zinc-700"
+        >
+          Go to search
+        </Link>
+      </div>
+    </main>
+  );
+}

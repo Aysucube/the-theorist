@@ -1,36 +1,101 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Commander PH
 
-## Getting Started
+Search a Magic: The Gathering card and see, on one page:
 
-First, run the development server:
+- **Scryfall**: the card, its rules text and Commander legality
+- **EDHREC**: how often Commander decks play it, and for commanders, recommended cards
+- **TCGph**: what it costs right now at Philippine game stores, in pesos
+
+Then collect cards into a deck (or paste a list from Moxfield or Archidekt), price
+the whole deck, and get a **shopping list** that uses the fewest stores possible,
+with a ready-to-send order message for each store.
+
+## Running it locally
+
+Needs Node.js 20.9 or newer.
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm ci
+npm run dev        # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Other scripts:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Command                   | What it does                                             |
+| ------------------------- | -------------------------------------------------------- |
+| `npm test`                | Unit tests (Vitest), offline using saved pages          |
+| `npm run lint`            | ESLint                                                   |
+| `npm run build`           | Production build                                         |
+| `npm start`               | Serve the production build                               |
+| `npm run fixtures:update` | Re-download the saved TCGph/EDHREC/Scryfall test pages   |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Run `npm run fixtures:update && npm test` now and then: if TCGph or EDHREC change
+their pages, the tests fail instead of the app quietly showing wrong prices.
 
-## Learn More
+## Configuration
 
-To learn more about Next.js, take a look at the following resources:
+Copy `.env.example` to `.env.local` (locally) or set these in your host:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Variable  | Required | Purpose                                                                   |
+| --------- | -------- | ------------------------------------------------------------------------- |
+| `APP_URL` | Recommended in production | Your site's URL, added to our User-Agent so Scryfall, EDHREC and TCGph can see who is calling |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## How we treat the data sources
 
-## Deploy on Vercel
+Only Scryfall has an official API. EDHREC and TCGph are read from the same pages
+their own websites use, so the app is built to stay a light, polite visitor:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- Every lookup is cached: Scryfall and EDHREC for a day, TCGph prices for an hour.
+- Prices are fetched only when someone asks (a "Check ₱" click or "Price this deck"),
+  three cards at a time.
+- Each visitor is rate limited (`src/proxy.ts`): 60 card pages per minute,
+  120 search suggestions per minute, 350 price checks per 10 minutes.
+- Every request names the app in its User-Agent and gives up after 10 seconds.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+If a site asks you to stop or offers an API, follow that.
+
+## Deploying
+
+### Vercel (recommended)
+
+1. Push this repository to GitHub.
+2. In Vercel, **Add New → Project**, import the repository. The defaults work.
+3. Under **Settings → Environment Variables**, set `APP_URL` to the site's URL.
+4. Deploy.
+
+On Vercel, the `'use cache: remote'` caches are shared by every server instance
+automatically, so a card looked up once is served from cache to everyone.
+
+The built-in rate limits count per server instance. Vercel can run several
+instances at once, so for a hard, shared cap also add rate-limit rules in
+**Firewall** (for example on `/api/price` and `/card`). Rate-limit rules may
+depend on your Vercel plan.
+
+### Your own server
+
+```bash
+npm ci
+npm run build
+npm start          # PORT=3000 by default
+```
+
+A single Node.js process keeps the cache and rate limits in memory, which is
+fine for one server. Put it behind a reverse proxy (nginx, Caddy) that sets
+`X-Forwarded-For`; otherwise every visitor shares one rate-limit bucket. Running
+several instances needs a shared cache handler; see Next.js's `cacheHandlers` docs.
+
+## Limitations
+
+- The deck, saved prices and shopping-list ticks live in the visitor's browser
+  (localStorage). They don't sync between devices.
+- Store totals assume a store has enough copies; TCGph only shows stock per listing.
+- For decks needing more than three stores, the shopping list uses a quick
+  approximation, which may not always find the fewest stores.
+
+## Known `npm audit` warning
+
+`npm audit` reports a high-severity issue in `braces`, pulled in by
+`eslint-config-next` for linting. It only runs on developer machines and CI, never
+in the deployed app (`npm audit --omit=dev` reports 0 vulnerabilities), and no
+fixed version of `braces` exists yet. `npm audit fix --force` would downgrade the
+lint config to an old Next.js version, so don't run it.

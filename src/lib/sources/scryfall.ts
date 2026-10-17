@@ -1,6 +1,6 @@
 import { cacheLife } from "next/cache";
 import type { ScryfallCard, ScryfallLookup } from "@/lib/types";
-import { SourceError, USER_AGENT } from "./http";
+import { SourceError, sourceFetch } from "./http";
 
 // Official API: https://scryfall.com/docs/api
 const API = "https://api.scryfall.com";
@@ -26,9 +26,7 @@ interface RawCard extends RawFace {
 }
 
 async function get(path: string): Promise<unknown | null> {
-  const res = await fetch(`${API}${path}`, {
-    headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
-  });
+  const res = await sourceFetch("Scryfall", `${API}${path}`, "application/json");
   if (res.status === 404) return null;
   if (!res.ok) throw new SourceError("Scryfall", `HTTP ${res.status}`);
   return res.json();
@@ -84,7 +82,7 @@ function rankByName(cards: RawCard[], query: string) {
  * EDHREC popularity and returns the other matches as alternatives.
  */
 export async function findCard(query: string): Promise<ScryfallLookup | null> {
-  "use cache";
+  "use cache: remote";
   cacheLife("days");
 
   const q = encodeURIComponent(query);
@@ -130,7 +128,7 @@ export function rankSuggestions(names: string[], query: string, limit = AUTOCOMP
 }
 
 async function fetchSuggestions(query: string): Promise<string[]> {
-  "use cache";
+  "use cache: remote";
   cacheLife("days");
 
   const catalog = (await get(`/cards/autocomplete?q=${encodeURIComponent(query)}`)) as {

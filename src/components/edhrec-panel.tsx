@@ -118,7 +118,8 @@ function CardList({
             className="flex items-center gap-3 border-b border-zinc-100 py-1.5 text-sm last:border-0 dark:border-zinc-900"
           >
             <AddToDeckToggle name={c.name} />
-            <Link href={cardHref(c.name)} className="min-w-0 flex-1 truncate hover:underline">
+            {/* No prefetch: a commander page has 100+ of these links. */}
+            <Link href={cardHref(c.name)} prefetch={false} className="min-w-0 flex-1 truncate hover:underline">
               {c.name}
             </Link>
             <span className="shrink-0 text-xs tabular-nums text-zinc-500">

@@ -8,7 +8,7 @@ import type {
   TcgphPrint,
   TcgphSummary,
 } from "@/lib/types";
-import { SourceError, USER_AGENT } from "./http";
+import { SourceError, sourceFetch } from "./http";
 
 // TCGph has no public API. Its /card/<slug> page is server-rendered with every
 // in-stock printing and store listing, so we read that page (and its few
@@ -109,16 +109,14 @@ export function mergePrints(into: Map<string, TcgphPrint>, prints: TcgphPrint[])
 }
 
 async function fetchPage(url: string): Promise<string | null> {
-  const res = await fetch(url, {
-    headers: { "User-Agent": USER_AGENT, Accept: "text/html" },
-  });
+  const res = await sourceFetch("TCGph", url, "text/html");
   if (res.status === 404) return null;
   if (!res.ok) throw new SourceError("TCGph", `HTTP ${res.status}`);
   return res.text();
 }
 
 export async function getPrices(slug: string): Promise<TcgphPrices | null> {
-  "use cache";
+  "use cache: remote";
   cacheLife("hours");
 
   const url = `${SITE}/card/${slug}`;

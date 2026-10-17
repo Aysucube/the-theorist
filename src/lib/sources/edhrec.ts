@@ -5,7 +5,7 @@ import type {
   EdhrecCardStats,
   EdhrecCommanderStats,
 } from "@/lib/types";
-import { SourceError, USER_AGENT } from "./http";
+import { SourceError, sourceFetch } from "./http";
 
 // EDHREC has no official API. These are the JSON files its own pages load,
 // so we request one per search and cache the result for a day.
@@ -94,9 +94,7 @@ async function getPage(
   path: string,
   redirectsLeft = 1,
 ): Promise<{ page: RawPage; path: string } | null> {
-  const res = await fetch(`${JSON_BASE}/${path}.json`, {
-    headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
-  });
+  const res = await sourceFetch("EDHREC", `${JSON_BASE}/${path}.json`, "application/json");
   // EDHREC answers 403 (not 404) for slugs it doesn't know.
   if (res.status === 403 || res.status === 404) return null;
   if (!res.ok) throw new SourceError("EDHREC", `HTTP ${res.status}`);
@@ -110,7 +108,7 @@ async function getPage(
 
 /** How often a card is played overall, and by which commanders. */
 export async function getCardStats(slug: string): Promise<EdhrecCardStats | null> {
-  "use cache";
+  "use cache: remote";
   cacheLife("days");
 
   const result = await getPage(`cards/${slug}`);
@@ -121,7 +119,7 @@ export async function getCardStats(slug: string): Promise<EdhrecCardStats | null
 export async function getCommanderStats(
   slug: string,
 ): Promise<EdhrecCommanderStats | null> {
-  "use cache";
+  "use cache: remote";
   cacheLife("days");
 
   const result = await getPage(`commanders/${slug}`);

@@ -1,0 +1,42 @@
+import { NextResponse, type NextRequest } from "next/server";
+import { clientAddress, createRateLimiter } from "@/lib/rate-limit";
+
+// Every card lookup can trigger requests to Scryfall, EDHREC and TCGph, which
+// have no paid API agreement with us. These limits keep any one visitor (or
+// script) from turning this app into a scraper. Cached answers are cheap, but
+// counted too: the proxy can't tell a cache hit from a miss.
+const LIMITS = {
+  // A 150-card deck priced twice in ten minutes, plus some "Check ₱" clicks.
+  price: createRateLimiter({ limit: 350, windowMs: 10 * 60_000 }),
+  // Debounced typing in the search box.
+  autocomplete: createRateLimiter({ limit: 120, windowMs: 60_000 }),
+  // Opening card pages, which look up all three sources.
+  card: createRateLimiter({ limit: 60, windowMs: 60_000 }),
+};
+
+function bucket(pathname: string): keyof typeof LIMITS | null {
+  if (pathname === "/api/price") return "price";
+  if (pathname === "/api/autocomplete") return "autocomplete";
+  if (pathname === "/card") return "card";
+  return null;
+}
+
+export function proxy(request: NextRequest) {
+  const name = bucket(request.nextUrl.pathname);
+  // No exemptions by request header: a client can send any header it likes.
+  // (Card links don't prefetch, so real visitors don't spend their limit on prefetches.)
+  if (!name) return NextResponse.next();
+
+  const result = LIMITS[name](clientAddress(request.headers));
+  if (result.ok) return NextResponse.next();
+
+  const headers = { "Retry-After": String(result.retryAfterSeconds) };
+  const message = `Too many requests. Please wait ${result.retryAfterSeconds} seconds and try again.`;
+  return name === "card"
+    ? new NextResponse(message, { status: 429, headers: { ...headers, "Content-Type": "text/plain; charset=utf-8" } })
+    : NextResponse.json({ error: message }, { status: 429, headers });
+}
+
+export const config = {
+  matcher: ["/api/price", "/api/autocomplete", "/card"],
+};

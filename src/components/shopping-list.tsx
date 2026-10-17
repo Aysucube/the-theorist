@@ -122,7 +122,7 @@ function StopCard({
               <div className={`min-w-0 flex-1 ${bought ? "text-zinc-400 line-through" : ""}`}>
                 <div className="truncate">
                   {item.qty > 1 && <span className="tabular-nums">{item.qty}× </span>}
-                  <Link href={cardHref(item.name)} className="hover:underline">
+                  <Link href={cardHref(item.name)} prefetch={false} className="hover:underline">
                     {item.name}
                   </Link>
                 </div>
