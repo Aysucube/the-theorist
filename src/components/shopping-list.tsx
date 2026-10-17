@@ -1,12 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 import type { DeckCard } from "@/lib/deck";
-import { cardHref, formatCount, formatPhp } from "@/lib/format";
+import { formatCount, formatPhp } from "@/lib/format";
 import { orderText, planCheapest, planFewestStores, type ShoppingStop } from "@/lib/shopping";
 import type { PriceResponse } from "@/lib/types";
 import { useBought } from "@/lib/use-deck";
+import { CardLink } from "./card-link";
 
 /** Where to buy the deck with the fewest store visits, one checklist per store. */
 export function ShoppingList({
@@ -122,9 +122,7 @@ function StopCard({
               <div className={`min-w-0 flex-1 ${bought ? "text-zinc-400 line-through" : ""}`}>
                 <div className="truncate">
                   {item.qty > 1 && <span className="tabular-nums">{item.qty}× </span>}
-                  <Link href={cardHref(item.name)} prefetch={false} className="hover:underline">
-                    {item.name}
-                  </Link>
+                  <CardLink name={item.name} className="hover:underline" />
                 </div>
                 <div className="truncate text-xs text-zinc-500">
                   {[item.offer.printing, item.offer.conditionLabel ?? item.offer.condition].filter(Boolean).join(" · ")}

@@ -177,6 +177,7 @@ export function summarizePrices(prices: TcgphPrices): TcgphSummary {
   return {
     url: prices.url,
     cheapest: rows[0] && brief(rows[0]),
+    imageUrl: rows[0]?.print.imageUrl ?? prices.prints.find((p) => p.imageUrl)?.imageUrl,
     stores: byStore.size,
     listings: rows.length,
     byStore: [...byStore.values()].map(brief),

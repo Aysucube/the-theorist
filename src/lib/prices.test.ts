@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getPriceSummary } from "./prices";
+import { getCardPreview, getPriceSummary } from "./prices";
 import { fakeFetch, fixture } from "./sources/__fixtures__/load";
 
 vi.mock("next/cache", () => ({ cacheLife: () => {} }));
@@ -74,5 +74,34 @@ describe("getPriceSummary", () => {
 
     expect(await getPriceSummary("Zzz")).toBeNull();
     expect(calls.map((c) => c.url)).toEqual(["https://tcgph.com/card/zzz", named("Zzz"), search("Zzz")]);
+  });
+});
+
+describe("getCardPreview", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("shows the cheapest copy with its printing's artwork", async () => {
+    const tcgph = "https://tcgph.com/card/sol-ring";
+    const { fetch, calls } = fakeFetch({ [tcgph]: fixture("tcgph/esika-god-of-the-tree-the-prismatic-bridge.html") });
+    vi.stubGlobal("fetch", fetch);
+
+    const preview = await getCardPreview("Sol Ring");
+
+    expect(calls.map((c) => c.url)).toEqual([tcgph]);
+    expect(preview.cheapest?.pricePhp).toBeGreaterThan(0);
+    expect(preview.cheapest?.store).toBeTruthy();
+    expect(preview.imageUrl).toMatch(/^https:\/\/cards\.scryfall\.io\//);
+  });
+
+  it("falls back to Scryfall's image when no PH store has the card", async () => {
+    const { fetch } = fakeFetch({
+      "https://tcgph.com/card/nope": fixture("tcgph/unknown-card.html"),
+      [named("Nope")]: JSON.stringify({ ...JSON.parse(scryfallCard("Nope")), image_uris: { normal: "https://cards.scryfall.io/normal/nope.jpg" } }),
+    });
+    vi.stubGlobal("fetch", fetch);
+
+    const preview = await getCardPreview("Nope");
+
+    expect(preview).toEqual({ name: "Nope", imageUrl: "https://cards.scryfall.io/normal/nope.jpg", cheapest: undefined, stores: 0 });
   });
 });

@@ -1,10 +1,10 @@
-import Link from "next/link";
-import { cardHref, formatCount, formatPercent } from "@/lib/format";
+import { formatCount, formatPercent } from "@/lib/format";
 import { edhrecSlug } from "@/lib/slugs";
 import { getCardStats, getCommanderStats } from "@/lib/sources/edhrec";
 import { reportSourceError } from "@/lib/sources/http";
 import type { EdhrecCardRef, ScryfallCard } from "@/lib/types";
 import { AddToDeckToggle } from "./deck-buttons";
+import { CardLink } from "./card-link";
 import { Panel, SourceMessage } from "./panel";
 import { PriceCheck } from "./price-check";
 
@@ -120,10 +120,7 @@ function CardList({
             className="flex items-center gap-3 border-b border-zinc-100 py-1.5 text-sm last:border-0 dark:border-zinc-900"
           >
             <AddToDeckToggle name={c.name} />
-            {/* No prefetch: a commander page has 100+ of these links. */}
-            <Link href={cardHref(c.name)} prefetch={false} className="min-w-0 flex-1 truncate hover:underline">
-              {c.name}
-            </Link>
+            <CardLink name={c.name} className="min-w-0 flex-1 truncate hover:underline" />
             <span className="shrink-0 text-xs tabular-nums text-zinc-500">
               {c.inclusion !== undefined && formatPercent(c.inclusion)}
               {showSynergy && c.synergy !== undefined && (

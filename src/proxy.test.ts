@@ -38,3 +38,11 @@ describe("proxy rate limits", () => {
     expect(proxy(request("/card?q=x", "192.0.2.5")).status).toBe(200);
   });
 });
+
+describe("preview rate limit", () => {
+  it("limits hover previews per visitor", () => {
+    const statuses = Array.from({ length: 121 }, () => proxy(request("/api/preview?name=x", "192.0.2.9")).status);
+    expect(statuses.slice(0, 120).every((s) => s === 200)).toBe(true);
+    expect(statuses[120]).toBe(429);
+  });
+});

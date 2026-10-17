@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { MAX_DECK_CARDS, parseDeckList, priceDeck, type DeckCard, type StoreCoverage } from "@/lib/deck";
-import { cardHref, formatCount, formatPhp } from "@/lib/format";
+import { formatCount, formatPhp } from "@/lib/format";
 import { lookupPrice, sleep } from "@/lib/price-lookup";
 import { planCheapest, planFewestStores } from "@/lib/shopping";
 import { useDeck, useSavedPrices, type Lookup } from "@/lib/use-deck";
 import { ShoppingList } from "./shopping-list";
+import { CardLink } from "./card-link";
 
 // Cards are priced one at a time with a short breather in between. Slow, but
 // it keeps well inside Scryfall's and TCGph's limits, and busy sources are
@@ -349,9 +350,7 @@ function CardsTable({
             className="flex items-center gap-3 border-b border-zinc-100 py-2 text-sm last:border-0 dark:border-zinc-900"
           >
             <span className="w-8 shrink-0 text-right text-zinc-500 tabular-nums">{card.qty}×</span>
-            <Link href={cardHref(card.name)} prefetch={false} className="min-w-0 flex-1 truncate hover:underline">
-              {card.name}
-            </Link>
+            <CardLink name={card.name} className="min-w-0 flex-1 truncate hover:underline" />
             <span className="shrink-0 text-right text-xs">
               <LinePrice qty={card.qty} lookup={lookups[card.name]} />
             </span>

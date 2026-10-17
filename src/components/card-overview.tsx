@@ -1,8 +1,8 @@
 import Image from "next/image";
-import Link from "next/link";
-import { cardHref, formatCount, formatUsd } from "@/lib/format";
+import { formatCount, formatUsd } from "@/lib/format";
 import type { ScryfallLookup } from "@/lib/types";
 import { AddToDeckButton } from "./deck-buttons";
+import { CardLink } from "./card-link";
 
 export function CardOverview({ lookup }: { lookup: ScryfallLookup }) {
   const { card, alternatives } = lookup;
@@ -70,13 +70,10 @@ export function CardOverview({ lookup }: { lookup: ScryfallLookup }) {
             <ul className="mt-1 flex flex-wrap gap-2">
               {alternatives.map((name) => (
                 <li key={name}>
-                  <Link
-                    href={cardHref(name)}
-                    prefetch={false}
+                  <CardLink
+                    name={name}
                     className="inline-block rounded-full border border-zinc-300 px-3 py-1 hover:border-amber-500 dark:border-zinc-700"
-                  >
-                    {name}
-                  </Link>
+                  />
                 </li>
               ))}
             </ul>

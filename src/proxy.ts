@@ -10,6 +10,8 @@ const LIMITS = {
   price: createRateLimiter({ limit: 350, windowMs: 10 * 60_000 }),
   // Debounced typing in the search box.
   autocomplete: createRateLimiter({ limit: 120, windowMs: 60_000 }),
+  // Hover cards on card links: a person pausing over links, not a sweep.
+  preview: createRateLimiter({ limit: 120, windowMs: 60_000 }),
   // Opening card pages, which look up all three sources.
   card: createRateLimiter({ limit: 60, windowMs: 60_000 }),
 };
@@ -17,6 +19,7 @@ const LIMITS = {
 function bucket(pathname: string): keyof typeof LIMITS | null {
   if (pathname === "/api/price") return "price";
   if (pathname === "/api/autocomplete") return "autocomplete";
+  if (pathname === "/api/preview") return "preview";
   if (pathname === "/card") return "card";
   return null;
 }
@@ -38,5 +41,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/api/price", "/api/autocomplete", "/card"],
+  matcher: ["/api/price", "/api/autocomplete", "/api/preview", "/card"],
 };

@@ -127,10 +127,21 @@ export interface TcgphSummary {
   url: string;
   /** Cheapest in-stock listing; missing when no store has the card. */
   cheapest?: ListingBrief;
+  /** Artwork of the cheapest listing's printing (or of any printing in stock). */
+  imageUrl?: string;
   stores: number;
   listings: number;
   /** Each store's cheapest listing for the card, cheapest store first. */
   byStore: ListingBrief[];
+}
+
+/** What GET /api/preview returns: enough for a hover card. */
+export interface CardPreview {
+  name: string;
+  imageUrl?: string;
+  /** Cheapest PH listing; missing when no store has the card. */
+  cheapest?: ListingBrief;
+  stores: number;
 }
 
 /** What GET /api/price returns. */
