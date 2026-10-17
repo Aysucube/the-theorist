@@ -66,10 +66,15 @@ function Result({ result }: { result: PriceResponse }) {
       target="_blank"
       rel="noopener noreferrer"
       title={`Cheapest: ${conditionLabel ?? condition} at ${store}. In stock at ${stores}. Opens TCGph.`}
-      className="text-xs font-semibold whitespace-nowrap text-emerald-700 tabular-nums hover:underline dark:text-emerald-400"
+      className="text-xs whitespace-nowrap hover:underline"
     >
-      {formatPhp(pricePhp)}
-      <span className="sr-only"> cheapest at {store}, {stores}</span>
+      <span className="font-semibold text-emerald-700 tabular-nums dark:text-emerald-400">
+        {formatPhp(pricePhp)}
+      </span>
+      <span className="sr-only"> cheapest at</span>{" "}
+      {/* TCGph's short shop code, e.g. "HMO" or "Vault". */}
+      <span className="text-zinc-600 dark:text-zinc-400">{store}</span>
+      <span className="sr-only">, {stores}</span>
     </a>
   );
 }

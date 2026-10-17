@@ -129,7 +129,8 @@ function CardList({
                 </span>
               )}
             </span>
-            <span className="w-20 shrink-0 text-right">
+            {/* Reserves room for the button; a checked price with its shop code can grow wider. */}
+            <span className="min-w-20 shrink-0 text-right">
               <PriceCheck name={c.name} />
             </span>
           </li>
