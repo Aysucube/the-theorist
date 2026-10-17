@@ -1,6 +1,7 @@
 import { cacheLife } from "next/cache";
 import type { ScryfallCard, ScryfallLookup } from "@/lib/types";
 import { SourceError, sourceFetch } from "./http";
+import { createThrottle } from "./throttle";
 
 // Official API: https://scryfall.com/docs/api
 const API = "https://api.scryfall.com";
@@ -25,9 +26,29 @@ interface RawCard extends RawFace {
   card_faces?: RawFace[];
 }
 
+// Scryfall's hard limits (https://scryfall.com/docs/api/rate-limits): 2 requests
+// a second for search/named/random/collection, 10 a second for everything else.
+// A 429 locks the caller out for 30 seconds, and ignoring 429s can get an app
+// banned, so after one we stop calling entirely until the lockout has passed.
+const SLOW_ENDPOINT = /^\/cards\/(search|named|random|collection)\b/;
+const throttle = createThrottle({
+  spacingMs: { slow: 500, fast: 100 },
+  backOffMs: 30_000,
+  maxWaitMs: 20_000,
+});
+
 async function get(path: string): Promise<unknown | null> {
+  try {
+    await throttle.wait(SLOW_ENDPOINT.test(path) ? "slow" : "fast");
+  } catch (e) {
+    throw new SourceError("Scryfall", e instanceof Error ? e.message : "busy");
+  }
   const res = await sourceFetch("Scryfall", `${API}${path}`, "application/json");
   if (res.status === 404) return null;
+  if (res.status === 429) {
+    throttle.backOff();
+    throw new SourceError("Scryfall", "HTTP 429 (rate limited, pausing 30s)");
+  }
   if (!res.ok) throw new SourceError("Scryfall", `HTTP ${res.status}`);
   return res.json();
 }

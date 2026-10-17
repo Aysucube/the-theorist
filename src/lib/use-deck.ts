@@ -2,7 +2,7 @@
 
 import { addCard, importCards, removeCard, type DeckCard } from "@/lib/deck";
 import { createLocalStore, useHydrated } from "@/lib/local-store";
-import type { PriceResponse } from "@/lib/types";
+import type { Lookup } from "@/lib/price-lookup";
 
 // Everything here lives in this browser's localStorage: no account needed, but
 // it doesn't follow the user to another device or browser.
@@ -19,7 +19,7 @@ const deckStore = createLocalStore<DeckCard[]>(
 );
 
 /** A card's last price check, or "error" when the check failed. */
-export type Lookup = PriceResponse | "error";
+export type { Lookup };
 
 export interface SavedPrices {
   /** When the last pricing run finished (ms since epoch); 0 if never. */

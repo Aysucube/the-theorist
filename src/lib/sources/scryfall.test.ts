@@ -63,3 +63,18 @@ describe("suggestCardNames", () => {
     await expect(suggestCardNames("atra")).rejects.toThrow("Scryfall: HTTP 503");
   });
 });
+
+// Keep last: it leaves this file's Scryfall client paused for 30 seconds.
+describe("after Scryfall says 429", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("stops calling Scryfall until the lockout passes", async () => {
+    const { fetch, calls } = fakeFetch({ [`${AUTOCOMPLETE}?q=rate`]: { status: 429 } });
+    vi.stubGlobal("fetch", fetch);
+
+    await expect(suggestCardNames("rate")).rejects.toThrow("Scryfall: HTTP 429");
+    // The next lookup is refused without contacting Scryfall at all.
+    await expect(suggestCardNames("other")).rejects.toThrow(/paused 30s/);
+    expect(calls).toHaveLength(1);
+  });
+});

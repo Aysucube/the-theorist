@@ -2,23 +2,31 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { forEachLimited } from "@/lib/concurrency";
 import { MAX_DECK_CARDS, parseDeckList, priceDeck, type DeckCard, type StoreCoverage } from "@/lib/deck";
 import { cardHref, formatCount, formatPhp } from "@/lib/format";
+import { lookupPrice, sleep } from "@/lib/price-lookup";
 import { planCheapest, planFewestStores } from "@/lib/shopping";
-import type { PriceResponse } from "@/lib/types";
 import { useDeck, useSavedPrices, type Lookup } from "@/lib/use-deck";
 import { ShoppingList } from "./shopping-list";
 
-// Three lookups at a time keeps a 100-card deck to a gentle trickle of TCGph requests.
-const CONCURRENCY = 3;
+// Cards are priced one at a time with a short breather in between. Slow, but
+// it keeps well inside Scryfall's and TCGph's limits, and busy sources are
+// waited out and retried, so every card ends up priced.
+const PAUSE_BETWEEN_CARDS_MS = 400;
+
+interface Progress {
+  done: number;
+  total: number;
+  /** Rough time left, once a few cards have been timed. */
+  minutesLeft?: number;
+  /** Set while waiting to retry a card. */
+  waiting?: { name: string; seconds: number; reason: string };
+}
 
 export function DeckView() {
   const { deck, ready, remove, importCards, clear } = useDeck();
   const { lookups, pricedAt, record, markDone } = useSavedPrices();
-  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
-  // Seconds to wait after hitting the server's rate limit.
-  const [pausedFor, setPausedFor] = useState<number | null>(null);
+  const [progress, setProgress] = useState<Progress | null>(null);
   const controller = useRef<AbortController | null>(null);
 
   // Stop pricing if the visitor leaves the page.
@@ -28,35 +36,29 @@ export function DeckView() {
     controller.current?.abort();
     const current = new AbortController();
     controller.current = current;
-    setPausedFor(null);
+    const startedAt = Date.now();
     setProgress({ done: 0, total: names.length });
 
-    await forEachLimited(
-      names,
-      CONCURRENCY,
-      async (name) => {
-        let result: Lookup;
-        try {
-          const res = await fetch(`/api/price?name=${encodeURIComponent(name)}`, { signal: current.signal });
-          if (res.status === 429) {
-            // Stop here; cards not checked yet stay "unchecked" for a later run.
-            setPausedFor(Number(res.headers.get("Retry-After")) || 60);
-            current.abort();
-            setProgress(null);
-            return;
-          }
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          result = (await res.json()) as PriceResponse;
-        } catch {
-          result = "error";
-        }
-        if (current.signal.aborted) return;
+    try {
+      for (const [i, name] of names.entries()) {
+        const result = await lookupPrice(name, {
+          signal: current.signal,
+          onWait: (waitMs, reason) =>
+            setProgress((p) => p && { ...p, waiting: { name, seconds: Math.round(waitMs / 1000), reason } }),
+        });
         record(name, result);
-        setProgress((p) => p && { ...p, done: p.done + 1 });
-      },
-      current.signal,
-    );
-    if (current.signal.aborted) return;
+        const done = i + 1;
+        const perCard = (Date.now() - startedAt) / done;
+        setProgress({
+          done,
+          total: names.length,
+          minutesLeft: done >= 3 ? Math.ceil((perCard * (names.length - done)) / 60_000) : undefined,
+        });
+        if (done < names.length) await sleep(PAUSE_BETWEEN_CARDS_MS, current.signal);
+      }
+    } catch {
+      return; // aborted: the visitor left or started another run
+    }
     markDone();
     setProgress(null);
   }
@@ -125,10 +127,18 @@ export function DeckView() {
                 </button>
               )}
             </div>
-            {pausedFor !== null && !progress && (
-              <p role="status" className="text-sm text-amber-700 dark:text-amber-400">
-                Paused: too many price checks in a short time. Wait about {pausedFor} seconds, then
-                continue with the unchecked cards.
+            {progress && (
+              <p role="status" className="text-sm text-zinc-600 dark:text-zinc-400">
+                {progress.waiting ? (
+                  <span className="text-amber-700 dark:text-amber-400">
+                    Waiting {progress.waiting.seconds}s because {progress.waiting.reason}, then trying “
+                    {progress.waiting.name}” again…
+                  </span>
+                ) : progress.minutesLeft !== undefined ? (
+                  <>About {progress.minutesLeft} {progress.minutesLeft === 1 ? "minute" : "minutes"} left. You can keep using the app in another tab.</>
+                ) : (
+                  <>Working out how long this will take…</>
+                )}
               </p>
             )}
             {progress && (
@@ -147,8 +157,9 @@ export function DeckView() {
               </div>
             )}
             <p className="text-xs text-zinc-500">
-              Looks up each card on TCGph, {CONCURRENCY} at a time. Prices are cached for an hour, so
-              re-checking soon after is quick.
+              Prices one card at a time so the price sites aren’t overloaded; a busy site is waited
+              out and retried automatically. Prices are cached for an hour, so re-checking soon after
+              is quick.
               {pricedAt > 0 && !progress && (
                 <> Last checked {new Date(pricedAt).toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" })}.</>
               )}

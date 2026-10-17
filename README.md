@@ -46,8 +46,14 @@ Only Scryfall has an official API. EDHREC and TCGph are read from the same pages
 their own websites use, so the app is built to stay a light, polite visitor:
 
 - Every lookup is cached: Scryfall and EDHREC for a day, TCGph prices for an hour.
-- Prices are fetched only when someone asks (a "Check ₱" click or "Price this deck"),
-  three cards at a time.
+- Prices are fetched only when someone asks (a "Check ₱" click or "Price this deck").
+  Decks are priced one card at a time; a busy source is waited out (5s, 10s, 20s,
+  30s, 30s) and retried rather than skipped.
+- A card is looked up on TCGph by name first; Scryfall is only asked for the full
+  name when TCGph doesn't recognise it (mostly double-faced cards).
+- Scryfall calls follow its [published limits](https://scryfall.com/docs/api/rate-limits)
+  (2 a second for name lookups and searches, 10 a second otherwise), and after an
+  HTTP 429 the app stops calling Scryfall for 30 seconds.
 - Each visitor is rate limited (`src/proxy.ts`): 60 card pages per minute,
   120 search suggestions per minute, 350 price checks per 10 minutes.
 - Every request names the app in its User-Agent and gives up after 10 seconds.
