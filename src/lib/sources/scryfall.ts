@@ -1,5 +1,5 @@
 import { cacheLife } from "next/cache";
-import type { ScryfallCard, ScryfallLookup } from "@/lib/types";
+import type { Printing, ScryfallCard, ScryfallLookup } from "@/lib/types";
 import { SourceError, sourceFetch } from "./http";
 import { createThrottle } from "./throttle";
 
@@ -11,11 +11,12 @@ interface RawFace {
   type_line?: string;
   mana_cost?: string;
   oracle_text?: string;
-  image_uris?: { normal?: string };
+  image_uris?: { normal?: string; small?: string };
 }
 
 interface RawCard extends RawFace {
   id: string;
+  oracle_id?: string;
   layout: string;
   type_line: string;
   color_identity: string[];
@@ -64,6 +65,7 @@ function toCard(raw: RawCard): ScryfallCard {
 
   return {
     id: raw.id,
+    oracleId: raw.oracle_id,
     name: raw.name,
     layout: raw.layout,
     typeLine: raw.type_line,
@@ -164,4 +166,59 @@ export async function suggestCardNames(input: string): Promise<string[]> {
   const query = input.trim().toLowerCase().slice(0, 100);
   if (query.length < AUTOCOMPLETE_MIN_LENGTH) return [];
   return fetchSuggestions(query);
+}
+
+// --- Printings ----------------------------------------------------------------
+
+interface RawPrinting {
+  set: string;
+  set_name: string;
+  collector_number: string;
+  released_at: string;
+  rarity: string;
+  finishes: string[];
+  digital?: boolean;
+  scryfall_uri: string;
+  image_uris?: { small?: string };
+  card_faces?: RawFace[];
+}
+
+interface RawList<T> {
+  data: T[];
+  has_more?: boolean;
+  next_page?: string;
+}
+
+/** Scryfall returns 175 printings a page; basic lands need about six pages. */
+const MAX_PRINTING_PAGES = 8;
+
+function toPrinting(raw: RawPrinting): Printing {
+  return {
+    setCode: raw.set.toUpperCase(),
+    setName: raw.set_name,
+    collectorNumber: raw.collector_number,
+    releasedAt: raw.released_at,
+    rarity: raw.rarity,
+    finishes: raw.finishes,
+    imageUrl: raw.image_uris?.small ?? raw.card_faces?.[0]?.image_uris?.small,
+    scryfallUrl: raw.scryfall_uri,
+  };
+}
+
+/** Every paper printing of a card, newest first. */
+export async function getPrintings(oracleId: string): Promise<Printing[]> {
+  "use cache: remote";
+  cacheLife("days");
+
+  const printings: Printing[] = [];
+  const query = encodeURIComponent(`oracleid:${oracleId} game:paper`);
+  let path: string | null = `/cards/search?q=${query}&unique=prints&order=released`;
+
+  for (let page = 0; path && page < MAX_PRINTING_PAGES; page++) {
+    const list = (await get(path)) as RawList<RawPrinting> | null;
+    if (!list) break;
+    printings.push(...list.data.filter((p) => !p.digital).map(toPrinting));
+    path = list.has_more && list.next_page?.startsWith(API) ? list.next_page.slice(API.length) : null;
+  }
+  return printings;
 }

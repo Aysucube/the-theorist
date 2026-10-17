@@ -7,6 +7,9 @@ import { Panel, SourceMessage } from "./panel";
 
 const TITLE = "Philippine store prices";
 const SHOWN = 15;
+// Basic lands have 1,600+ listings; the page lists the cheapest ones and links
+// to TCGph for the rest. (The Printings panel covers every printing.)
+const MAX_LISTED = 100;
 
 export async function TcgphPanel({ card }: { card: ScryfallCard }) {
   let prices;
@@ -39,7 +42,8 @@ export async function TcgphPanel({ card }: { card: ScryfallCard }) {
     );
   }
 
-  const [top, rest] = [rows.slice(0, SHOWN), rows.slice(SHOWN)];
+  const [top, rest] = [rows.slice(0, SHOWN), rows.slice(SHOWN, MAX_LISTED)];
+  const unlisted = rows.length - SHOWN - rest.length;
   const summary = summarizePrices(prices);
 
   return (
@@ -58,6 +62,19 @@ export async function TcgphPanel({ card }: { card: ScryfallCard }) {
           </summary>
           <ListingTable rows={rest} />
         </details>
+      )}
+      {unlisted > 0 && (
+        <p className="mt-2 text-sm text-zinc-500">
+          Showing the {formatCount(MAX_LISTED)} cheapest of {formatCount(rows.length)} listings.{" "}
+          <a
+            href={prices.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-amber-700 hover:underline dark:text-amber-400"
+          >
+            See all on TCGph ↗
+          </a>
+        </p>
       )}
     </Panel>
   );

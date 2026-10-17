@@ -30,6 +30,12 @@ const FIXTURES = [
   // A partial name EDHREC redirects to the full card ("fire" -> "fire-ice").
   ["edhrec/cards-redirect.json", "https://json.edhrec.com/pages/cards/fire.json", "application/json"],
 
+  // Every paper printing of Sol Ring (one page of Scryfall search results).
+  [
+    "scryfall/prints-sol-ring.json",
+    "https://api.scryfall.com/cards/search?q=oracleid%3A6ad8011d-3471-4369-9d68-b264cc027487%20game%3Apaper&unique=prints&order=released",
+    "application/json",
+  ],
   // Scryfall's suggestions for a partial name, including loose matches like "Heat Ray".
   [
     "scryfall/autocomplete-atra.json",

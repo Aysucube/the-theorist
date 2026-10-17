@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fakeFetch, fixture } from "./__fixtures__/load";
-import { AUTOCOMPLETE_LIMIT, rankSuggestions, suggestCardNames } from "./scryfall";
+import { AUTOCOMPLETE_LIMIT, getPrintings, rankSuggestions, suggestCardNames } from "./scryfall";
 
 vi.mock("next/cache", () => ({ cacheLife: () => {} }));
 
@@ -61,6 +61,43 @@ describe("suggestCardNames", () => {
     const { fetch } = fakeFetch({ [`${AUTOCOMPLETE}?q=atra`]: { status: 503 } });
     vi.stubGlobal("fetch", fetch);
     await expect(suggestCardNames("atra")).rejects.toThrow("Scryfall: HTTP 503");
+  });
+});
+
+describe("getPrintings", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  const API = "https://api.scryfall.com";
+  const first = `${API}/cards/search?q=${encodeURIComponent("oracleid:abc game:paper")}&unique=prints&order=released`;
+  const raw = (set: string, n: string, digital = false) => ({
+    set, set_name: `Set ${set}`, collector_number: n, released_at: "2024-01-01", rarity: "uncommon",
+    finishes: ["nonfoil"], digital, scryfall_uri: `https://scryfall.com/card/${set}/${n}`,
+    image_uris: { small: `https://cards.scryfall.io/small/${set}-${n}.jpg` },
+  });
+
+  it("follows Scryfall's next pages and skips online-only printings", async () => {
+    const { fetch, calls } = fakeFetch({
+      [first]: JSON.stringify({ data: [raw("cmm", "410"), raw("prm", "1", true)], has_more: true, next_page: `${API}/cards/search?page=2&x=1` }),
+      [`${API}/cards/search?page=2&x=1`]: JSON.stringify({ data: [raw("c21", "263")], has_more: false }),
+    });
+    vi.stubGlobal("fetch", fetch);
+
+    const printings = await getPrintings("abc");
+
+    expect(calls.map((c) => c.url)).toEqual([first, `${API}/cards/search?page=2&x=1`]);
+    expect(printings.map((p) => `${p.setCode} #${p.collectorNumber}`)).toEqual(["CMM #410", "C21 #263"]);
+    expect(printings[0]).toMatchObject({ setName: "Set cmm", imageUrl: "https://cards.scryfall.io/small/cmm-410.jpg" });
+  });
+
+  it("reads Sol Ring's real printing list", async () => {
+    vi.stubGlobal("fetch", fakeFetch({ [first]: fixture("scryfall/prints-sol-ring.json") }).fetch);
+    const printings = await getPrintings("abc");
+    expect(printings.length).toBeGreaterThan(100);
+    for (const p of printings) {
+      expect(p.setCode).toMatch(/^[A-Z0-9]{2,6}$/);
+      expect(p.collectorNumber).not.toBe("");
+      expect(p.releasedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    }
   });
 });
 

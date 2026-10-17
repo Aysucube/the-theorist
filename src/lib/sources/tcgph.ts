@@ -11,12 +11,15 @@ import type {
 import { SourceError, sourceFetch } from "./http";
 
 // TCGph has no public API. Its /card/<slug> page is server-rendered with every
-// in-stock printing and store listing, so we read that page (and its few
-// follow-on pages for heavily reprinted cards) per search and cache the result.
+// in-stock printing and store listing, so we read that page (and its follow-on
+// pages for heavily reprinted cards) per search and cache the result.
 // robots.txt allows these pages; keep request volume low.
 const SITE = "https://tcgph.com";
-// Sol Ring, the most reprinted card, spans 4 pages.
-const MAX_PAGES = 5;
+// TCGph can't sort a card's listings by price, so finding the cheapest printing
+// means reading every page. Sol Ring spans 4; basic lands about 25.
+const MAX_PAGES = 40;
+// A short breather between pages keeps a 25-page card from hammering TCGph.
+const PAUSE_BETWEEN_PAGES_MS = 250;
 
 export interface ParsedCardPage {
   /** Unknown slugs still return 200, but only real card pages carry schema.org Product data. */
@@ -60,6 +63,8 @@ export function parseCardPage(html: string, pageUrl: string, page = 1): ParsedCa
       const printLink = block.find('a[href^="/cards/"]').filter((_, a) => $(a).find("img").length === 0);
       const [setCode, number] = block.find("p").eq(0).find("span").map((_, s) => text($(s).text())).get();
       const [finish, language] = block.find("p").eq(1).find("span").map((_, s) => text($(s).text())).get();
+      // TCGph shows Scryfall's image for the printing (cards.scryfall.io, no rate limit).
+      const image = block.find("img").first().attr("src");
       print = {
         printId,
         setName: text(printLink.first().text()),
@@ -68,6 +73,7 @@ export function parseCardPage(html: string, pageUrl: string, page = 1): ParsedCa
         finish,
         language,
         url: printLink.first().attr("href") ? SITE + printLink.first().attr("href") : pageUrl,
+        imageUrl: image?.startsWith("https://") ? image : undefined,
         listings: [],
       };
       prints.set(printId, print);
@@ -131,6 +137,7 @@ export async function getPrices(slug: string): Promise<TcgphPrices | null> {
 
   // Follow "?page=N" links one at a time while the current page links to the next one.
   while (page.nextPage && page.nextPage <= MAX_PAGES) {
+    await new Promise((resolve) => setTimeout(resolve, PAUSE_BETWEEN_PAGES_MS));
     const nextHtml = await fetchPage(`${url}?page=${page.nextPage}`);
     if (!nextHtml) break;
     page = parseCardPage(nextHtml, url, page.nextPage);

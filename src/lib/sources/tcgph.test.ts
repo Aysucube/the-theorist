@@ -202,3 +202,34 @@ describe("cheapestFirst", () => {
     expect(rows).toHaveLength(storeLinkCount(html));
   });
 });
+
+describe("getPrices on a heavily reprinted card", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  /** A minimal TCGph card page with one listing, linking to the next page if there is one. */
+  function page(n: number, last: number, pricePhp: number) {
+    const product = n === 1 ? `<script type="application/ld+json">{"@type":"Product"}</script>` : "";
+    const next = n < last ? `<a href="/card/island?page=${n + 1}">Next</a>` : "";
+    return `<html><head>${product}</head><body><div>
+      <a href="/cards/set${n}/${n}/en/n">Set ${n}</a>
+      <p><span>S${n}</span><span>#${n}</span></p><p><span>Nonfoil</span><span>EN</span></p>
+      <dl><div><dt>HMO</dt><dd><span title="Near Mint">NM</span><span>1x</span>
+        <a data-ga-event="store_click" data-card-print-id="p${n}" data-ga-price="${pricePhp * 100}"
+           data-ga-store="HMO" data-listing-id="${n}" href="https://store.example/${n}">₱${pricePhp}</a>
+      </dd></div></dl></div>${next}</body></html>`;
+  }
+
+  it("reads past the old five-page cap, so a cheap printing on a late page isn't missed", async () => {
+    const base = "https://tcgph.com/card/island";
+    const routes: Record<string, string> = {};
+    // Eight pages; the cheapest copy (₱5) is on the last one.
+    for (let n = 1; n <= 8; n++) routes[n === 1 ? base : `${base}?page=${n}`] = page(n, 8, n === 8 ? 5 : 30);
+    const { fetch, calls } = fakeFetch(routes);
+    vi.stubGlobal("fetch", fetch);
+
+    const prices = await getPrices("island");
+
+    expect(calls).toHaveLength(8);
+    expect(cheapestFirst(prices!)[0].listing.pricePhp).toBe(5);
+  });
+});

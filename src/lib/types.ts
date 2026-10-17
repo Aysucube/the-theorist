@@ -4,6 +4,8 @@
 
 export interface ScryfallCard {
   id: string;
+  /** Shared by every printing of the card; used to list its printings. */
+  oracleId?: string;
   name: string;
   /** Scryfall layout, e.g. "normal", "split", "transform", "adventure". */
   layout: string;
@@ -19,6 +21,20 @@ export interface ScryfallCard {
   commanderLegal: boolean;
   /** Legendary creature, or text says it can be your commander. */
   canBeCommander: boolean;
+}
+
+/** One paper printing of a card, from Scryfall. */
+export interface Printing {
+  /** Upper-case, as TCGph shows it, e.g. "CMM". */
+  setCode: string;
+  setName: string;
+  collectorNumber: string;
+  releasedAt: string;
+  rarity: string;
+  /** "nonfoil", "foil", "etched". */
+  finishes: string[];
+  imageUrl?: string;
+  scryfallUrl: string;
 }
 
 export interface ScryfallLookup {
@@ -83,6 +99,8 @@ export interface TcgphPrint {
   finish?: string;
   language?: string;
   url: string;
+  /** The printing's card image, as TCGph shows it. */
+  imageUrl?: string;
   listings: TcgphListing[];
 }
 
