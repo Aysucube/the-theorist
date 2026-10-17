@@ -1,6 +1,7 @@
 import * as cheerio from "cheerio";
 import { cacheLife } from "next/cache";
 import type {
+  ListingBrief,
   TcgphListing,
   TcgphPrice,
   TcgphPrices,
@@ -149,23 +150,28 @@ export function cheapestFirst(prices: TcgphPrices): TcgphPrice[] {
 }
 
 export function summarizePrices(prices: TcgphPrices): TcgphSummary {
-  const brief = ({ pricePhp, store, condition, conditionLabel }: TcgphListing) => ({
-    pricePhp,
-    store,
-    condition,
-    conditionLabel,
+  const brief = ({ print, listing }: TcgphPrice): ListingBrief => ({
+    pricePhp: listing.pricePhp,
+    store: listing.store,
+    condition: listing.condition,
+    conditionLabel: listing.conditionLabel,
+    url: listing.url,
+    printing:
+      [print.setCode && `${print.setCode} #${print.collectorNumber}`, print.finish]
+        .filter(Boolean)
+        .join(" · ") || undefined,
   });
 
   const rows = cheapestFirst(prices);
   // Rows are cheapest first, so the first listing seen per store is that store's cheapest.
-  const byStore = new Map<string, TcgphListing>();
-  for (const { listing } of rows) {
-    if (!byStore.has(listing.store)) byStore.set(listing.store, listing);
+  const byStore = new Map<string, TcgphPrice>();
+  for (const row of rows) {
+    if (!byStore.has(row.listing.store)) byStore.set(row.listing.store, row);
   }
 
   return {
     url: prices.url,
-    cheapest: rows[0] && brief(rows[0].listing),
+    cheapest: rows[0] && brief(rows[0]),
     stores: byStore.size,
     listings: rows.length,
     byStore: [...byStore.values()].map(brief),

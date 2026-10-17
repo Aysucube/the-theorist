@@ -97,7 +97,12 @@ export interface TcgphPrices {
   prints: TcgphPrint[];
 }
 
-type ListingBrief = Pick<TcgphListing, "pricePhp" | "store" | "condition" | "conditionLabel">;
+/** One store listing, trimmed to what the price button and shopping list show. */
+export interface ListingBrief
+  extends Pick<TcgphListing, "pricePhp" | "store" | "condition" | "conditionLabel" | "url"> {
+  /** Which printing, e.g. "CMM #410 · Foil", so a store knows which copy is meant. */
+  printing?: string;
+}
 
 /** The short version of a card's TCGph prices, for showing next to a card name. */
 export interface TcgphSummary {

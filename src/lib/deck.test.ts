@@ -77,7 +77,7 @@ describe("deck edits", () => {
 });
 
 describe("priceDeck", () => {
-  const offer = (store: string, pricePhp: number) => ({ store, pricePhp, condition: "NM" });
+  const offer = (store: string, pricePhp: number) => ({ store, pricePhp, condition: "NM", url: "https://example.com" });
   const found = (...byStore: ReturnType<typeof offer>[]): PriceResponse => ({
     found: true,
     url: "https://tcgph.com/card/x",

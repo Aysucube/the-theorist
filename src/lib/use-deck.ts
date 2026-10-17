@@ -1,72 +1,88 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
 import { addCard, importCards, removeCard, type DeckCard } from "@/lib/deck";
+import { createLocalStore, useHydrated } from "@/lib/local-store";
+import type { PriceResponse } from "@/lib/types";
 
-// The deck lives in this browser's localStorage: no account needed, but it
-// doesn't follow the user to another device or browser.
-const STORAGE_KEY = "commander-ph:deck";
-const EMPTY: DeckCard[] = [];
-
-const listeners = new Set<() => void>();
-let cached: DeckCard[] | null = null;
+// Everything here lives in this browser's localStorage: no account needed, but
+// it doesn't follow the user to another device or browser.
 
 function isDeckCard(value: unknown): value is DeckCard {
   const card = value as DeckCard;
   return typeof card?.name === "string" && Number.isInteger(card.qty) && card.qty > 0;
 }
 
-function read(): DeckCard[] {
-  if (cached) return cached;
-  try {
-    const parsed: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]");
-    cached = Array.isArray(parsed) ? parsed.filter(isDeckCard) : EMPTY;
-  } catch {
-    // Private mode or blocked storage: start empty rather than fail.
-    cached = EMPTY;
-  }
-  return cached;
+const deckStore = createLocalStore<DeckCard[]>(
+  "commander-ph:deck",
+  [],
+  (v): v is DeckCard[] => Array.isArray(v) && v.every(isDeckCard),
+);
+
+/** A card's last price check, or "error" when the check failed. */
+export type Lookup = PriceResponse | "error";
+
+export interface SavedPrices {
+  /** When the last pricing run finished (ms since epoch); 0 if never. */
+  pricedAt: number;
+  lookups: Record<string, Lookup>;
 }
 
-function write(deck: DeckCard[]) {
-  cached = deck;
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(deck));
-  } catch {
-    // Storage can be full or blocked; the deck still works until the page closes.
-  }
-  listeners.forEach((notify) => notify());
-}
+// Saved so the shopping list still works after a reload, e.g. on a phone at the store.
+const pricesStore = createLocalStore<SavedPrices>(
+  "commander-ph:prices",
+  { pricedAt: 0, lookups: {} },
+  (v): v is SavedPrices =>
+    typeof (v as SavedPrices)?.pricedAt === "number" && typeof (v as SavedPrices)?.lookups === "object",
+);
 
-function subscribe(notify: () => void) {
-  listeners.add(notify);
-  // Keep other tabs in sync.
-  const onStorage = (e: StorageEvent) => {
-    if (e.key !== STORAGE_KEY) return;
-    cached = null;
-    notify();
-  };
-  window.addEventListener("storage", onStorage);
-  return () => {
-    listeners.delete(notify);
-    window.removeEventListener("storage", onStorage);
-  };
-}
-
-const noSubscribe = () => () => {};
+// Lowercased names of cards ticked off as bought.
+const boughtStore = createLocalStore<string[]>(
+  "commander-ph:bought",
+  [],
+  (v): v is string[] => Array.isArray(v) && v.every((s) => typeof s === "string"),
+);
 
 /** The saved deck, plus edits that every component using it sees immediately. */
 export function useDeck() {
-  const deck = useSyncExternalStore(subscribe, read, () => EMPTY);
-  // False during the server render and hydration, so pages don't flash "empty deck".
-  const ready = useSyncExternalStore(noSubscribe, () => true, () => false);
+  const deck = deckStore.useValue();
+  const ready = useHydrated();
 
   return {
     deck,
     ready,
-    add: (name: string) => write(addCard(read(), name)),
-    remove: (name: string) => write(removeCard(read(), name)),
-    importCards: (cards: DeckCard[]) => write(importCards(read(), cards)),
-    clear: () => write([]),
+    add: (name: string) => deckStore.set(addCard(deckStore.get(), name)),
+    remove: (name: string) => deckStore.set(removeCard(deckStore.get(), name)),
+    importCards: (cards: DeckCard[]) => deckStore.set(importCards(deckStore.get(), cards)),
+    clear: () => {
+      deckStore.set([]);
+      pricesStore.set({ pricedAt: 0, lookups: {} });
+      boughtStore.set([]);
+    },
+  };
+}
+
+export function useSavedPrices() {
+  const saved = pricesStore.useValue();
+  return {
+    ...saved,
+    /** Records one card's result as it arrives. */
+    record: (name: string, lookup: Lookup) => {
+      const current = pricesStore.get();
+      pricesStore.set({ ...current, lookups: { ...current.lookups, [name]: lookup } });
+    },
+    markDone: () => pricesStore.set({ ...pricesStore.get(), pricedAt: Date.now() }),
+  };
+}
+
+export function useBought() {
+  const bought = boughtStore.useValue();
+  const key = (name: string) => name.trim().toLowerCase();
+  return {
+    isBought: (name: string) => bought.includes(key(name)),
+    toggle: (name: string) => {
+      const current = boughtStore.get();
+      boughtStore.set(current.includes(key(name)) ? current.filter((n) => n !== key(name)) : [...current, key(name)]);
+    },
+    reset: () => boughtStore.set([]),
   };
 }

@@ -5,17 +5,17 @@ import { useEffect, useRef, useState } from "react";
 import { forEachLimited } from "@/lib/concurrency";
 import { MAX_DECK_CARDS, parseDeckList, priceDeck, type DeckCard, type StoreCoverage } from "@/lib/deck";
 import { cardHref, formatCount, formatPhp } from "@/lib/format";
+import { planCheapest, planFewestStores } from "@/lib/shopping";
 import type { PriceResponse } from "@/lib/types";
-import { useDeck } from "@/lib/use-deck";
+import { useDeck, useSavedPrices, type Lookup } from "@/lib/use-deck";
+import { ShoppingList } from "./shopping-list";
 
 // Three lookups at a time keeps a 100-card deck to a gentle trickle of TCGph requests.
 const CONCURRENCY = 3;
 
-type Lookup = PriceResponse | "error";
-
 export function DeckView() {
   const { deck, ready, remove, importCards, clear } = useDeck();
-  const [lookups, setLookups] = useState<Record<string, Lookup>>({});
+  const { lookups, pricedAt, record, markDone } = useSavedPrices();
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const controller = useRef<AbortController | null>(null);
 
@@ -41,12 +41,14 @@ export function DeckView() {
           result = "error";
         }
         if (current.signal.aborted) return;
-        setLookups((prev) => ({ ...prev, [name]: result }));
+        record(name, result);
         setProgress((p) => p && { ...p, done: p.done + 1 });
       },
       current.signal,
     );
-    if (!current.signal.aborted) setProgress(null);
+    if (current.signal.aborted) return;
+    markDone();
+    setProgress(null);
   }
 
   if (!ready) {
@@ -57,9 +59,12 @@ export function DeckView() {
     Object.entries(lookups).map(([name, lookup]) => [name, lookup === "error" ? undefined : lookup]),
   );
   const pricing = priceDeck(deck, prices);
+  const oneStop = planFewestStores(deck, prices);
+  const cheapest = planCheapest(deck, prices);
   const totalCards = deck.reduce((sum, c) => sum + c.qty, 0);
   const anyPriced = pricing.inStock.length + pricing.unavailable.length > 0;
   const failed = deck.filter((c) => lookups[c.name] === "error").map((c) => c.name);
+  const storesLabel = (n: number) => `${formatCount(n)} ${n === 1 ? "store" : "stores"}`;
 
   return (
     <div className="flex flex-col gap-8">
@@ -128,25 +133,30 @@ export function DeckView() {
             <p className="text-xs text-zinc-500">
               Looks up each card on TCGph, {CONCURRENCY} at a time. Prices are cached for an hour, so
               re-checking soon after is quick.
+              {pricedAt > 0 && !progress && (
+                <> Last checked {new Date(pricedAt).toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" })}.</>
+              )}
             </p>
 
             {anyPriced && (
               <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                <Stat label="Cheapest total" value={formatPhp(pricing.cheapestTotalPhp)} />
                 <Stat
                   label="Cards in stock"
                   value={`${formatCount(pricing.inStock.length)} of ${formatCount(deck.length)}`}
                 />
                 <Stat
-                  label="Stores with all of them"
-                  value={formatCount(pricing.stores.filter((s) => s.cards === pricing.inStock.length).length)}
+                  label={`Fewest stops · ${storesLabel(oneStop.stops.length)}`}
+                  value={formatPhp(oneStop.totalPhp)}
+                />
+                <Stat
+                  label={`Cheapest · ${storesLabel(cheapest.stops.length)}`}
+                  value={formatPhp(cheapest.totalPhp)}
                 />
               </dl>
             )}
             {anyPriced && (
               <p className="text-xs text-zinc-500">
-                Cheapest total buys each card wherever it’s cheapest, which may mean several stores.
-                Totals assume a store has enough copies.
+                Totals assume a store has enough copies; TCGph only shows stock per listing.
               </p>
             )}
             {pricing.unavailable.length > 0 && (
@@ -156,6 +166,8 @@ export function DeckView() {
               <NameList title="Couldn’t check (try again)" names={failed} />
             )}
           </section>
+
+          {!progress && <ShoppingList deck={deck} prices={prices} />}
 
           {pricing.stores.length > 0 && (
             <StoresTable stores={pricing.stores} inStock={pricing.inStock.length} />
@@ -240,8 +252,8 @@ function ClearButton({ onClear }: { onClear: () => void }) {
 
 function StoresTable({ stores, inStock }: { stores: StoreCoverage[]; inStock: number }) {
   return (
-    <section className="rounded-xl border border-zinc-200 p-4 sm:p-6 dark:border-zinc-800">
-      <h2 className="text-xl font-semibold">Which stores have them</h2>
+    <details className="rounded-xl border border-zinc-200 p-4 sm:p-6 dark:border-zinc-800">
+      <summary className="cursor-pointer text-xl font-semibold">Compare all stores</summary>
       <p className="mt-1 text-sm text-zinc-500">
         Stores with the most of your deck first. Each total uses that store’s cheapest copy of
         the cards it has.
@@ -287,7 +299,7 @@ function StoresTable({ stores, inStock }: { stores: StoreCoverage[]; inStock: nu
           ))}
         </tbody>
       </table>
-    </section>
+    </details>
   );
 }
 

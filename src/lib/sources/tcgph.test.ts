@@ -174,6 +174,9 @@ describe("summarizePrices", () => {
     for (const entry of byStore) {
       const cheapestAtStore = Math.min(...listings.filter((l) => l.store === entry.store).map((l) => l.pricePhp));
       expect(entry.pricePhp).toBe(cheapestAtStore);
+      // Enough to buy that exact copy: a link to it and which printing it is.
+      expect(entry.url).toMatch(/^https?:\/\//);
+      expect(entry.printing).toMatch(/^[A-Z0-9]{2,6} #\S+ · (Nonfoil|Foil|Etched)$/);
     }
   });
 
