@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { cardHref, formatCount, formatUsd } from "@/lib/format";
 import type { ScryfallLookup } from "@/lib/types";
+import { AddToDeckButton } from "./deck-buttons";
 
 export function CardOverview({ lookup }: { lookup: ScryfallLookup }) {
   const { card, alternatives } = lookup;
@@ -51,14 +52,17 @@ export function CardOverview({ lookup }: { lookup: ScryfallLookup }) {
           )}
         </ul>
 
-        <a
-          href={card.scryfallUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-sm text-amber-700 hover:underline dark:text-amber-400"
-        >
-          View on Scryfall ↗
-        </a>
+        <div className="flex flex-wrap items-center gap-4">
+          <AddToDeckButton name={card.name} />
+          <a
+            href={card.scryfallUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-amber-700 hover:underline dark:text-amber-400"
+          >
+            View on Scryfall ↗
+          </a>
+        </div>
 
         {alternatives.length > 0 && (
           <div className="mt-2 text-sm">

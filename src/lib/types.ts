@@ -97,13 +97,17 @@ export interface TcgphPrices {
   prints: TcgphPrint[];
 }
 
+type ListingBrief = Pick<TcgphListing, "pricePhp" | "store" | "condition" | "conditionLabel">;
+
 /** The short version of a card's TCGph prices, for showing next to a card name. */
 export interface TcgphSummary {
   url: string;
   /** Cheapest in-stock listing; missing when no store has the card. */
-  cheapest?: Pick<TcgphListing, "pricePhp" | "store" | "condition" | "conditionLabel">;
+  cheapest?: ListingBrief;
   stores: number;
   listings: number;
+  /** Each store's cheapest listing for the card, cheapest store first. */
+  byStore: ListingBrief[];
 }
 
 /** What GET /api/price returns. */

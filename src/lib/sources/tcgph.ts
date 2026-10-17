@@ -149,17 +149,25 @@ export function cheapestFirst(prices: TcgphPrices): TcgphPrice[] {
 }
 
 export function summarizePrices(prices: TcgphPrices): TcgphSummary {
+  const brief = ({ pricePhp, store, condition, conditionLabel }: TcgphListing) => ({
+    pricePhp,
+    store,
+    condition,
+    conditionLabel,
+  });
+
   const rows = cheapestFirst(prices);
-  const cheapest = rows[0]?.listing;
+  // Rows are cheapest first, so the first listing seen per store is that store's cheapest.
+  const byStore = new Map<string, TcgphListing>();
+  for (const { listing } of rows) {
+    if (!byStore.has(listing.store)) byStore.set(listing.store, listing);
+  }
+
   return {
     url: prices.url,
-    cheapest: cheapest && {
-      pricePhp: cheapest.pricePhp,
-      store: cheapest.store,
-      condition: cheapest.condition,
-      conditionLabel: cheapest.conditionLabel,
-    },
-    stores: new Set(rows.map((r) => r.listing.store)).size,
+    cheapest: rows[0] && brief(rows[0].listing),
+    stores: byStore.size,
     listings: rows.length,
+    byStore: [...byStore.values()].map(brief),
   };
 }

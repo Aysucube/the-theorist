@@ -163,12 +163,27 @@ describe("summarizePrices", () => {
     expect(summary.url).toBe(SOL_RING);
   });
 
+  it("lists each store once, at its cheapest price, cheapest store first", () => {
+    const page = parseCardPage(fixture("tcgph/sol-ring.html"), SOL_RING);
+    const listings = allListings(page.prints);
+    const { byStore, stores } = summarizePrices({ url: SOL_RING, prints: page.prints });
+
+    expect(byStore).toHaveLength(stores);
+    const prices = byStore.map((s) => s.pricePhp);
+    expect(prices).toEqual([...prices].sort((a, b) => a - b));
+    for (const entry of byStore) {
+      const cheapestAtStore = Math.min(...listings.filter((l) => l.store === entry.store).map((l) => l.pricePhp));
+      expect(entry.pricePhp).toBe(cheapestAtStore);
+    }
+  });
+
   it("has no cheapest listing when nothing is in stock", () => {
     expect(summarizePrices({ url: SOL_RING, prints: [] })).toEqual({
       url: SOL_RING,
       cheapest: undefined,
       stores: 0,
       listings: 0,
+      byStore: [],
     });
   });
 });

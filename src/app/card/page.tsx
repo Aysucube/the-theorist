@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Suspense } from "react";
 import { CardOverview } from "@/components/card-overview";
 import { CardSearch } from "@/components/card-search";
@@ -16,17 +15,9 @@ export const metadata: Metadata = {
 export default function CardPage(props: PageProps<"/card">) {
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-4 py-8 sm:px-6">
-      <header className="flex flex-col gap-4">
-        <Link
-          href="/"
-          className="text-sm font-medium uppercase tracking-wider text-amber-600 dark:text-amber-400"
-        >
-          Commander PH
-        </Link>
-        <Suspense fallback={<CardSearch />}>
-          <SearchWithQuery searchParams={props.searchParams} />
-        </Suspense>
-      </header>
+      <Suspense fallback={<CardSearch />}>
+        <SearchWithQuery searchParams={props.searchParams} />
+      </Suspense>
 
       <Suspense fallback={<p className="text-zinc-500">Looking up card…</p>}>
         <Results searchParams={props.searchParams} />

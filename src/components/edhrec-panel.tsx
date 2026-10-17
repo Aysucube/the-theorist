@@ -3,6 +3,7 @@ import { cardHref, formatCount, formatPercent } from "@/lib/format";
 import { edhrecSlug } from "@/lib/slugs";
 import { getCardStats, getCommanderStats } from "@/lib/sources/edhrec";
 import type { EdhrecCardRef, ScryfallCard } from "@/lib/types";
+import { AddToDeckToggle } from "./deck-buttons";
 import { Panel, SourceMessage } from "./panel";
 import { PriceCheck } from "./price-check";
 
@@ -116,6 +117,7 @@ function CardList({
             key={c.name}
             className="flex items-center gap-3 border-b border-zinc-100 py-1.5 text-sm last:border-0 dark:border-zinc-900"
           >
+            <AddToDeckToggle name={c.name} />
             <Link href={cardHref(c.name)} className="min-w-0 flex-1 truncate hover:underline">
               {c.name}
             </Link>

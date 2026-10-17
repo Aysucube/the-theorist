@@ -19,9 +19,6 @@ export default function Home() {
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center gap-12 px-4 py-16 sm:px-6">
       <div className="flex flex-col gap-4">
-        <p className="text-sm font-medium uppercase tracking-wider text-amber-600 dark:text-amber-400">
-          Commander PH
-        </p>
         <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
           Build your Commander deck at local prices.
         </h1>
