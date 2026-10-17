@@ -4,6 +4,7 @@ import { edhrecSlug } from "@/lib/slugs";
 import { getCardStats, getCommanderStats } from "@/lib/sources/edhrec";
 import type { EdhrecCardRef, ScryfallCard } from "@/lib/types";
 import { Panel, SourceMessage } from "./panel";
+import { PriceCheck } from "./price-check";
 
 const TITLE = "EDHREC";
 const PER_LIST = 12;
@@ -74,6 +75,7 @@ export async function EdhrecPanel({ card }: { card: ScryfallCard }) {
               <p className="text-xs text-zinc-500">
                 First number: share of this commander’s decks that run the card. Colored
                 number: synergy, how much more often it appears here than in other decks.
+                “Check ₱” looks up the cheapest Philippine price on TCGph.
               </p>
             </div>
             {commanderStats.lists.map((list, i) => (
@@ -107,13 +109,14 @@ function CardList({
       <summary className="cursor-pointer px-3 py-2 font-medium">
         {title} <span className="text-sm font-normal text-zinc-500">({cards.length})</span>
       </summary>
-      <ul className="grid gap-x-4 px-3 pb-3 sm:grid-cols-2">
+      {/* grid-cols-1 (not the default auto column) lets long card names truncate on phones. */}
+      <ul className="grid grid-cols-1 gap-x-4 px-3 pb-3 sm:grid-cols-2">
         {cards.slice(0, PER_LIST).map((c) => (
           <li
             key={c.name}
-            className="flex items-baseline justify-between gap-3 border-b border-zinc-100 py-1.5 text-sm last:border-0 dark:border-zinc-900"
+            className="flex items-center gap-3 border-b border-zinc-100 py-1.5 text-sm last:border-0 dark:border-zinc-900"
           >
-            <Link href={cardHref(c.name)} className="min-w-0 truncate hover:underline">
+            <Link href={cardHref(c.name)} className="min-w-0 flex-1 truncate hover:underline">
               {c.name}
             </Link>
             <span className="shrink-0 text-xs tabular-nums text-zinc-500">
@@ -125,6 +128,9 @@ function CardList({
                   {formatPercent(c.synergy)}
                 </span>
               )}
+            </span>
+            <span className="w-20 shrink-0 text-right">
+              <PriceCheck name={c.name} />
             </span>
           </li>
         ))}

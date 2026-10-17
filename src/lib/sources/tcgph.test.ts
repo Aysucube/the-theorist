@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { TcgphPrint } from "@/lib/types";
 import { fakeFetch, fixture } from "./__fixtures__/load";
-import { cheapestFirst, getPrices, mergePrints, parseCardPage } from "./tcgph";
+import { cheapestFirst, getPrices, mergePrints, parseCardPage, summarizePrices } from "./tcgph";
 
 vi.mock("next/cache", () => ({ cacheLife: () => {} }));
 
@@ -146,6 +146,30 @@ describe("getPrices", () => {
     const { fetch } = fakeFetch({ [SOL_RING]: { status: 503 } });
     vi.stubGlobal("fetch", fetch);
     await expect(getPrices("sol-ring")).rejects.toThrow("TCGph: HTTP 503");
+  });
+});
+
+describe("summarizePrices", () => {
+  it("picks the cheapest listing and counts stores and listings", () => {
+    const page = parseCardPage(fixture("tcgph/sol-ring.html"), SOL_RING);
+    const listings = allListings(page.prints);
+    const summary = summarizePrices({ url: SOL_RING, prints: page.prints });
+
+    const lowest = Math.min(...listings.map((l) => l.pricePhp));
+    expect(summary.cheapest?.pricePhp).toBe(lowest);
+    expect(listings).toContainEqual(expect.objectContaining({ store: summary.cheapest?.store, pricePhp: lowest }));
+    expect(summary.stores).toBe(new Set(listings.map((l) => l.store)).size);
+    expect(summary.listings).toBe(listings.length);
+    expect(summary.url).toBe(SOL_RING);
+  });
+
+  it("has no cheapest listing when nothing is in stock", () => {
+    expect(summarizePrices({ url: SOL_RING, prints: [] })).toEqual({
+      url: SOL_RING,
+      cheapest: undefined,
+      stores: 0,
+      listings: 0,
+    });
   });
 });
 

@@ -96,3 +96,15 @@ export interface TcgphPrices {
   url: string;
   prints: TcgphPrint[];
 }
+
+/** The short version of a card's TCGph prices, for showing next to a card name. */
+export interface TcgphSummary {
+  url: string;
+  /** Cheapest in-stock listing; missing when no store has the card. */
+  cheapest?: Pick<TcgphListing, "pricePhp" | "store" | "condition" | "conditionLabel">;
+  stores: number;
+  listings: number;
+}
+
+/** What GET /api/price returns. */
+export type PriceResponse = ({ found: true } & TcgphSummary) | { found: false };

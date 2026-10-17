@@ -1,6 +1,12 @@
 import * as cheerio from "cheerio";
 import { cacheLife } from "next/cache";
-import type { TcgphListing, TcgphPrice, TcgphPrices, TcgphPrint } from "@/lib/types";
+import type {
+  TcgphListing,
+  TcgphPrice,
+  TcgphPrices,
+  TcgphPrint,
+  TcgphSummary,
+} from "@/lib/types";
 import { SourceError, USER_AGENT } from "./http";
 
 // TCGph has no public API. Its /card/<slug> page is server-rendered with every
@@ -140,4 +146,20 @@ export function cheapestFirst(prices: TcgphPrices): TcgphPrice[] {
   return prices.prints
     .flatMap((print) => print.listings.map((listing) => ({ print, listing })))
     .sort((a, b) => a.listing.pricePhp - b.listing.pricePhp);
+}
+
+export function summarizePrices(prices: TcgphPrices): TcgphSummary {
+  const rows = cheapestFirst(prices);
+  const cheapest = rows[0]?.listing;
+  return {
+    url: prices.url,
+    cheapest: cheapest && {
+      pricePhp: cheapest.pricePhp,
+      store: cheapest.store,
+      condition: cheapest.condition,
+      conditionLabel: cheapest.conditionLabel,
+    },
+    stores: new Set(rows.map((r) => r.listing.store)).size,
+    listings: rows.length,
+  };
 }
