@@ -11,22 +11,23 @@ const SITE = "https://tcgph.com";
 // Sol Ring, the most reprinted card, spans 4 pages.
 const MAX_PAGES = 5;
 
+export interface ParsedCardPage {
+  /** Unknown slugs still return 200, but only real card pages carry schema.org Product data. */
+  isCardPage: boolean;
+  prints: TcgphPrint[];
+  /** The next "?page=N" this page links to, if any. */
+  nextPage: number | null;
+}
+
 function text(s: string | undefined) {
   return s?.replace(/\s+/g, " ").trim() ?? "";
 }
 
-async function fetchPage(url: string) {
-  const res = await fetch(url, {
-    headers: { "User-Agent": USER_AGENT, Accept: "text/html" },
-  });
-  if (res.status === 404) return null;
-  if (!res.ok) throw new SourceError("TCGph", `HTTP ${res.status}`);
-  return cheerio.load(await res.text());
-}
+/** Reads one TCGph card page. `pageUrl` is the card's base URL, used as a fallback link. */
+export function parseCardPage(html: string, pageUrl: string, page = 1): ParsedCardPage {
+  const $ = cheerio.load(html);
 
-/** Unknown slugs still return 200, but only real card pages carry schema.org Product data. */
-function isCardPage($: cheerio.CheerioAPI) {
-  return $('script[type="application/ld+json"]')
+  const isCardPage = $('script[type="application/ld+json"]')
     .toArray()
     .some((el) => {
       try {
@@ -35,10 +36,9 @@ function isCardPage($: cheerio.CheerioAPI) {
         return false;
       }
     });
-}
 
-/** Each store link carries its data as attributes; group them by printing. */
-function collectListings($: cheerio.CheerioAPI, prints: Map<string, TcgphPrint>, pageUrl: string) {
+  // Each store link carries its data as attributes; group them by printing.
+  const prints = new Map<string, TcgphPrint>();
   $('a[data-ga-event="store_click"]').each((_, el) => {
     const link = $(el);
     const printId = link.attr("data-card-print-id") ?? "";
@@ -66,14 +66,11 @@ function collectListings($: cheerio.CheerioAPI, prints: Map<string, TcgphPrint>,
       prints.set(printId, print);
     }
 
-    const listingId = link.attr("data-listing-id") ?? `${printId}-${print.listings.length}`;
-    if (print.listings.some((l) => l.listingId === listingId)) return;
-
     const row = link.closest("dd");
     const condition = row.find("span[title]").first();
     const quantity = Number(row.find("span").not("[title]").first().text().replace(/\D/g, ""));
     const listing: TcgphListing = {
-      listingId,
+      listingId: link.attr("data-listing-id") ?? `${printId}-${print.listings.length}`,
       store: link.attr("data-ga-store") ?? text(link.closest("div").find("dt").text()),
       condition: text(condition.text()),
       conditionLabel: condition.attr("title"),
@@ -83,6 +80,34 @@ function collectListings($: cheerio.CheerioAPI, prints: Map<string, TcgphPrint>,
     };
     print.listings.push(listing);
   });
+
+  const nextPage = $(`a[href$="?page=${page + 1}"]`).length > 0 ? page + 1 : null;
+  return { isCardPage, prints: [...prints.values()], nextPage };
+}
+
+/** Adds one page's printings to the running total, skipping listings already seen. */
+export function mergePrints(into: Map<string, TcgphPrint>, prints: TcgphPrint[]) {
+  for (const print of prints) {
+    const existing = into.get(print.printId);
+    if (!existing) {
+      into.set(print.printId, { ...print, listings: [...print.listings] });
+      continue;
+    }
+    for (const listing of print.listings) {
+      if (!existing.listings.some((l) => l.listingId === listing.listingId)) {
+        existing.listings.push(listing);
+      }
+    }
+  }
+}
+
+async function fetchPage(url: string): Promise<string | null> {
+  const res = await fetch(url, {
+    headers: { "User-Agent": USER_AGENT, Accept: "text/html" },
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new SourceError("TCGph", `HTTP ${res.status}`);
+  return res.text();
 }
 
 export async function getPrices(slug: string): Promise<TcgphPrices | null> {
@@ -90,20 +115,21 @@ export async function getPrices(slug: string): Promise<TcgphPrices | null> {
   cacheLife("hours");
 
   const url = `${SITE}/card/${slug}`;
-  const first = await fetchPage(url);
-  if (!first || !isCardPage(first)) return null;
+  const html = await fetchPage(url);
+  if (!html) return null;
+
+  let page = parseCardPage(html, url);
+  if (!page.isCardPage) return null;
 
   const prints = new Map<string, TcgphPrint>();
-  collectListings(first, prints, url);
+  mergePrints(prints, page.prints);
 
   // Follow "?page=N" links one at a time while the current page links to the next one.
-  let $ = first;
-  for (let page = 2; page <= MAX_PAGES; page++) {
-    if ($(`a[href$="?page=${page}"]`).length === 0) break;
-    const next = await fetchPage(`${url}?page=${page}`);
-    if (!next) break;
-    collectListings(next, prints, url);
-    $ = next;
+  while (page.nextPage && page.nextPage <= MAX_PAGES) {
+    const nextHtml = await fetchPage(`${url}?page=${page.nextPage}`);
+    if (!nextHtml) break;
+    page = parseCardPage(nextHtml, url, page.nextPage);
+    mergePrints(prints, page.prints);
   }
 
   return { url, prints: [...prints.values()] };

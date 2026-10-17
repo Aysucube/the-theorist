@@ -19,7 +19,9 @@ interface RawCardView {
   synergy?: number;
 }
 
-interface RawPage {
+export interface RawPage {
+  /** Set instead of data when EDHREC sends a name to its canonical page, e.g. "/cards/fire-ice". */
+  redirect?: string;
   container?: {
     json_dict?: {
       card?: {
@@ -34,18 +36,6 @@ interface RawPage {
   };
 }
 
-async function getPage(path: string): Promise<RawPage | null> {
-  const res = await fetch(`${JSON_BASE}/${path}.json`, {
-    headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
-  });
-  // EDHREC answers 403 (not 404) for slugs it doesn't know.
-  if (res.status === 403 || res.status === 404) return null;
-  if (!res.ok) throw new SourceError("EDHREC", `HTTP ${res.status}`);
-  const page = (await res.json()) as RawPage;
-  // Some unknown slugs come back as an empty page instead of an error.
-  return page.container?.json_dict?.card?.name ? page : null;
-}
-
 function toRef(view: RawCardView): EdhrecCardRef {
   const numDecks = view.num_decks ?? 0;
   return {
@@ -57,14 +47,10 @@ function toRef(view: RawCardView): EdhrecCardRef {
   };
 }
 
-/** How often a card is played overall, and by which commanders. */
-export async function getCardStats(slug: string): Promise<EdhrecCardStats | null> {
-  "use cache";
-  cacheLife("days");
-
-  const page = await getPage(`cards/${slug}`);
-  const dict = page?.container?.json_dict;
-  if (!dict?.card) return null;
+/** `path` is the page's path under /pages, e.g. "cards/sol-ring". */
+export function parseCardStats(page: RawPage, path: string): EdhrecCardStats | null {
+  const dict = page.container?.json_dict;
+  if (!dict?.card?.name) return null;
 
   const numDecks = dict.card.num_decks ?? 0;
   const potentialDecks = dict.card.potential_decks ?? 0;
@@ -72,13 +58,63 @@ export async function getCardStats(slug: string): Promise<EdhrecCardStats | null
     dict.cardlists?.find((l) => l.tag === "topcommanders")?.cardviews ?? [];
 
   return {
-    url: `${SITE}/cards/${slug}`,
+    url: `${SITE}/${path}`,
     numDecks,
     potentialDecks,
     inclusion: potentialDecks ? numDecks / potentialDecks : 0,
     salt: dict.card.salt,
     topCommanders: topCommanders.map(toRef),
   };
+}
+
+/** `path` is the page's path under /pages, e.g. "commanders/atraxa-praetors-voice". */
+export function parseCommanderStats(page: RawPage, path: string): EdhrecCommanderStats | null {
+  const dict = page.container?.json_dict;
+  if (!dict?.card?.name) return null;
+
+  // "New Cards" leads EDHREC's list but is the least useful for deckbuilding; move it last.
+  const lists: EdhrecCardList[] = (dict.cardlists ?? [])
+    .filter((l) => l.cardviews.length > 0)
+    .sort((a, b) => Number(a.tag === "newcards") - Number(b.tag === "newcards"))
+    .map((l) => ({ header: l.header, cards: l.cardviews.map(toRef) }));
+
+  return {
+    url: `${SITE}/${path}`,
+    numDecks: dict.card.num_decks ?? 0,
+    rank: dict.card.rank,
+    lists,
+  };
+}
+
+/**
+ * Fetches a page, following one EDHREC redirect. Returns the page with the
+ * path it was finally read from, or null if EDHREC doesn't know the slug.
+ */
+async function getPage(
+  path: string,
+  redirectsLeft = 1,
+): Promise<{ page: RawPage; path: string } | null> {
+  const res = await fetch(`${JSON_BASE}/${path}.json`, {
+    headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
+  });
+  // EDHREC answers 403 (not 404) for slugs it doesn't know.
+  if (res.status === 403 || res.status === 404) return null;
+  if (!res.ok) throw new SourceError("EDHREC", `HTTP ${res.status}`);
+
+  const page = (await res.json()) as RawPage;
+  if (page.redirect) {
+    return redirectsLeft > 0 ? getPage(page.redirect.replace(/^\//, ""), redirectsLeft - 1) : null;
+  }
+  return { page, path };
+}
+
+/** How often a card is played overall, and by which commanders. */
+export async function getCardStats(slug: string): Promise<EdhrecCardStats | null> {
+  "use cache";
+  cacheLife("days");
+
+  const result = await getPage(`cards/${slug}`);
+  return result && parseCardStats(result.page, result.path);
 }
 
 /** Recommendations for decks led by this card. Null if it isn't a commander on EDHREC. */
@@ -88,20 +124,6 @@ export async function getCommanderStats(
   "use cache";
   cacheLife("days");
 
-  const page = await getPage(`commanders/${slug}`);
-  const dict = page?.container?.json_dict;
-  if (!dict?.card) return null;
-
-  // "New Cards" leads EDHREC's list but is the least useful for deckbuilding; move it last.
-  const lists: EdhrecCardList[] = (dict.cardlists ?? [])
-    .filter((l) => l.cardviews.length > 0)
-    .sort((a, b) => Number(a.tag === "newcards") - Number(b.tag === "newcards"))
-    .map((l) => ({ header: l.header, cards: l.cardviews.map(toRef) }));
-
-  return {
-    url: `${SITE}/commanders/${slug}`,
-    numDecks: dict.card.num_decks ?? 0,
-    rank: dict.card.rank,
-    lists,
-  };
+  const result = await getPage(`commanders/${slug}`);
+  return result && parseCommanderStats(result.page, result.path);
 }
