@@ -1,21 +1,146 @@
-import Form from "next/form";
+"use client";
 
-export function CardSearch({ defaultValue }: { defaultValue?: string }) {
+import Form from "next/form";
+import { useRouter } from "next/navigation";
+import { useEffect, useId, useState } from "react";
+import { moveHighlight, splitMatch } from "@/lib/combobox";
+
+// Matches AUTOCOMPLETE_MIN_LENGTH in lib/sources/scryfall.ts (a server-only module).
+const MIN_LENGTH = 2;
+// Wait for a short pause in typing before asking for suggestions.
+const DEBOUNCE_MS = 150;
+
+export function CardSearch({ defaultValue = "" }: { defaultValue?: string }) {
+  const router = useRouter();
+  // Generated ids: Next keeps the previous page mounted (hidden) for instant back
+  // navigation, so two search boxes can be in the document at once.
+  const inputId = useId();
+  const listId = useId();
+  const [value, setValue] = useState(defaultValue);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [open, setOpen] = useState(false);
+  const [highlight, setHighlight] = useState(-1);
+  // Only suggest after the user types, not for a box prefilled with the current search.
+  const [typed, setTyped] = useState(false);
+
+  const query = value.trim();
+  const active = typed && query.length >= MIN_LENGTH;
+  const visible = active ? suggestions : [];
+  const showList = open && visible.length > 0;
+
+  useEffect(() => {
+    if (!active) return;
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/autocomplete?q=${encodeURIComponent(query)}`, {
+          signal: controller.signal,
+        });
+        const { names } = (await res.json()) as { names: string[] };
+        setSuggestions(names);
+        setHighlight(-1);
+      } catch {
+        // Aborted by newer typing, or offline: the box still works without suggestions.
+      }
+    }, DEBOUNCE_MS);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [active, query]);
+
+  function choose(name: string) {
+    setValue(name);
+    setTyped(false);
+    setOpen(false);
+    setHighlight(-1);
+    router.push(`/card?q=${encodeURIComponent(name)}`);
+  }
+
+  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      if (visible.length === 0) return;
+      e.preventDefault();
+      setOpen(true);
+      setHighlight((h) => moveHighlight(h, e.key === "ArrowDown" ? "down" : "up", visible.length));
+    } else if (e.key === "Enter" && showList && highlight >= 0) {
+      e.preventDefault();
+      choose(visible[highlight]);
+    } else if (e.key === "Escape") {
+      setOpen(false);
+      setHighlight(-1);
+    }
+  }
+
   return (
-    <Form action="/card" className="flex w-full gap-2">
-      <label htmlFor="card-query" className="sr-only">
-        Card name
-      </label>
-      <input
-        id="card-query"
-        name="q"
-        type="search"
-        required
-        defaultValue={defaultValue}
-        placeholder="Search a card, e.g. Sol Ring or Atraxa"
-        autoComplete="off"
-        className="h-12 min-w-0 flex-1 rounded-lg border border-zinc-300 bg-white px-4 text-base outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30 dark:border-zinc-700 dark:bg-zinc-900"
-      />
+    <Form action="/card" className="flex w-full gap-2" onSubmit={() => setOpen(false)}>
+      <div className="relative min-w-0 flex-1">
+        <label htmlFor={inputId} className="sr-only">
+          Card name
+        </label>
+        <input
+          id={inputId}
+          name="q"
+          type="search"
+          required
+          value={value}
+          onChange={(e) => {
+            setValue(e.target.value);
+            setTyped(true);
+            setOpen(true);
+            setHighlight(-1);
+          }}
+          onKeyDown={onKeyDown}
+          onFocus={() => setOpen(true)}
+          onBlur={() => setOpen(false)}
+          placeholder="Search a card, e.g. Sol Ring or Atraxa"
+          autoComplete="off"
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={showList}
+          aria-controls={listId}
+          aria-activedescendant={showList && highlight >= 0 ? `${listId}-${highlight}` : undefined}
+          className="h-12 w-full rounded-lg border border-zinc-300 bg-white px-4 text-base outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30 dark:border-zinc-700 dark:bg-zinc-900"
+        />
+        <ul
+          id={listId}
+          role="listbox"
+          aria-label="Card name suggestions"
+          hidden={!showList}
+          className="absolute top-full right-0 left-0 z-20 mt-1 max-h-80 overflow-auto rounded-lg border border-zinc-200 bg-white py-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
+        >
+          {visible.map((name, i) => {
+            const parts = splitMatch(name, query);
+            return (
+              <li
+                key={name}
+                id={`${listId}-${i}`}
+                role="option"
+                aria-selected={i === highlight}
+                // The bold split can make assistive tech read the name in pieces.
+                aria-label={name}
+                // Keep focus in the text box so the list doesn't close before the click lands.
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => choose(name)}
+                onMouseEnter={() => setHighlight(i)}
+                className={`cursor-pointer px-4 py-2 text-sm ${
+                  i === highlight ? "bg-amber-100 dark:bg-amber-500/20" : ""
+                }`}
+              >
+                {parts ? (
+                  <>
+                    {parts[0]}
+                    <strong className="font-semibold">{parts[1]}</strong>
+                    {parts[2]}
+                  </>
+                ) : (
+                  name
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </div>
       <button
         type="submit"
         className="h-12 rounded-lg bg-amber-500 px-5 font-medium text-zinc-950 transition-colors hover:bg-amber-400"

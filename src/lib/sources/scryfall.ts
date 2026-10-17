@@ -102,3 +102,47 @@ export async function findCard(query: string): Promise<ScryfallLookup | null> {
     alternatives: rest.slice(0, 8).map((c) => c.name),
   };
 }
+
+// --- Autocomplete -------------------------------------------------------------
+
+/** Scryfall ignores queries shorter than this. */
+export const AUTOCOMPLETE_MIN_LENGTH = 2;
+export const AUTOCOMPLETE_LIMIT = 8;
+
+function fold(s: string) {
+  return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+}
+
+/**
+ * Scryfall's autocomplete matches loosely ("atra" also returns "Heat Ray"), so
+ * names that start with the query come first, then names with a word that
+ * starts with it, then the rest. Ties keep Scryfall's order.
+ */
+export function rankSuggestions(names: string[], query: string, limit = AUTOCOMPLETE_LIMIT) {
+  const q = fold(query.trim());
+  const score = (name: string) => {
+    const n = fold(name);
+    if (n.startsWith(q)) return 0;
+    if (n.split(/[\s,\-/]+/).some((word) => word.startsWith(q))) return 1;
+    return 2;
+  };
+  return [...names].sort((a, b) => score(a) - score(b)).slice(0, limit);
+}
+
+async function fetchSuggestions(query: string): Promise<string[]> {
+  "use cache";
+  cacheLife("days");
+
+  const catalog = (await get(`/cards/autocomplete?q=${encodeURIComponent(query)}`)) as {
+    data?: string[];
+  } | null;
+  return rankSuggestions(catalog?.data ?? [], query);
+}
+
+/** Card names starting with (or close to) what the user has typed so far. */
+export async function suggestCardNames(input: string): Promise<string[]> {
+  // Normalize before the cached call so "Atra" and "atra " share one cache entry.
+  const query = input.trim().toLowerCase().slice(0, 100);
+  if (query.length < AUTOCOMPLETE_MIN_LENGTH) return [];
+  return fetchSuggestions(query);
+}

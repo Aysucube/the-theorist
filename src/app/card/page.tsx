@@ -43,7 +43,9 @@ async function getQuery(searchParams: SearchParams) {
 }
 
 async function SearchWithQuery({ searchParams }: { searchParams: SearchParams }) {
-  return <CardSearch defaultValue={await getQuery(searchParams)} />;
+  const query = await getQuery(searchParams);
+  // A new key resets the box when another search (e.g. a recommendation link) changes the query.
+  return <CardSearch key={query} defaultValue={query} />;
 }
 
 async function Results({ searchParams }: { searchParams: SearchParams }) {

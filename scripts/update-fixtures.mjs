@@ -29,6 +29,13 @@ const FIXTURES = [
   ],
   // A partial name EDHREC redirects to the full card ("fire" -> "fire-ice").
   ["edhrec/cards-redirect.json", "https://json.edhrec.com/pages/cards/fire.json", "application/json"],
+
+  // Scryfall's suggestions for a partial name, including loose matches like "Heat Ray".
+  [
+    "scryfall/autocomplete-atra.json",
+    "https://api.scryfall.com/cards/autocomplete?q=atra",
+    "application/json",
+  ],
 ];
 
 // TCGph pages carry anonymous session tokens; keep them out of the repo.
