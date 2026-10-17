@@ -1,0 +1,98 @@
+// Shared domain types. Each source module maps its raw response into these.
+
+// --- Scryfall ---------------------------------------------------------------
+
+export interface ScryfallCard {
+  id: string;
+  name: string;
+  /** Scryfall layout, e.g. "normal", "split", "transform", "adventure". */
+  layout: string;
+  typeLine: string;
+  manaCost?: string;
+  oracleText?: string;
+  colorIdentity: string[];
+  imageUrl?: string;
+  scryfallUrl: string;
+  /** Scryfall's `edhrec_rank`: lower means more popular across all decks. */
+  edhrecRank?: number;
+  priceUsd?: number;
+  commanderLegal: boolean;
+  /** Legendary creature, or text says it can be your commander. */
+  canBeCommander: boolean;
+}
+
+export interface ScryfallLookup {
+  card: ScryfallCard;
+  /** Other matching names when the search was ambiguous. */
+  alternatives: string[];
+}
+
+// --- EDHREC -----------------------------------------------------------------
+
+export interface EdhrecCardRef {
+  name: string;
+  numDecks: number;
+  potentialDecks?: number;
+  /** numDecks / potentialDecks, 0–1. */
+  inclusion?: number;
+  /** How much more often the card shows up with this commander than in general (-1 to 1). */
+  synergy?: number;
+}
+
+export interface EdhrecCardStats {
+  url: string;
+  numDecks: number;
+  potentialDecks: number;
+  inclusion: number;
+  salt?: number;
+  /** Commanders whose decks run this card most. */
+  topCommanders: EdhrecCardRef[];
+}
+
+export interface EdhrecCardList {
+  header: string;
+  cards: EdhrecCardRef[];
+}
+
+export interface EdhrecCommanderStats {
+  url: string;
+  numDecks: number;
+  rank?: number;
+  lists: EdhrecCardList[];
+}
+
+// --- TCGph ------------------------------------------------------------------
+
+export interface TcgphListing {
+  listingId: string;
+  store: string;
+  /** Short code as shown on TCGph, e.g. "NM", "LP", "U". */
+  condition: string;
+  /** Full label, e.g. "Near Mint". */
+  conditionLabel?: string;
+  quantity?: number;
+  pricePhp: number;
+  url: string;
+}
+
+export interface TcgphPrint {
+  printId: string;
+  setName: string;
+  setCode?: string;
+  collectorNumber?: string;
+  finish?: string;
+  language?: string;
+  url: string;
+  listings: TcgphListing[];
+}
+
+/** One listing paired with the printing it belongs to. */
+export interface TcgphPrice {
+  print: TcgphPrint;
+  listing: TcgphListing;
+}
+
+export interface TcgphPrices {
+  url: string;
+  prints: TcgphPrint[];
+}

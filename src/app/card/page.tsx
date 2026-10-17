@@ -1,0 +1,82 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { Suspense } from "react";
+import { CardOverview } from "@/components/card-overview";
+import { CardSearch } from "@/components/card-search";
+import { EdhrecPanel } from "@/components/edhrec-panel";
+import { PanelSkeleton, SourceMessage } from "@/components/panel";
+import { TcgphPanel } from "@/components/tcgph-panel";
+import { findCard } from "@/lib/sources/scryfall";
+
+export const metadata: Metadata = {
+  title: "Card lookup",
+};
+
+// Static shell renders immediately; everything that reads searchParams streams in.
+export default function CardPage(props: PageProps<"/card">) {
+  return (
+    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-4 py-8 sm:px-6">
+      <header className="flex flex-col gap-4">
+        <Link
+          href="/"
+          className="text-sm font-medium uppercase tracking-wider text-amber-600 dark:text-amber-400"
+        >
+          Commander PH
+        </Link>
+        <Suspense fallback={<CardSearch />}>
+          <SearchWithQuery searchParams={props.searchParams} />
+        </Suspense>
+      </header>
+
+      <Suspense fallback={<p className="text-zinc-500">Looking up card…</p>}>
+        <Results searchParams={props.searchParams} />
+      </Suspense>
+    </main>
+  );
+}
+
+type SearchParams = PageProps<"/card">["searchParams"];
+
+async function getQuery(searchParams: SearchParams) {
+  const { q } = await searchParams;
+  return (Array.isArray(q) ? q[0] : q)?.trim() ?? "";
+}
+
+async function SearchWithQuery({ searchParams }: { searchParams: SearchParams }) {
+  return <CardSearch defaultValue={await getQuery(searchParams)} />;
+}
+
+async function Results({ searchParams }: { searchParams: SearchParams }) {
+  const query = await getQuery(searchParams);
+  if (!query) {
+    return <SourceMessage>Enter a card name to begin.</SourceMessage>;
+  }
+
+  // 1. Scryfall resolves the typed text to one exact card name.
+  let lookup;
+  try {
+    lookup = await findCard(query);
+  } catch {
+    return <SourceMessage>Couldn’t reach Scryfall right now. Try again in a bit.</SourceMessage>;
+  }
+  if (!lookup) {
+    return (
+      <SourceMessage>
+        No card found for “{query}”. Check the spelling and try again.
+      </SourceMessage>
+    );
+  }
+
+  // 2 + 3. EDHREC and TCGph are looked up in parallel using that name; each streams in on its own.
+  return (
+    <div className="flex flex-col gap-8">
+      <CardOverview lookup={lookup} />
+      <Suspense fallback={<PanelSkeleton title="Philippine store prices" />}>
+        <TcgphPanel card={lookup.card} />
+      </Suspense>
+      <Suspense fallback={<PanelSkeleton title="EDHREC" />}>
+        <EdhrecPanel card={lookup.card} />
+      </Suspense>
+    </div>
+  );
+}
