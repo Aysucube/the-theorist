@@ -22,6 +22,8 @@ interface RawCardView {
 export interface RawPage {
   /** Set instead of data when EDHREC sends a name to its canonical page, e.g. "/cards/fire-ice". */
   redirect?: string;
+  /** Names of cards EDHREC considers similar (e.g. other mana rocks for Sol Ring). */
+  similar?: unknown[];
   container?: {
     json_dict?: {
       card?: {
@@ -64,6 +66,7 @@ export function parseCardStats(page: RawPage, path: string): EdhrecCardStats | n
     inclusion: potentialDecks ? numDecks / potentialDecks : 0,
     salt: dict.card.salt,
     topCommanders: topCommanders.map(toRef),
+    similar: (page.similar ?? []).filter((name): name is string => typeof name === "string"),
   };
 }
 

@@ -80,28 +80,69 @@ describe("getPriceSummary", () => {
 describe("getCardPreview", () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it("shows the cheapest copy with its printing's artwork", async () => {
-    const tcgph = "https://tcgph.com/card/sol-ring";
-    const { fetch, calls } = fakeFetch({ [tcgph]: fixture("tcgph/esika-god-of-the-tree-the-prismatic-bridge.html") });
-    vi.stubGlobal("fetch", fetch);
+  const solRingCard = JSON.stringify({
+    ...JSON.parse(scryfallCard("Sol Ring")),
+    type_line: "Artifact",
+    mana_cost: "{1}",
+    color_identity: [],
+    oracle_text: "{T}: Add {C}{C}.",
+  });
+
+  it("combines price, artwork, rules text, deck stats and similar cards", async () => {
+    vi.stubGlobal(
+      "fetch",
+      fakeFetch({
+        "https://tcgph.com/card/sol-ring": fixture("tcgph/esika-god-of-the-tree-the-prismatic-bridge.html"),
+        [named("Sol Ring")]: solRingCard,
+        "https://json.edhrec.com/pages/cards/sol-ring.json": fixture("edhrec/cards-sol-ring.json"),
+      }).fetch,
+    );
 
     const preview = await getCardPreview("Sol Ring");
 
-    expect(calls.map((c) => c.url)).toEqual([tcgph]);
     expect(preview.cheapest?.pricePhp).toBeGreaterThan(0);
-    expect(preview.cheapest?.store).toBeTruthy();
     expect(preview.imageUrl).toMatch(/^https:\/\/cards\.scryfall\.io\//);
+    expect(preview).toMatchObject({
+      name: "Sol Ring",
+      typeLine: "Artifact",
+      manaCost: "{1}",
+      colorIdentity: [],
+      oracleText: "{T}: Add {C}{C}.",
+    });
+    expect(preview.decks?.inclusion).toBeGreaterThan(0);
+    expect(preview.decks?.topCommanders).toHaveLength(3);
+    expect(preview.similar).toContain("Mana Vault");
+    expect(preview.priceUnavailable).toBeUndefined();
   });
 
-  it("falls back to Scryfall's image when no PH store has the card", async () => {
-    const { fetch } = fakeFetch({
-      "https://tcgph.com/card/nope": fixture("tcgph/unknown-card.html"),
-      [named("Nope")]: JSON.stringify({ ...JSON.parse(scryfallCard("Nope")), image_uris: { normal: "https://cards.scryfall.io/normal/nope.jpg" } }),
-    });
-    vi.stubGlobal("fetch", fetch);
+  it("uses Scryfall's image when no PH store has the card", async () => {
+    vi.stubGlobal(
+      "fetch",
+      fakeFetch({
+        "https://tcgph.com/card/nope": fixture("tcgph/unknown-card.html"),
+        [named("Nope")]: JSON.stringify({ ...JSON.parse(scryfallCard("Nope")), image_uris: { normal: "https://cards.scryfall.io/normal/nope.jpg" } }),
+      }).fetch,
+    );
 
     const preview = await getCardPreview("Nope");
 
-    expect(preview).toEqual({ name: "Nope", imageUrl: "https://cards.scryfall.io/normal/nope.jpg", cheapest: undefined, stores: 0 });
+    expect(preview).toMatchObject({ name: "Nope", imageUrl: "https://cards.scryfall.io/normal/nope.jpg", stores: 0 });
+    expect(preview.cheapest).toBeUndefined();
+    expect(preview.decks).toBeUndefined();
+  });
+
+  it("still shows the card's details when TCGph is down", async () => {
+    vi.stubGlobal(
+      "fetch",
+      fakeFetch({
+        "https://tcgph.com/card/sol-ring": { status: 503 },
+        [named("Sol Ring")]: solRingCard,
+      }).fetch,
+    );
+
+    const preview = await getCardPreview("Sol Ring");
+
+    expect(preview.priceUnavailable).toBe(true);
+    expect(preview.oracleText).toBe("{T}: Add {C}{C}.");
   });
 });

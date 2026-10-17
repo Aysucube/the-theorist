@@ -113,3 +113,11 @@ describe("getCardStats / getCommanderStats", () => {
     await expect(getCardStats("sol-ring")).rejects.toThrow("EDHREC: HTTP 500");
   });
 });
+
+describe("similar cards", () => {
+  it("reads EDHREC's list of cards with a similar role", () => {
+    const stats = parseCardStats(solRing(), "cards/sol-ring")!;
+    expect(stats.similar.length).toBeGreaterThan(0);
+    expect(stats.similar.every((name) => typeof name === "string" && name.length > 0)).toBe(true);
+  });
+});

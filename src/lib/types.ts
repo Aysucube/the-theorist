@@ -63,6 +63,8 @@ export interface EdhrecCardStats {
   salt?: number;
   /** Commanders whose decks run this card most. */
   topCommanders: EdhrecCardRef[];
+  /** Cards with a similar role, per EDHREC. */
+  similar: string[];
 }
 
 export interface EdhrecCardList {
@@ -142,6 +144,23 @@ export interface CardPreview {
   /** Cheapest PH listing; missing when no store has the card. */
   cheapest?: ListingBrief;
   stores: number;
+  /** True when TCGph couldn't be reached, so a missing price means "unknown", not "out of stock". */
+  priceUnavailable?: boolean;
+  /** From Scryfall; missing if it couldn't be reached. */
+  typeLine?: string;
+  manaCost?: string;
+  /** W, U, B, R, G; empty for colorless. */
+  colorIdentity?: string[];
+  oracleText?: string;
+  /** From EDHREC: how often Commander decks play it. */
+  decks?: {
+    numDecks: number;
+    inclusion: number;
+    /** Commanders that run it most, by name. */
+    topCommanders: string[];
+  };
+  /** Cards with a similar role, per EDHREC. */
+  similar?: string[];
 }
 
 /** What GET /api/price returns. */

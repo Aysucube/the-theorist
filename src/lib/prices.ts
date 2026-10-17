@@ -1,4 +1,6 @@
-import { tcgphSlug } from "@/lib/slugs";
+import { edhrecSlug, tcgphSlug } from "@/lib/slugs";
+import { getCardStats } from "@/lib/sources/edhrec";
+import { reportSourceError } from "@/lib/sources/http";
 import { findCard } from "@/lib/sources/scryfall";
 import { getPrices, summarizePrices } from "@/lib/sources/tcgph";
 import type { CardPreview, TcgphSummary } from "@/lib/types";
@@ -21,22 +23,55 @@ export async function getPriceSummary(name: string): Promise<TcgphSummary | null
   return prices && summarizePrices(prices);
 }
 
+/** Commanders named in a hover card. */
+const PREVIEW_COMMANDERS = 3;
+
 /**
- * What a hover card shows: the cheapest PH copy and its artwork. Falls back
- * to Scryfall for the image when no PH store has the card.
+ * What a hover card shows: the cheapest PH copy and its artwork (TCGph), the
+ * card's colors and rules text (Scryfall), and how decks use it plus similar
+ * cards (EDHREC). Price and card details are fetched side by side, and any one
+ * source failing still leaves the rest. Every lookup is cached.
  */
 export async function getCardPreview(name: string): Promise<CardPreview> {
-  const summary = await getPriceSummary(name);
-  const preview: CardPreview = {
-    name,
-    imageUrl: summary?.imageUrl,
-    cheapest: summary?.cheapest,
-    stores: summary?.stores ?? 0,
+  const [priced, lookup] = await Promise.all([
+    getPriceSummary(name).then(
+      (summary) => ({ summary, failed: false }),
+      (error) => {
+        reportSourceError("preview price", error);
+        return { summary: null, failed: true };
+      },
+    ),
+    findCard(name).catch((error) => {
+      reportSourceError("preview card", error);
+      return null;
+    }),
+  ]);
+
+  const card = lookup?.card;
+  const stats = card
+    ? await getCardStats(edhrecSlug(card.name, card.layout)).catch((error) => {
+        reportSourceError("preview decks", error);
+        return null;
+      })
+    : null;
+
+  return {
+    name: card?.name ?? name,
+    imageUrl: priced.summary?.imageUrl ?? card?.imageUrl,
+    cheapest: priced.summary?.cheapest,
+    stores: priced.summary?.stores ?? 0,
+    priceUnavailable: priced.failed || undefined,
+    typeLine: card?.typeLine,
+    manaCost: card?.manaCost,
+    colorIdentity: card?.colorIdentity,
+    oracleText: card?.oracleText,
+    decks: stats
+      ? {
+          numDecks: stats.numDecks,
+          inclusion: stats.inclusion,
+          topCommanders: stats.topCommanders.slice(0, PREVIEW_COMMANDERS).map((c) => c.name),
+        }
+      : undefined,
+    similar: stats?.similar,
   };
-  if (!preview.imageUrl) {
-    const lookup = await findCard(name).catch(() => null);
-    preview.imageUrl = lookup?.card.imageUrl;
-    if (lookup) preview.name = lookup.card.name;
-  }
-  return preview;
 }

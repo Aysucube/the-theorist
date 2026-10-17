@@ -31,8 +31,10 @@ describe("GET /api/preview", () => {
     expect((await GET(request(" "))).status).toBe(400);
   });
 
-  it("answers 502 when TCGph is down", async () => {
+  it("still answers when TCGph is down, flagging the price as unavailable", async () => {
     vi.stubGlobal("fetch", fakeFetch({ "https://tcgph.com/card/sol-ring": { status: 503 } }).fetch);
-    expect((await GET(request("Sol Ring"))).status).toBe(502);
+    const res = await GET(request("Sol Ring"));
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as CardPreview).priceUnavailable).toBe(true);
   });
 });
