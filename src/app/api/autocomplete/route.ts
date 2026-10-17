@@ -1,4 +1,5 @@
 import type { NextRequest } from "next/server";
+import { reportSourceError } from "@/lib/sources/http";
 import { suggestCardNames } from "@/lib/sources/scryfall";
 
 // GET /api/autocomplete?q=atra -> { names: ["Atraxa, Praetors' Voice", ...] }
@@ -12,7 +13,8 @@ export async function GET(request: NextRequest) {
       // Let the browser reuse answers while the user backspaces and retypes.
       { headers: { "Cache-Control": "public, max-age=3600" } },
     );
-  } catch {
+  } catch (error) {
+    reportSourceError("api/autocomplete", error);
     return Response.json({ names: [] }, { status: 502 });
   }
 }

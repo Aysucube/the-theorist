@@ -12,6 +12,15 @@ export class SourceError extends Error {
   }
 }
 
+/**
+ * Logs a failed lookup to the server log (Vercel: the project's Logs page) and
+ * returns a short reason that's safe to show, e.g. "TCGph: HTTP 403".
+ */
+export function reportSourceError(where: string, error: unknown): string {
+  console.error(`[${where}]`, error);
+  return error instanceof SourceError ? error.message : "unexpected error";
+}
+
 /** fetch() with our User-Agent and a timeout; network failures become SourceErrors. */
 export async function sourceFetch(source: string, url: string, accept: string): Promise<Response> {
   try {

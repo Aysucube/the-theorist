@@ -1,5 +1,6 @@
 import { formatCount, formatPhp } from "@/lib/format";
 import { tcgphSlug } from "@/lib/slugs";
+import { reportSourceError } from "@/lib/sources/http";
 import { cheapestFirst, getPrices, summarizePrices } from "@/lib/sources/tcgph";
 import type { ScryfallCard, TcgphPrice } from "@/lib/types";
 import { Panel, SourceMessage } from "./panel";
@@ -11,10 +12,12 @@ export async function TcgphPanel({ card }: { card: ScryfallCard }) {
   let prices;
   try {
     prices = await getPrices(tcgphSlug(card.name));
-  } catch {
+  } catch (error) {
+    const reason = reportSourceError("TcgphPanel", error);
     return (
       <Panel title={TITLE} source="TCGph">
         <SourceMessage>Couldn’t reach TCGph right now. Try again in a bit.</SourceMessage>
+        <p className="mt-1 text-xs text-zinc-500">Reason: {reason}</p>
       </Panel>
     );
   }

@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 import { getPriceSummary } from "@/lib/prices";
+import { reportSourceError } from "@/lib/sources/http";
 import type { PriceResponse } from "@/lib/types";
 
 // GET /api/price?name=Sol%20Ring -> { found: true, cheapest: { pricePhp: 90, ... }, stores, listings, url }
@@ -15,7 +16,8 @@ export async function GET(request: NextRequest) {
     const body: PriceResponse = summary ? { found: true, ...summary } : { found: false };
     // Prices move slowly; let the browser reuse an answer for 10 minutes.
     return Response.json(body, { headers: { "Cache-Control": "public, max-age=600" } });
-  } catch {
-    return Response.json({ error: "Couldn't reach the price sources." }, { status: 502 });
+  } catch (error) {
+    const detail = reportSourceError("api/price", error);
+    return Response.json({ error: "Couldn't reach the price sources.", detail }, { status: 502 });
   }
 }

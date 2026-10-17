@@ -5,6 +5,7 @@ import { CardSearch } from "@/components/card-search";
 import { EdhrecPanel } from "@/components/edhrec-panel";
 import { PanelSkeleton, SourceMessage } from "@/components/panel";
 import { TcgphPanel } from "@/components/tcgph-panel";
+import { reportSourceError } from "@/lib/sources/http";
 import { findCard } from "@/lib/sources/scryfall";
 
 export const metadata: Metadata = {
@@ -49,7 +50,8 @@ async function Results({ searchParams }: { searchParams: SearchParams }) {
   let lookup;
   try {
     lookup = await findCard(query);
-  } catch {
+  } catch (error) {
+    reportSourceError("card page", error);
     return <SourceMessage>Couldn’t reach Scryfall right now. Try again in a bit.</SourceMessage>;
   }
   if (!lookup) {

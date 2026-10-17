@@ -2,6 +2,7 @@ import Link from "next/link";
 import { cardHref, formatCount, formatPercent } from "@/lib/format";
 import { edhrecSlug } from "@/lib/slugs";
 import { getCardStats, getCommanderStats } from "@/lib/sources/edhrec";
+import { reportSourceError } from "@/lib/sources/http";
 import type { EdhrecCardRef, ScryfallCard } from "@/lib/types";
 import { AddToDeckToggle } from "./deck-buttons";
 import { Panel, SourceMessage } from "./panel";
@@ -14,6 +15,7 @@ async function settle<T>(p: Promise<T>): Promise<T | Error> {
   try {
     return await p;
   } catch (e) {
+    reportSourceError("EdhrecPanel", e);
     return e instanceof Error ? e : new Error(String(e));
   }
 }
