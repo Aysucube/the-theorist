@@ -4,6 +4,7 @@ import { formatCount } from "@/lib/format";
 import { tagKind, tagLabel, type Tag, type TagLinks } from "@/lib/deck-beta/synergy";
 import type { PairingsState } from "@/lib/deck-beta/store";
 import type { CardDetails } from "@/lib/types";
+import { useHoverPreview } from "../card-link";
 import { LazyCardImage } from "./lazy-card-image";
 
 const KIND_LABEL = { type: "Card type", subtype: "Subtype", theme: "Theme" } as const;
@@ -27,7 +28,17 @@ export function TagName({ tag }: { tag: Tag }) {
 export type CardLookup = (name: string) => CardDetails | undefined;
 
 /** One tag and the deck cards behind it, as a scrollable gallery. */
-export function LinkRow({ link, cardFor, onCard }: { link: TagLinks; cardFor: CardLookup; onCard?: (name: string) => void }) {
+export function LinkRow({
+  link,
+  cardFor,
+  onCard,
+  hoverPreview,
+}: {
+  link: TagLinks;
+  cardFor: CardLookup;
+  onCard?: (name: string) => void;
+  hoverPreview?: boolean;
+}) {
   return (
     <li className="flex flex-col gap-1.5">
       <div className="flex items-center gap-2">
@@ -36,7 +47,13 @@ export function LinkRow({ link, cardFor, onCard }: { link: TagLinks; cardFor: Ca
           {formatCount(link.cards.length)} {link.cards.length === 1 ? "card" : "cards"}
         </span>
       </div>
-      <MiniGallery label={tagLabel(link.tag)} items={link.cards.map((name) => ({ name }))} cardFor={cardFor} onCard={onCard} />
+      <MiniGallery
+        label={tagLabel(link.tag)}
+        items={link.cards.map((name) => ({ name }))}
+        cardFor={cardFor}
+        onCard={onCard}
+        hoverPreview={hoverPreview}
+      />
     </li>
   );
 }
@@ -44,47 +61,82 @@ export function LinkRow({ link, cardFor, onCard }: { link: TagLinks; cardFor: Ca
 /**
  * A small gallery of cards (artwork and name) in a box that scrolls once it
  * holds more than about two rows. Images load as they scroll into view.
+ * With `hoverPreview`, resting the mouse on a card shows its hover preview.
  */
 export function MiniGallery({
   label,
   items,
   cardFor,
   onCard,
+  hoverPreview,
 }: {
   label: string;
   /** `note` goes under the name, e.g. EDHREC's "×3.2". */
   items: { name: string; note?: string }[];
   cardFor: CardLookup;
   onCard?: (name: string) => void;
+  hoverPreview?: boolean;
 }) {
   return (
     <ul
       aria-label={label}
       className="grid max-h-64 grid-cols-[repeat(auto-fill,minmax(76px,1fr))] content-start gap-2 overflow-y-auto overscroll-contain rounded-lg border border-zinc-200 bg-zinc-50 p-2 dark:border-zinc-800 dark:bg-zinc-950/60"
     >
-      {items.map(({ name, note }) => {
-        const body = (
-          <>
-            <div className="aspect-[488/680] overflow-hidden rounded-[4.75%] bg-zinc-200 transition-opacity group-hover:opacity-85 dark:bg-zinc-800">
-              <LazyCardImage url={cardFor(name)?.imageUrl} alt={name} />
-            </div>
-            <p className="mt-1 truncate text-[11px] leading-tight font-medium group-hover:underline">{name}</p>
-            {note && <p className="text-[11px] leading-tight text-zinc-500 tabular-nums">{note}</p>}
-          </>
-        );
-        return (
-          <li key={name} className="min-w-0">
-            {onCard ? (
-              <button type="button" onClick={() => onCard(name)} title={`Show ${name}’s synergies`} className="group block w-full text-left">
-                {body}
-              </button>
-            ) : (
-              <div title={name}>{body}</div>
-            )}
-          </li>
-        );
-      })}
+      {items.map((item) => (
+        <GalleryItem key={item.name} {...item} imageUrl={cardFor(item.name)?.imageUrl} onCard={onCard} hoverPreview={hoverPreview} />
+      ))}
     </ul>
+  );
+}
+
+function GalleryItem({
+  name,
+  note,
+  imageUrl,
+  onCard,
+  hoverPreview,
+}: {
+  name: string;
+  note?: string;
+  imageUrl?: string;
+  onCard?: (name: string) => void;
+  hoverPreview?: boolean;
+}) {
+  const hover = useHoverPreview(name);
+  const trigger = hoverPreview ? hover.trigger : undefined;
+  const body = (
+    <>
+      <div className="aspect-[488/680] overflow-hidden rounded-[4.75%] bg-zinc-200 transition-opacity group-hover:opacity-85 dark:bg-zinc-800">
+        <LazyCardImage url={imageUrl} alt={name} />
+      </div>
+      <p className="mt-1 truncate text-[11px] leading-tight font-medium group-hover:underline">{name}</p>
+      {note && <p className="text-[11px] leading-tight text-zinc-500 tabular-nums">{note}</p>}
+    </>
+  );
+  return (
+    <li className="min-w-0">
+      {onCard ? (
+        <button
+          type="button"
+          {...trigger}
+          onClick={() => {
+            trigger?.onClick();
+            onCard(name);
+          }}
+          // The hover preview already names the card; a native tooltip would cover it.
+          title={trigger ? undefined : `Show ${name}’s synergies`}
+          aria-label={`Show ${name}’s synergies`}
+          className="group block w-full text-left"
+        >
+          {body}
+        </button>
+      ) : (
+        <div {...trigger} title={trigger ? undefined : name}>
+          {body}
+        </div>
+      )}
+      {hoverPreview && hover.preview}
+    </li>
   );
 }
 

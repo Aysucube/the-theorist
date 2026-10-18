@@ -8,6 +8,7 @@ import { formatCount, formatPercent } from "@/lib/format";
 import type { CardDetails } from "@/lib/types";
 import { ColorIdentity, ManaCost } from "../mana";
 import { RetryingImage } from "../retrying-image";
+import { useHoverPreview } from "../card-link";
 import { BetaRulings } from "./beta-rulings";
 import { formatLift, LinkRow, MiniGallery, pairingsMessage, TagName, type CardLookup } from "./bits";
 import { LazyCardImage } from "./lazy-card-image";
@@ -142,6 +143,7 @@ export function SynergyMap({
                       items={edhrec.map((p) => ({ name: p.name, note: formatLift(p.lift) }))}
                       cardFor={cardFor}
                       onCard={goTo}
+                      hoverPreview
                     />
                   )}
                   {found && (
@@ -226,17 +228,28 @@ function Flowchart({
 
       <div className="flex flex-col items-center xl:flex-row">
         <Connector />
-        <div className="w-40 shrink-0 rounded-xl border-2 border-amber-500 bg-white p-2 shadow-lg dark:bg-zinc-900">
-          <div className="aspect-[488/680] overflow-hidden rounded-[4.75%] bg-zinc-200 dark:bg-zinc-800">
-            {focus.imageUrl && <RetryingImage url={focus.imageUrl} alt={focus.name} />}
-          </div>
-          <p className="mt-1.5 text-center text-xs font-semibold">{focus.name}</p>
-        </div>
+        <FocusCard card={focus} />
         <Connector />
       </div>
 
       <Branch title={`${focus.name} helps`} empty="No cards in your deck reward it." links={usedBy} side="right" cardFor={cardFor} onCard={onCard} />
     </div>
+  );
+}
+
+/** The card the map is about, in the middle; resting the mouse on it shows its hover preview. */
+function FocusCard({ card }: { card: CardDetails }) {
+  const { trigger, preview } = useHoverPreview(card.name);
+  return (
+    <>
+      <div {...trigger} className="w-40 shrink-0 rounded-xl border-2 border-amber-500 bg-white p-2 shadow-lg dark:bg-zinc-900">
+        <div className="aspect-[488/680] overflow-hidden rounded-[4.75%] bg-zinc-200 dark:bg-zinc-800">
+          {card.imageUrl && <RetryingImage url={card.imageUrl} alt={card.name} />}
+        </div>
+        <p className="mt-1.5 text-center text-xs font-semibold">{card.name}</p>
+      </div>
+      {preview}
+    </>
   );
 }
 
@@ -282,7 +295,7 @@ function Branch({
             <li key={link.tag} className="relative">
               <span aria-hidden className={`absolute top-5 hidden h-0.5 w-6 bg-zinc-300 xl:block dark:bg-zinc-700 ${twig}`} />
               <ul className="rounded-lg border border-zinc-200 bg-white p-2.5 dark:border-zinc-800 dark:bg-zinc-900" aria-label={tagLabel(link.tag)}>
-                <LinkRow link={link} cardFor={cardFor} onCard={onCard} />
+                <LinkRow link={link} cardFor={cardFor} onCard={onCard} hoverPreview />
               </ul>
             </li>
           ))}
@@ -342,14 +355,19 @@ function RecommendationList({
 
 function RecommendationRow({ rec, added, onAdd }: { rec: Recommendation; added: boolean; onAdd: (card: CardDetails) => void }) {
   const { card } = rec;
+  // Resting the mouse on the picture or the name shows the card's hover preview.
+  const { trigger, preview } = useHoverPreview(card.name);
   return (
     <li className="flex gap-2.5 rounded-lg border border-zinc-200 bg-white p-2 dark:border-zinc-800 dark:bg-zinc-900">
-      <div className="aspect-[488/680] w-12 shrink-0 overflow-hidden rounded-[4.75%] bg-zinc-200 dark:bg-zinc-800">
+      <div {...trigger} className="aspect-[488/680] w-12 shrink-0 overflow-hidden rounded-[4.75%] bg-zinc-200 dark:bg-zinc-800">
         <LazyCardImage url={card.imageUrl} alt={card.name} />
       </div>
+      {preview}
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex items-start gap-1.5">
-          <p className="min-w-0 flex-1 text-sm leading-tight font-medium">{card.name}</p>
+          <p {...trigger} className="min-w-0 flex-1 text-sm leading-tight font-medium">
+            {card.name}
+          </p>
           {card.manaCost && <ManaCost cost={card.manaCost.split(" // ")[0]} />}
         </div>
         <p className="truncate text-xs text-zinc-500">{card.typeLine}</p>

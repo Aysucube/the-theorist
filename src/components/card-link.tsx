@@ -7,6 +7,8 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  type FocusEvent,
+  type PointerEvent,
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
@@ -77,24 +79,40 @@ function watchPreview(name: string, listener: (snapshot: Snapshot) => void): () 
   return () => t.listeners.delete(listener);
 }
 
+/** Props to spread on whatever element shows a card's hover preview. */
+export interface HoverTriggerProps {
+  "aria-describedby"?: string;
+  onPointerEnter: (event: PointerEvent<HTMLElement>) => void;
+  onPointerLeave: () => void;
+  onFocus: (event: FocusEvent<HTMLElement>) => void;
+  onBlur: () => void;
+  /** Closes the preview; call it from your own click handler too. */
+  onClick: () => void;
+}
+
 /**
- * A link to a card's page that shows a preview (artwork, colors, rules text,
- * cheapest PH price and shop, how decks use it, similar cards) while the
- * mouse rests on it or the link has keyboard focus. Busy sources and slow
- * images are waited out and retried, so the preview fills in completely.
- * Touch screens just follow the link.
+ * A card's hover preview (artwork, colors, rules text, cheapest PH price and
+ * shop, how decks use it, similar cards), shown while the mouse rests on an
+ * element or it has keyboard focus. Spread `trigger` on the element and render
+ * `preview` next to it. Busy sources and slow images are waited out and
+ * retried, so the preview fills in completely. Touch screens don't get one.
  */
-export function CardLink({ name, className, children }: { name: string; className?: string; children?: ReactNode }) {
-  const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
+export function useHoverPreview(name: string): { trigger: HoverTriggerProps; preview: ReactNode } {
+  // Where the preview shows, and the element it's rendered into: inside a modal
+  // dialog (the deck beta's synergy map) it must live in the dialog, since modal
+  // dialogs sit above everything else on the page.
+  const [position, setPosition] = useState<{ left: number; top: number; container: Element } | null>(null);
   const [snapshot, setSnapshot] = useState<Snapshot>({ done: false });
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const unwatch = useRef<(() => void) | undefined>(undefined);
   const id = useId();
 
-  function show(anchor: { left: number; right: number; top: number; bottom: number }) {
+  function show(element: Element, anchor: { left: number; right: number; top: number; bottom: number }) {
     clearTimeout(timer.current);
+    const container = element.closest("dialog") ?? document.body;
     timer.current = setTimeout(() => {
-      setPosition(placeHoverCard(anchor, { width: window.innerWidth, height: window.innerHeight }, CARD_SIZE));
+      const place = placeHoverCard(anchor, { width: window.innerWidth, height: window.innerHeight }, CARD_SIZE);
+      setPosition({ ...place, container });
       unwatch.current?.();
       unwatch.current = watchPreview(name, setSnapshot);
     }, HOVER_DELAY_MS);
@@ -108,7 +126,7 @@ export function CardLink({ name, className, children }: { name: string; classNam
     setPosition(null);
   }
 
-  // A fixed-position card would drift away from its link on scroll; close it instead.
+  // A fixed-position card would drift away from its element on scroll; close it instead.
   useEffect(() => {
     if (!position) return;
     const close = () => {
@@ -129,6 +147,27 @@ export function CardLink({ name, className, children }: { name: string; classNam
     [],
   );
 
+  return {
+    trigger: {
+      "aria-describedby": position ? id : undefined,
+      onPointerEnter: (e) => {
+        if (e.pointerType !== "mouse") return;
+        show(e.currentTarget, { left: e.clientX, right: e.clientX, top: e.clientY, bottom: e.clientY });
+      },
+      onPointerLeave: hide,
+      onFocus: (e) => show(e.currentTarget, e.currentTarget.getBoundingClientRect()),
+      onBlur: hide,
+      onClick: hide,
+    },
+    preview: position
+      ? createPortal(<HoverCard id={id} name={name} snapshot={snapshot} position={position} />, position.container)
+      : null,
+  };
+}
+
+/** A link to a card's page that shows the card's hover preview. */
+export function CardLink({ name, className, children }: { name: string; className?: string; children?: ReactNode }) {
+  const { trigger, preview } = useHoverPreview(name);
   return (
     <>
       <Link
@@ -136,19 +175,11 @@ export function CardLink({ name, className, children }: { name: string; classNam
         // No prefetch: lists can hold 100+ of these links.
         prefetch={false}
         className={className}
-        aria-describedby={position ? id : undefined}
-        onPointerEnter={(e) => {
-          if (e.pointerType !== "mouse") return;
-          show({ left: e.clientX, right: e.clientX, top: e.clientY, bottom: e.clientY });
-        }}
-        onPointerLeave={hide}
-        onFocus={(e) => show(e.currentTarget.getBoundingClientRect())}
-        onBlur={hide}
-        onClick={hide}
+        {...trigger}
       >
         {children ?? name}
       </Link>
-      {position && createPortal(<HoverCard id={id} name={name} snapshot={snapshot} position={position} />, document.body)}
+      {preview}
     </>
   );
 }
