@@ -18,20 +18,23 @@ const LIMITS = {
   card: createRateLimiter({ limit: 60, windowMs: 60_000 }),
   // Deck beta: a deck's details now and then, and EDHREC pairings per card clicked.
   deckBeta: createRateLimiter({ limit: 60, windowMs: 60_000 }),
+  // Picking deck themes on the front page (each looks up EDHREC and Scryfall).
+  theme: createRateLimiter({ limit: 60, windowMs: 60_000 }),
 };
 
-function bucket(pathname: string): keyof typeof LIMITS | null {
+function bucket({ pathname, searchParams }: URL): keyof typeof LIMITS | null {
   if (pathname === "/api/price") return "price";
   if (pathname === "/api/autocomplete") return "autocomplete";
   if (pathname === "/api/preview") return "preview";
   if (pathname === "/api/cards/info") return "info";
   if (pathname === "/card") return "card";
   if (pathname.startsWith("/api/deck-beta/")) return "deckBeta";
+  if (pathname === "/" && searchParams.has("theme")) return "theme";
   return null;
 }
 
 export function proxy(request: NextRequest) {
-  const name = bucket(request.nextUrl.pathname);
+  const name = bucket(request.nextUrl);
   // No exemptions by request header: a client can send any header it likes.
   // (Card links don't prefetch, so real visitors don't spend their limit on prefetches.)
   if (!name) return NextResponse.next();
@@ -41,11 +44,12 @@ export function proxy(request: NextRequest) {
 
   const headers = { "Retry-After": String(result.retryAfterSeconds) };
   const message = `Too many requests. Please wait ${result.retryAfterSeconds} seconds and try again.`;
-  return name === "card"
+  // Pages get a plain-text answer; API routes get JSON.
+  return name === "card" || name === "theme"
     ? new NextResponse(message, { status: 429, headers: { ...headers, "Content-Type": "text/plain; charset=utf-8" } })
     : NextResponse.json({ error: message }, { status: 429, headers });
 }
 
 export const config = {
-  matcher: ["/api/price", "/api/autocomplete", "/api/preview", "/api/cards/info", "/card", "/api/deck-beta/:path*"],
+  matcher: ["/", "/api/price", "/api/autocomplete", "/api/preview", "/api/cards/info", "/card", "/api/deck-beta/:path*"],
 };

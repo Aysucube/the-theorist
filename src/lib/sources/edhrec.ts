@@ -6,6 +6,8 @@ import type {
   EdhrecCardRef,
   EdhrecCardStats,
   EdhrecCommanderStats,
+  EdhrecTheme,
+  EdhrecThemePage,
 } from "@/lib/types";
 import { SourceError, sourceFetch } from "./http";
 
@@ -19,11 +21,15 @@ interface RawCardView {
   num_decks?: number;
   potential_decks?: number;
   synergy?: number;
+  /** The card's (or theme's) path on EDHREC, e.g. "/tags/tokens". */
+  url?: string;
   /** On card pages: how many times more often it's played with that card than overall. */
   lift?: number;
 }
 
 export interface RawPage {
+  /** The page's title, e.g. a theme's name. */
+  header?: string;
   /** Set instead of data when EDHREC sends a name to its canonical page, e.g. "/cards/fire-ice". */
   redirect?: string;
   /** Names of cards EDHREC considers similar (e.g. other mana rocks for Sol Ring). */
@@ -103,6 +109,58 @@ export function parseCardPairings(page: RawPage, path: string): EdhrecCardPairin
     pairings: [...best.values()].sort((a, b) => b.lift - a.lift),
     similar: (page.similar ?? []).filter((name): name is string => typeof name === "string"),
   };
+}
+
+// --- Deck themes ("tags") ------------------------------------------------------
+
+/** The page for EDHREC's list of every theme, most popular first. */
+export function parseThemeList(page: RawPage): EdhrecTheme[] {
+  const views = page.container?.json_dict?.cardlists?.[0]?.cardviews ?? [];
+  return views.flatMap((view) => {
+    const slug = view.url?.match(/^\/tags\/([a-z0-9-]+)$/)?.[1];
+    return slug ? [{ name: view.name, slug, numDecks: view.num_decks ?? 0 }] : [];
+  });
+}
+
+/** One theme's page: the commanders most often built around it, and the cards those decks play. */
+export function parseThemePage(page: RawPage, slug: string): EdhrecThemePage | null {
+  const lists = page.container?.json_dict?.cardlists;
+  if (!lists?.length) return null;
+
+  const commanders = lists.find((l) => l.tag === "topcommanders")?.cardviews.map(toRef) ?? [];
+  const cards: EdhrecCardList[] = lists
+    .filter((l) => !l.tag.endsWith("commanders") && l.cardviews.length > 0)
+    // "New Cards" says least about the theme; move it last.
+    .sort((a, b) => Number(a.tag === "newcards") - Number(b.tag === "newcards"))
+    .map((l) => ({ header: l.header, cards: l.cardviews.map(toRef) }));
+
+  return {
+    name: page.header ?? slug,
+    url: `${SITE}/tags/${slug}`,
+    // Each commander's potential decks is every deck with this theme.
+    numDecks: commanders[0]?.potentialDecks ?? 0,
+    commanders,
+    lists: cards,
+  };
+}
+
+/** Every deck theme EDHREC tracks ("Tokens", "Aristocrats", ...), most popular first. */
+export async function getThemes(): Promise<EdhrecTheme[]> {
+  "use cache: remote";
+  cacheLife("days");
+
+  const result = await getPage("tags");
+  return result ? parseThemeList(result.page) : [];
+}
+
+/** A theme's top commanders and recommended cards. Null if EDHREC has no such theme. */
+export async function getTheme(slug: string): Promise<EdhrecThemePage | null> {
+  "use cache: remote";
+  cacheLife("days");
+
+  if (!/^[a-z0-9-]{1,80}$/.test(slug)) return null;
+  const result = await getPage(`tags/${slug}`);
+  return result && parseThemePage(result.page, slug);
 }
 
 /** `path` is the page's path under /pages, e.g. "commanders/atraxa-praetors-voice". */

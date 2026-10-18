@@ -27,6 +27,9 @@ const FIXTURES = [
     "https://json.edhrec.com/pages/commanders/atraxa-praetors-voice.json",
     "application/json",
   ],
+  // Every deck theme, and one theme's commanders and cards.
+  ["edhrec/tags.json", "https://json.edhrec.com/pages/tags.json", "application/json"],
+  ["edhrec/tags-tokens.json", "https://json.edhrec.com/pages/tags/tokens.json", "application/json"],
   // A partial name EDHREC redirects to the full card ("fire" -> "fire-ice").
   ["edhrec/cards-redirect.json", "https://json.edhrec.com/pages/cards/fire.json", "application/json"],
 

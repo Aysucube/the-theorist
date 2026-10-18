@@ -55,3 +55,12 @@ describe("deck beta rate limit", () => {
     expect(statuses[60]).toBe(429);
   });
 });
+
+describe("deck theme rate limit", () => {
+  it("limits theme picks on the front page, but not the plain front page", () => {
+    const statuses = Array.from({ length: 61 }, () => proxy(request("/?theme=tokens", "192.0.2.11")).status);
+    expect(statuses.slice(0, 60).every((s) => s === 200)).toBe(true);
+    expect(statuses[60]).toBe(429);
+    expect(proxy(request("/", "192.0.2.11")).status).toBe(200);
+  });
+});

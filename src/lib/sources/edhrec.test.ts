@@ -3,9 +3,12 @@ import { fakeFetch, fixture } from "./__fixtures__/load";
 import {
   getCardStats,
   getCommanderStats,
+  getTheme,
   parseCardPairings,
   parseCardStats,
   parseCommanderStats,
+  parseThemeList,
+  parseThemePage,
   type RawPage,
 } from "./edhrec";
 
@@ -140,5 +143,44 @@ describe("parseCardPairings", () => {
 
   it("returns null for a page without a card", () => {
     expect(parseCardPairings({}, "cards/x")).toBeNull();
+  });
+});
+
+describe("deck themes", () => {
+  const themes = () => JSON.parse(fixture("edhrec/tags.json")) as RawPage;
+  const tokens = () => JSON.parse(fixture("edhrec/tags-tokens.json")) as RawPage;
+
+  it("reads EDHREC's list of themes, most popular first", () => {
+    const list = parseThemeList(themes());
+    expect(list.length).toBeGreaterThan(100);
+    expect(list.map((t) => t.slug)).toContain("tokens");
+    for (const t of list) {
+      expect(t.slug).toMatch(/^[a-z0-9-]+$/);
+      expect(t.name).not.toBe("");
+    }
+    const counts = list.map((t) => t.numDecks);
+    expect(counts).toEqual([...counts].sort((a, b) => b - a));
+  });
+
+  it("reads a theme's commanders and recommended cards, without the commander lists among the cards", () => {
+    const page = parseThemePage(tokens(), "tokens")!;
+    expect(page).toMatchObject({ name: "Tokens", url: "https://edhrec.com/tags/tokens" });
+    expect(page.numDecks).toBeGreaterThan(0);
+    expect(page.commanders.length).toBeGreaterThan(5);
+    for (const c of page.commanders) expect(c.numDecks).toBeGreaterThan(0);
+
+    const headers = page.lists.map((l) => l.header);
+    expect(headers).not.toContain("Top Commanders");
+    expect(headers).not.toContain("New Commanders");
+    expect(headers.at(-1)).toBe("New Cards");
+    expect(page.lists[0].cards[0].synergy).toBeTypeOf("number");
+  });
+
+  it("asks EDHREC only for theme names that look like slugs", async () => {
+    const { fetch, calls } = fakeFetch({});
+    vi.stubGlobal("fetch", fetch);
+    expect(await getTheme("../cards/sol-ring")).toBeNull();
+    expect(calls).toHaveLength(0);
+    vi.unstubAllGlobals();
   });
 });

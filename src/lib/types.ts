@@ -126,6 +126,25 @@ export interface EdhrecCardList {
   cards: EdhrecCardRef[];
 }
 
+/** A deck theme (EDHREC calls them tags), e.g. "Tokens" or "Aristocrats". */
+export interface EdhrecTheme {
+  name: string;
+  /** EDHREC's URL slug, e.g. "plus-1-plus-1-counters". */
+  slug: string;
+  /** Decks on EDHREC with this theme. */
+  numDecks: number;
+}
+
+export interface EdhrecThemePage {
+  name: string;
+  url: string;
+  numDecks: number;
+  /** Commanders that lead the most decks with this theme; numDecks is their decks with the theme. */
+  commanders: EdhrecCardRef[];
+  /** Cards those decks play, by EDHREC list ("Top Cards", "Creatures", ...). */
+  lists: EdhrecCardList[];
+}
+
 export interface EdhrecCommanderStats {
   url: string;
   numDecks: number;

@@ -9,6 +9,9 @@ Search a Magic: The Gathering card and see, on one page:
 Each card page also shows its **official rulings** and lists **every printing** with the cheapest PH copy of each,
 and hovering any card link shows a quick preview (artwork, cheapest price, shop).
 
+On the front page, **browse by deck theme** (Tokens, Aristocrats, Landfall and 400 more):
+see the commanders most often built around a theme on EDHREC, and the cards those decks play.
+
 Then collect cards on the **Shopping** page (or paste a list from Moxfield or Archidekt), price
 them all, and get a **shopping list** that uses the fewest stores possible,
 with a ready-to-send order message for each store. Prices always use the cheapest

@@ -97,7 +97,7 @@ export async function EdhrecPanel({ card }: { card: ScryfallCard }) {
   );
 }
 
-function CardList({
+export function CardList({
   title,
   cards,
   open,
