@@ -231,7 +231,7 @@ const COLLECTION_SIZE = 75;
 const nameKey = (name: string) => name.trim().toLowerCase();
 
 /**
- * Type line, mana cost and colors for many cards at once, keyed by the name as
+ * Type line, mana cost, colors and image for many cards at once, keyed by the name as
  * given. Uses Scryfall's bulk lookup (2 requests for a 100-card deck instead
  * of 100). Names Scryfall doesn't know are left out; for split cards, which it
  * only finds by their first half, the first half is tried too.
@@ -257,7 +257,16 @@ export async function getCardInfo(names: string[]): Promise<Record<string, CardI
     const found = batch.filter((b) => !missing.has(nameKey(b.query)));
     found.forEach((b, i) => {
       const card = list.data[i];
-      if (card) byKey[nameKey(b.asked)] = { name: card.name, typeLine: card.type_line, manaCost: toCard(card).manaCost, colorIdentity: card.color_identity };
+      if (card) {
+        const full = toCard(card);
+        byKey[nameKey(b.asked)] = {
+          name: card.name,
+          typeLine: card.type_line,
+          manaCost: full.manaCost,
+          colorIdentity: card.color_identity,
+          imageUrl: full.imageUrl,
+        };
+      }
     });
     return batch.filter((b) => missing.has(nameKey(b.query)));
   }

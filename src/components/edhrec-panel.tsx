@@ -5,6 +5,7 @@ import { reportSourceError } from "@/lib/sources/http";
 import type { EdhrecCardRef, ScryfallCard } from "@/lib/types";
 import { AddToDeckToggle } from "./deck-buttons";
 import { CardLink } from "./card-link";
+import { ListTools } from "./list-tools";
 import { Panel, SourceMessage } from "./panel";
 import { PriceCheck } from "./price-check";
 
@@ -138,6 +139,7 @@ function CardList({
           </li>
         ))}
       </ul>
+      <ListTools names={cards.slice(0, PER_LIST).map((c) => c.name)} />
     </details>
   );
 }

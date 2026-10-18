@@ -31,6 +31,8 @@ export interface CardInfo {
   manaCost?: string;
   /** W, U, B, R, G; empty for colorless. */
   colorIdentity: string[];
+  /** Card image (Scryfall's default printing), for galleries. */
+  imageUrl?: string;
 }
 
 /** One paper printing of a card, from Scryfall. */

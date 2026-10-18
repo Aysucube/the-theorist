@@ -1,52 +1,57 @@
 "use client";
 
-import { useState } from "react";
 import { formatCount, formatPhp } from "@/lib/format";
+import { checkPrices, usePriceQueue } from "@/lib/price-queue";
 import type { PriceResponse } from "@/lib/types";
-
-type State =
-  | { status: "idle" | "loading" | "error" }
-  | { status: "done"; result: PriceResponse };
 
 /**
  * A "Check ₱" button that looks up a card's cheapest Philippine price only
- * when clicked, so a list of recommendations doesn't fire dozens of TCGph requests.
+ * when asked, so a list of recommendations doesn't fire dozens of TCGph
+ * requests. Goes through the shared price queue, so "Load All Prices" and
+ * this button fill in the same row.
  */
 export function PriceCheck({ name }: { name: string }) {
-  const [state, setState] = useState<State>({ status: "idle" });
+  const state = usePriceQueue()(name);
 
-  async function check() {
-    setState({ status: "loading" });
-    try {
-      const res = await fetch(`/api/price?name=${encodeURIComponent(name)}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setState({ status: "done", result: (await res.json()) as PriceResponse });
-    } catch {
-      setState({ status: "error" });
-    }
+  if (state.status === "done" && state.result !== "error") {
+    return (
+      // Announces the price to screen readers when it arrives.
+      <span aria-live="polite" className="inline-flex justify-end">
+        <PriceLabel result={state.result} />
+      </span>
+    );
   }
 
+  const busy = state.status === "queued" || state.status === "loading" || state.status === "waiting";
+  const label =
+    state.status === "queued"
+      ? "Queued…"
+      : state.status === "loading"
+        ? "Checking…"
+        : state.status === "waiting"
+          ? `Retry in ${state.seconds}s`
+          : state.status === "done"
+            ? "Retry ₱"
+            : "Check ₱";
+
   return (
-    // Announces the price to screen readers when it arrives.
     <span aria-live="polite" className="inline-flex justify-end">
-      {state.status === "done" ? (
-        <Result result={state.result} />
-      ) : (
-        <button
-          type="button"
-          onClick={check}
-          disabled={state.status === "loading"}
-          aria-label={`Check Philippine price for ${name}`}
-          className="rounded-full border border-zinc-300 px-2 py-0.5 text-xs font-medium whitespace-nowrap text-zinc-700 transition-colors hover:border-amber-500 hover:text-amber-700 disabled:cursor-wait disabled:opacity-60 dark:border-zinc-700 dark:text-zinc-300 dark:hover:text-amber-400"
-        >
-          {state.status === "loading" ? "Checking…" : state.status === "error" ? "Retry ₱" : "Check ₱"}
-        </button>
-      )}
+      <button
+        type="button"
+        onClick={() => checkPrices([name], { first: true })}
+        disabled={busy}
+        title={state.status === "waiting" ? `Waiting because ${state.reason}` : undefined}
+        aria-label={`Check Philippine price for ${name}`}
+        className="rounded-full border border-zinc-300 px-2 py-0.5 text-xs font-medium whitespace-nowrap text-zinc-700 transition-colors hover:border-amber-500 hover:text-amber-700 disabled:cursor-wait disabled:opacity-60 dark:border-zinc-700 dark:text-zinc-300 dark:hover:text-amber-400"
+      >
+        {label}
+      </button>
     </span>
   );
 }
 
-function Result({ result }: { result: PriceResponse }) {
+/** A checked price: "₱90 Vault", linking to the card on TCGph. */
+export function PriceLabel({ result }: { result: PriceResponse }) {
   if (!result.found) {
     return <span className="text-xs text-zinc-500">Not on TCGph</span>;
   }

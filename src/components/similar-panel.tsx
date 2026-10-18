@@ -2,9 +2,8 @@ import { formatPhp } from "@/lib/format";
 import { reportSourceError } from "@/lib/sources/http";
 import { getSimilarCards, type SimilarCard } from "@/lib/similar";
 import type { ScryfallCard } from "@/lib/types";
-import { CardLink } from "./card-link";
+import { CardTile } from "./card-tile";
 import { Panel, SourceMessage } from "./panel";
-import { RetryingImage, ImageNote } from "./retrying-image";
 
 const TITLE = "Similar cards";
 
@@ -38,26 +37,18 @@ export async function SimilarPanel({ card }: { card: ScryfallCard }) {
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {similar.map((s) => (
           <li key={s.name}>
-            <CardLink name={s.name} className="group block">
-              <div className="aspect-[488/680] overflow-hidden rounded-[4.75%] bg-zinc-200 transition-opacity group-hover:opacity-90 dark:bg-zinc-800">
-                {s.imageUrl ? <RetryingImage url={s.imageUrl} alt={s.name} /> : <ImageNote text="No image available" />}
-              </div>
-              <div className="mt-1.5 min-w-0 text-xs">
-                <p className="truncate font-medium group-hover:underline" title={s.name}>
-                  {s.name}
-                </p>
-                {s.cheapest ? (
-                  <p className="truncate">
-                    <span className="font-semibold text-emerald-700 tabular-nums dark:text-emerald-400">
-                      {formatPhp(s.cheapest.pricePhp)}
-                    </span>{" "}
-                    <span className="text-zinc-600 dark:text-zinc-400">{s.cheapest.store}</span>
-                  </p>
-                ) : (
-                  <p className="text-zinc-500">{s.priceUnavailable ? "Price unavailable" : "Not in PH stores"}</p>
-                )}
-              </div>
-            </CardLink>
+            <CardTile name={s.name} imageUrl={s.imageUrl}>
+              {s.cheapest ? (
+                <>
+                  <span className="font-semibold text-emerald-700 tabular-nums dark:text-emerald-400">
+                    {formatPhp(s.cheapest.pricePhp)}
+                  </span>{" "}
+                  <span className="text-zinc-600 dark:text-zinc-400">{s.cheapest.store}</span>
+                </>
+              ) : (
+                <span className="text-zinc-500">{s.priceUnavailable ? "Price unavailable" : "Not in PH stores"}</span>
+              )}
+            </CardTile>
           </li>
         ))}
       </ul>
