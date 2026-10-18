@@ -19,7 +19,8 @@ import { ImageNote, RetryingImage } from "./retrying-image";
 
 /** How long the pointer must rest on a link before its preview loads. */
 const HOVER_DELAY_MS = 350;
-const CARD_SIZE = { width: 460, height: 360 };
+// The artwork column is 225px wide, big enough to read the card's own text.
+const CARD_SIZE = { width: 535, height: 420 };
 
 /** What a hover card knows about a card's preview so far. */
 interface Snapshot {
@@ -181,7 +182,7 @@ function HoverCard({
       id={id}
       role="tooltip"
       style={{ left: position.left, top, width: CARD_SIZE.width, maxWidth: "calc(100vw - 24px)" }}
-      className="pointer-events-none fixed z-50 grid grid-cols-[150px_1fr] gap-3 rounded-xl border border-zinc-200 bg-white p-3 text-zinc-900 shadow-xl dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+      className="pointer-events-none fixed z-50 grid grid-cols-[225px_1fr] gap-3 rounded-xl border border-zinc-200 bg-white p-3 text-zinc-900 shadow-xl dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
     >
       <div className="aspect-[488/680] self-start overflow-hidden rounded-[4.75%] bg-zinc-200 dark:bg-zinc-800">
         {loaded?.imageUrl ? (

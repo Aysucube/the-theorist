@@ -86,7 +86,7 @@ export function InteractionsPopover({
       }`}
     >
       <div className="flex gap-3 border-b border-zinc-200 p-3 dark:border-zinc-800">
-        <div className="aspect-[488/680] w-20 shrink-0 overflow-hidden rounded-[4.75%] bg-zinc-200 dark:bg-zinc-800">
+        <div className="aspect-[488/680] w-30 shrink-0 overflow-hidden rounded-[4.75%] bg-zinc-200 dark:bg-zinc-800">
           {card.imageUrl && <RetryingImage url={card.imageUrl} alt={card.name} />}
         </div>
         <div className="min-w-0 flex-1">
