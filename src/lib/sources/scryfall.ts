@@ -1,5 +1,5 @@
 import { cacheLife } from "next/cache";
-import type { CardInfo, Printing, ScryfallCard, ScryfallLookup } from "@/lib/types";
+import type { CardDetails, CardInfo, Printing, ScryfallCard, ScryfallLookup } from "@/lib/types";
 import { SourceError, sourceFetch } from "./http";
 import { createThrottle } from "./throttle";
 
@@ -11,7 +11,7 @@ interface RawFace {
   type_line?: string;
   mana_cost?: string;
   oracle_text?: string;
-  image_uris?: { normal?: string; small?: string };
+  image_uris?: { normal?: string; small?: string; art_crop?: string };
 }
 
 interface RawCard extends RawFace {
@@ -25,6 +25,8 @@ interface RawCard extends RawFace {
   prices: { usd?: string | null; usd_foil?: string | null };
   legalities: Record<string, string>;
   card_faces?: RawFace[];
+  keywords?: string[];
+  cmc?: number;
 }
 
 // Scryfall's hard limits (https://scryfall.com/docs/api/rate-limits): 2 requests
@@ -73,6 +75,7 @@ function toCard(raw: RawCard): ScryfallCard {
     oracleText,
     colorIdentity: raw.color_identity,
     imageUrl: raw.image_uris?.normal ?? front?.image_uris?.normal,
+    artUrl: raw.image_uris?.art_crop ?? front?.image_uris?.art_crop,
     scryfallUrl: raw.scryfall_uri,
     edhrecRank: raw.edhrec_rank,
     priceUsd: usd ? Number(usd) : undefined,
@@ -230,6 +233,17 @@ const COLLECTION_SIZE = 75;
 
 const nameKey = (name: string) => name.trim().toLowerCase();
 
+function toCardInfo(card: RawCard): CardInfo {
+  const full = toCard(card);
+  return {
+    name: card.name,
+    typeLine: card.type_line,
+    manaCost: full.manaCost,
+    colorIdentity: card.color_identity,
+    imageUrl: full.imageUrl,
+  };
+}
+
 /**
  * Type line, mana cost, colors and image for many cards at once, keyed by the name as
  * given. Uses Scryfall's bulk lookup (2 requests for a 100-card deck instead
@@ -240,8 +254,31 @@ export async function getCardInfo(names: string[]): Promise<Record<string, CardI
   "use cache: remote";
   cacheLife("days");
 
+  return mapValues(await collectCards(names), toCardInfo);
+}
+
+/** Like getCardInfo, plus the rules text and keywords the deck beta reads to find synergies. */
+export async function getCardDetails(names: string[]): Promise<Record<string, CardDetails>> {
+  "use cache: remote";
+  cacheLife("days");
+
+  return mapValues(await collectCards(names), (card) => ({
+    ...toCardInfo(card),
+    layout: card.layout,
+    oracleText: toCard(card).oracleText ?? "",
+    keywords: card.keywords ?? [],
+    cmc: card.cmc ?? 0,
+  }));
+}
+
+function mapValues<A, B>(record: Record<string, A>, fn: (value: A) => B): Record<string, B> {
+  return Object.fromEntries(Object.entries(record).map(([k, v]) => [k, fn(v)]));
+}
+
+/** Scryfall's cards for many names, keyed by every spelling asked for. */
+async function collectCards(names: string[]): Promise<Record<string, RawCard>> {
   // Found cards by lower-cased name; each distinct card is asked about once (first spelling wins).
-  const byKey: Record<string, CardInfo> = {};
+  const byKey: Record<string, RawCard> = {};
   const firstSpelling = new Map<string, string>();
   for (const n of names) if (n.trim() && !firstSpelling.has(nameKey(n))) firstSpelling.set(nameKey(n), n.trim());
   const unique = [...firstSpelling.values()];
@@ -257,16 +294,7 @@ export async function getCardInfo(names: string[]): Promise<Record<string, CardI
     const found = batch.filter((b) => !missing.has(nameKey(b.query)));
     found.forEach((b, i) => {
       const card = list.data[i];
-      if (card) {
-        const full = toCard(card);
-        byKey[nameKey(b.asked)] = {
-          name: card.name,
-          typeLine: card.type_line,
-          manaCost: full.manaCost,
-          colorIdentity: card.color_identity,
-          imageUrl: full.imageUrl,
-        };
-      }
+      if (card) byKey[nameKey(b.asked)] = card;
     });
     return batch.filter((b) => missing.has(nameKey(b.query)));
   }
@@ -281,7 +309,7 @@ export async function getCardInfo(names: string[]): Promise<Record<string, CardI
   }
 
   // Answer every spelling that was asked for.
-  const result: Record<string, CardInfo> = {};
+  const result: Record<string, RawCard> = {};
   for (const n of names) {
     const info = byKey[nameKey(n)];
     if (info) result[n] = info;

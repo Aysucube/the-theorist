@@ -9,10 +9,15 @@ Search a Magic: The Gathering card and see, on one page:
 Each card page also lists **every printing** with the cheapest PH copy of each,
 and hovering any card link shows a quick preview (artwork, cheapest price, shop).
 
-Then collect cards into a deck (or paste a list from Moxfield or Archidekt), price
-the whole deck, and get a **shopping list** that uses the fewest stores possible,
+Then collect cards on the **Shopping** page (or paste a list from Moxfield or Archidekt), price
+them all, and get a **shopping list** that uses the fewest stores possible,
 with a ready-to-send order message for each store. Prices always use the cheapest
 printing of a card, whatever printing your list names.
+
+**Deck (beta)** is a separate, early test: paste a deck to see it as a gallery,
+click a card to see which of your cards it interacts with (by card type, subtype
+and theme), and double-click for a synergy map with EDHREC-based recommendations
+in your colors. It keeps its own deck and never changes the Shopping list.
 
 ## Running it locally
 
@@ -96,7 +101,7 @@ several instances needs a shared cache handler; see Next.js's `cacheHandlers` do
 
 ## Limitations
 
-- The deck, saved prices and shopping-list ticks live in the visitor's browser
+- The shopping list, beta deck, saved prices and ticks live in the visitor's browser
   (localStorage). They don't sync between devices.
 - Store totals assume a store has enough copies; TCGph only shows stock per listing.
 - For decks needing more than three stores, the shopping list uses a quick

@@ -8,7 +8,9 @@ export function CardOverview({ lookup }: { lookup: ScryfallLookup }) {
   const { card, alternatives } = lookup;
 
   return (
-    <section className="grid gap-6 sm:grid-cols-[minmax(0,240px)_1fr]">
+    <section className="grid gap-6 text-zinc-100 sm:grid-cols-[minmax(0,240px)_1fr]">
+      {card.artUrl && <ArtBackground url={card.artUrl} />}
+
       <div className="mx-auto w-full max-w-[240px]">
         {card.imageUrl ? (
           <Image
@@ -19,19 +21,19 @@ export function CardOverview({ lookup }: { lookup: ScryfallLookup }) {
             priority
             // Scryfall's CDN already serves sized images and rejects the optimizer's requests.
             unoptimized
-            className="h-auto w-full rounded-[4.75%] shadow-md"
+            className="h-auto w-full rounded-[4.75%] shadow-lg shadow-black/50"
           />
         ) : (
-          <div className="flex aspect-[488/680] items-center justify-center rounded-xl bg-zinc-200 text-sm text-zinc-500 dark:bg-zinc-800">
+          <div className="flex aspect-[488/680] items-center justify-center rounded-xl bg-zinc-800 text-sm text-zinc-400">
             No image
           </div>
         )}
       </div>
 
-      <div className="flex min-w-0 flex-col gap-3">
+      <div className="flex min-w-0 flex-col gap-3 [text-shadow:0_1px_3px_rgb(0_0_0/0.6)]">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">{card.name}</h1>
-          <p className="mt-1 text-zinc-600 dark:text-zinc-400">
+          <h1 className="text-3xl font-semibold tracking-tight text-white">{card.name}</h1>
+          <p className="mt-1 text-zinc-300">
             {card.typeLine}
             {card.manaCost && <span className="ml-2 font-mono text-sm">{card.manaCost}</span>}
           </p>
@@ -41,7 +43,7 @@ export function CardOverview({ lookup }: { lookup: ScryfallLookup }) {
           <p className="whitespace-pre-line text-sm leading-6">{card.oracleText}</p>
         )}
 
-        <ul className="flex flex-wrap gap-2 text-xs font-medium">
+        <ul className="flex flex-wrap gap-2 text-xs font-medium [text-shadow:none]">
           <Badge tone={card.commanderLegal ? "good" : "bad"}>
             {card.commanderLegal ? "Legal in Commander" : "Not legal in Commander"}
           </Badge>
@@ -52,13 +54,13 @@ export function CardOverview({ lookup }: { lookup: ScryfallLookup }) {
           )}
         </ul>
 
-        <div className="flex flex-wrap items-center gap-4">
+        <div className="flex flex-wrap items-center gap-4 [text-shadow:none]">
           <AddToDeckButton name={card.name} />
           <a
             href={card.scryfallUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-sm text-amber-700 hover:underline dark:text-amber-400"
+            className="text-sm text-amber-400 hover:underline"
           >
             View on Scryfall ↗
           </a>
@@ -66,13 +68,13 @@ export function CardOverview({ lookup }: { lookup: ScryfallLookup }) {
 
         {alternatives.length > 0 && (
           <div className="mt-2 text-sm">
-            <p className="text-zinc-500">Not the card you meant? Other matches:</p>
-            <ul className="mt-1 flex flex-wrap gap-2">
+            <p className="text-zinc-300">Not the card you meant? Other matches:</p>
+            <ul className="mt-1 flex flex-wrap gap-2 [text-shadow:none]">
               {alternatives.map((name) => (
                 <li key={name}>
                   <CardLink
                     name={name}
-                    className="inline-block rounded-full border border-zinc-300 px-3 py-1 hover:border-amber-500 dark:border-zinc-700"
+                    className="inline-block rounded-full border border-zinc-500 bg-zinc-950/60 px-3 py-1 hover:border-amber-500"
                   />
                 </li>
               ))}
@@ -84,6 +86,20 @@ export function CardOverview({ lookup }: { lookup: ScryfallLookup }) {
   );
 }
 
+/**
+ * The card's artwork behind the whole page, in grayscale and darkened so the
+ * text on top stays readable (like EDHREC's card headers). It sits behind
+ * everything and fades darker further down, where the panels are.
+ */
+function ArtBackground({ url }: { url: string }) {
+  return (
+    <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10 overflow-hidden bg-zinc-950">
+      <Image src={url} alt="" fill unoptimized sizes="100vw" className="object-cover object-top brightness-[0.4] grayscale" />
+      <div className="absolute inset-0 bg-linear-to-b from-zinc-950/20 via-zinc-950/55 to-zinc-950/90" />
+    </div>
+  );
+}
+
 function Badge({
   tone = "neutral",
   children,
@@ -91,11 +107,12 @@ function Badge({
   tone?: "neutral" | "good" | "bad" | "accent";
   children: React.ReactNode;
 }) {
+  // Always the dark-theme colors: the badges sit on the darkened artwork.
   const tones = {
-    neutral: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
-    good: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",
-    bad: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300",
-    accent: "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300",
+    neutral: "bg-zinc-800 text-zinc-200",
+    good: "bg-emerald-950 text-emerald-300",
+    bad: "bg-red-950 text-red-300",
+    accent: "bg-amber-950 text-amber-300",
   };
   return <li className={`rounded-full px-2.5 py-1 ${tones[tone]}`}>{children}</li>;
 }

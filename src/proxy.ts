@@ -16,6 +16,8 @@ const LIMITS = {
   info: createRateLimiter({ limit: 30, windowMs: 60_000 }),
   // Opening card pages, which look up all three sources.
   card: createRateLimiter({ limit: 60, windowMs: 60_000 }),
+  // Deck beta: a deck's details now and then, and EDHREC pairings per card clicked.
+  deckBeta: createRateLimiter({ limit: 60, windowMs: 60_000 }),
 };
 
 function bucket(pathname: string): keyof typeof LIMITS | null {
@@ -24,6 +26,7 @@ function bucket(pathname: string): keyof typeof LIMITS | null {
   if (pathname === "/api/preview") return "preview";
   if (pathname === "/api/cards/info") return "info";
   if (pathname === "/card") return "card";
+  if (pathname.startsWith("/api/deck-beta/")) return "deckBeta";
   return null;
 }
 
@@ -44,5 +47,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/api/price", "/api/autocomplete", "/api/preview", "/api/cards/info", "/card"],
+  matcher: ["/api/price", "/api/autocomplete", "/api/preview", "/api/cards/info", "/card", "/api/deck-beta/:path*"],
 };

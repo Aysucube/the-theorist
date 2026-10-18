@@ -12,7 +12,7 @@ export function Panel({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-xl border border-zinc-200 p-4 sm:p-6 dark:border-zinc-800">
+    <section className="rounded-xl border border-zinc-200 bg-white p-4 sm:p-6 dark:border-zinc-800 dark:bg-zinc-950/90">
       <header className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-xl font-semibold">{title}</h2>
         {sourceUrl ? (
@@ -35,7 +35,7 @@ export function Panel({
 
 export function PanelSkeleton({ title }: { title: string }) {
   return (
-    <section className="rounded-xl border border-zinc-200 p-4 sm:p-6 dark:border-zinc-800">
+    <section className="rounded-xl border border-zinc-200 bg-white p-4 sm:p-6 dark:border-zinc-800 dark:bg-zinc-950/90">
       <h2 className="mb-4 text-xl font-semibold">{title}</h2>
       <div className="flex flex-col gap-2" aria-label="Loading">
         <div className="h-4 w-2/3 animate-pulse rounded bg-zinc-200 dark:bg-zinc-800" />

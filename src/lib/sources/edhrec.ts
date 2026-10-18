@@ -1,5 +1,7 @@
 import { cacheLife } from "next/cache";
 import type {
+  EdhrecCardPairings,
+  EdhrecPairing,
   EdhrecCardList,
   EdhrecCardRef,
   EdhrecCardStats,
@@ -17,6 +19,8 @@ interface RawCardView {
   num_decks?: number;
   potential_decks?: number;
   synergy?: number;
+  /** On card pages: how many times more often it's played with that card than overall. */
+  lift?: number;
 }
 
 export interface RawPage {
@@ -70,6 +74,37 @@ export function parseCardStats(page: RawPage, path: string): EdhrecCardStats | n
   };
 }
 
+/**
+ * The cards EDHREC lists as played alongside a card (its "Creatures",
+ * "Instants", ... lists), strongest pairing first. Commanders lists are left
+ * out: they say who plays the card, not what goes with it.
+ */
+export function parseCardPairings(page: RawPage, path: string): EdhrecCardPairings | null {
+  const dict = page.container?.json_dict;
+  if (!dict?.card?.name) return null;
+
+  const best = new Map<string, EdhrecPairing>();
+  for (const list of dict.cardlists ?? []) {
+    for (const view of list.cardviews) {
+      if (typeof view.lift !== "number" || !view.name) continue;
+      const pairing: EdhrecPairing = {
+        name: view.name,
+        list: list.header,
+        lift: view.lift,
+        inclusion: view.potential_decks ? (view.num_decks ?? 0) / view.potential_decks : undefined,
+      };
+      const seen = best.get(view.name);
+      if (!seen || seen.lift < pairing.lift) best.set(view.name, pairing);
+    }
+  }
+
+  return {
+    url: `${SITE}/${path}`,
+    pairings: [...best.values()].sort((a, b) => b.lift - a.lift),
+    similar: (page.similar ?? []).filter((name): name is string => typeof name === "string"),
+  };
+}
+
 /** `path` is the page's path under /pages, e.g. "commanders/atraxa-praetors-voice". */
 export function parseCommanderStats(page: RawPage, path: string): EdhrecCommanderStats | null {
   const dict = page.container?.json_dict;
@@ -116,6 +151,15 @@ export async function getCardStats(slug: string): Promise<EdhrecCardStats | null
 
   const result = await getPage(`cards/${slug}`);
   return result && parseCardStats(result.page, result.path);
+}
+
+/** Cards often played with this one. Null if EDHREC doesn't know it. */
+export async function getCardPairings(slug: string): Promise<EdhrecCardPairings | null> {
+  "use cache: remote";
+  cacheLife("days");
+
+  const result = await getPage(`cards/${slug}`);
+  return result && parseCardPairings(result.page, result.path);
 }
 
 /** Recommendations for decks led by this card. Null if it isn't a commander on EDHREC. */

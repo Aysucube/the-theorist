@@ -46,3 +46,12 @@ describe("preview rate limit", () => {
     expect(statuses[120]).toBe(429);
   });
 });
+
+describe("deck beta rate limit", () => {
+  it("limits the beta's card details and EDHREC lookups together, per visitor", () => {
+    const paths = ["/api/deck-beta/cards", "/api/deck-beta/pairings?name=x"];
+    const statuses = Array.from({ length: 61 }, (_, i) => proxy(request(paths[i % 2], "192.0.2.10")).status);
+    expect(statuses.slice(0, 60).every((s) => s === 200)).toBe(true);
+    expect(statuses[60]).toBe(429);
+  });
+});

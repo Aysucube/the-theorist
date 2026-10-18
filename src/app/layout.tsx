@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
-import { DeckLink } from "@/components/deck-buttons";
+import { ShoppingLink } from "@/components/deck-buttons";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -37,7 +37,18 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           >
             Commander PH
           </Link>
-          <DeckLink />
+          <nav className="flex items-center gap-2">
+            <Link
+              href="/deck"
+              className="shrink-0 rounded-full border border-zinc-300 bg-white px-3 py-1 text-sm font-medium whitespace-nowrap hover:border-amber-500 dark:border-zinc-700 dark:bg-zinc-950"
+            >
+              Deck
+              <span className="ml-1.5 rounded-full bg-violet-100 px-1.5 text-[10px] font-semibold text-violet-900 uppercase dark:bg-violet-950 dark:text-violet-300">
+                Beta
+              </span>
+            </Link>
+            <ShoppingLink />
+          </nav>
         </header>
         {children}
       </body>

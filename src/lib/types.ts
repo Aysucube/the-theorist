@@ -14,6 +14,8 @@ export interface ScryfallCard {
   oracleText?: string;
   colorIdentity: string[];
   imageUrl?: string;
+  /** Just the artwork, cropped out of the card frame. */
+  artUrl?: string;
   scryfallUrl: string;
   /** Scryfall's `edhrec_rank`: lower means more popular across all decks. */
   edhrecRank?: number;
@@ -33,6 +35,18 @@ export interface CardInfo {
   colorIdentity: string[];
   /** Card image (Scryfall's default printing), for galleries. */
   imageUrl?: string;
+}
+
+/** CardInfo plus what the deck beta reads to work out how cards interact. */
+export interface CardDetails extends CardInfo {
+  /** Scryfall layout, e.g. "normal", "split", "transform". */
+  layout: string;
+  /** Rules text; both faces for double-faced cards. */
+  oracleText: string;
+  /** Keyword abilities, e.g. "Flying", "Landfall", "Proliferate". */
+  keywords: string[];
+  /** Mana value. */
+  cmc: number;
 }
 
 /** One paper printing of a card, from Scryfall. */
@@ -76,6 +90,25 @@ export interface EdhrecCardStats {
   /** Commanders whose decks run this card most. */
   topCommanders: EdhrecCardRef[];
   /** Cards with a similar role, per EDHREC. */
+  similar: string[];
+}
+
+/** A card often played alongside another, from EDHREC's page for that other card. */
+export interface EdhrecPairing {
+  name: string;
+  /** The EDHREC list it's in, e.g. "Creatures". */
+  list: string;
+  /** How many times more often it's played with the card than in decks overall; above 1 means they go together. */
+  lift: number;
+  /** Share of the card's decks that could play it which do (0–1). */
+  inclusion?: number;
+}
+
+export interface EdhrecCardPairings {
+  url: string;
+  /** Strongest pairing first. */
+  pairings: EdhrecPairing[];
+  /** Cards with a similar role. */
   similar: string[];
 }
 

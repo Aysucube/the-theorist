@@ -70,7 +70,7 @@ export function DeckView() {
   }
 
   if (!ready) {
-    return <p className="text-zinc-500">Loading your deck…</p>;
+    return <p className="text-zinc-500">Loading your shopping list…</p>;
   }
 
   const prices = Object.fromEntries(
@@ -88,7 +88,7 @@ export function DeckView() {
     <div className="flex flex-col gap-8">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Your deck</h1>
+          <h1 className="text-3xl font-semibold tracking-tight">Shopping</h1>
           <p className="text-sm text-zinc-500">
             {formatCount(totalCards)} {totalCards === 1 ? "card" : "cards"} · saved in this browser only
           </p>
@@ -100,7 +100,7 @@ export function DeckView() {
 
       {deck.length === 0 ? (
         <p className="text-zinc-600 dark:text-zinc-400">
-          Your deck is empty. Paste a list above, or use the <strong>Add to deck</strong> and{" "}
+          Your shopping list is empty. Paste a deck list above, or use the <strong>Add to shopping</strong> and{" "}
           <strong>+</strong> buttons when you{" "}
           <Link href="/" className="text-amber-700 hover:underline dark:text-amber-400">
             look up cards
@@ -121,7 +121,7 @@ export function DeckView() {
                   ? `Pricing ${progress.done} of ${progress.total}…`
                   : anyPriced
                     ? "Re-check prices"
-                    : "Price this deck"}
+                    : "Price this list"}
               </button>
               {!progress && pricing.unpriced.length > 0 && anyPriced && (
                 <button
@@ -252,7 +252,7 @@ function ImportBox({ open, onImport }: { open: boolean; onImport: (cards: DeckCa
             type="submit"
             className="h-10 rounded-lg bg-amber-500 px-4 text-sm font-medium text-zinc-950 hover:bg-amber-400"
           >
-            Add to deck
+            Add to list
           </button>
           <span role="status" className="text-sm text-zinc-600 dark:text-zinc-400">
             {message}
@@ -279,7 +279,7 @@ function ClearButton({ onClear }: { onClear: () => void }) {
           : "border-zinc-300 text-zinc-600 hover:border-red-500 dark:border-zinc-700 dark:text-zinc-400"
       }`}
     >
-      {confirming ? "Click again to clear" : "Clear deck"}
+      {confirming ? "Click again to clear" : "Clear list"}
     </button>
   );
 }
@@ -289,7 +289,7 @@ function StoresTable({ stores, inStock }: { stores: StoreCoverage[]; inStock: nu
     <details className="rounded-xl border border-zinc-200 p-4 sm:p-6 dark:border-zinc-800">
       <summary className="cursor-pointer text-xl font-semibold">Compare all stores</summary>
       <p className="mt-1 text-sm text-zinc-500">
-        Stores with the most of your deck first. A store has a card when it has enough copies;
+        Stores with the most of your list first. A store has a card when it has enough copies;
         each total buys that store’s cheapest copies of the cards it has.
       </p>
       <table className="mt-4 w-full text-left text-sm">
@@ -376,7 +376,7 @@ function CardsTable({
               <button
                 type="button"
                 onClick={() => onRemove(card.name)}
-                aria-label={`Remove ${card.name} from deck`}
+                aria-label={`Remove ${card.name} from shopping list`}
                 className="flex size-6 shrink-0 items-center justify-center rounded-full text-zinc-500 hover:bg-red-100 hover:text-red-700 dark:hover:bg-red-950 dark:hover:text-red-400"
               >
                 ×

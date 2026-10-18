@@ -3,6 +3,7 @@ import { fakeFetch, fixture } from "./__fixtures__/load";
 import {
   getCardStats,
   getCommanderStats,
+  parseCardPairings,
   parseCardStats,
   parseCommanderStats,
   type RawPage,
@@ -119,5 +120,25 @@ describe("similar cards", () => {
     const stats = parseCardStats(solRing(), "cards/sol-ring")!;
     expect(stats.similar.length).toBeGreaterThan(0);
     expect(stats.similar.every((name) => typeof name === "string" && name.length > 0)).toBe(true);
+  });
+});
+
+describe("parseCardPairings", () => {
+  it("reads the cards played alongside a card, strongest pairing first, without the commander lists", () => {
+    const result = parseCardPairings(solRing(), "cards/sol-ring")!;
+
+    expect(result.url).toBe("https://edhrec.com/cards/sol-ring");
+    expect(result.pairings.length).toBeGreaterThan(50);
+    const lifts = result.pairings.map((p) => p.lift);
+    expect(lifts).toEqual([...lifts].sort((a, b) => b - a));
+    // Each card once, even when EDHREC lists it twice (e.g. in "Top Cards" and "Creatures").
+    expect(new Set(result.pairings.map((p) => p.name)).size).toBe(result.pairings.length);
+
+    expect(result.pairings.every((p) => p.list !== "Top Commanders" && p.list !== "New Commanders")).toBe(true);
+    expect(result.similar.length).toBeGreaterThan(0);
+  });
+
+  it("returns null for a page without a card", () => {
+    expect(parseCardPairings({}, "cards/x")).toBeNull();
   });
 });
