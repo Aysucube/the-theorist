@@ -1,5 +1,5 @@
 // "Slow but complete": wait and try again when something is busy, instead of
-// giving up. Shared by deck pricing, hover previews and their images.
+// giving up. Shared by deck pricing, card info, hover previews and their images.
 
 /** Waits before each retry after a failure: covers Scryfall's 30-second lockout and then some. */
 export const RETRY_WAITS_MS = [5_000, 10_000, 20_000, 30_000, 30_000];
@@ -21,6 +21,8 @@ export function sleep(ms: number, signal?: AbortSignal): Promise<void> {
 }
 
 export interface RetryOptions {
+  /** Method, headers and body, e.g. for a POST. */
+  init?: Omit<RequestInit, "signal">;
   signal?: AbortSignal;
   fetchFn?: typeof fetch;
   wait?: (ms: number, signal?: AbortSignal) => Promise<void>;
@@ -38,13 +40,13 @@ export interface RetryOptions {
  */
 export async function fetchJsonWithRetry<T>(
   url: string,
-  { signal, fetchFn = fetch, wait = sleep, onWait, busyReason = "a source is busy" }: RetryOptions = {},
+  { init, signal, fetchFn = fetch, wait = sleep, onWait, busyReason = "a source is busy" }: RetryOptions = {},
 ): Promise<T | "error"> {
   let failures = 0;
   for (;;) {
     let res: Response | undefined;
     try {
-      res = await fetchFn(url, { signal });
+      res = await fetchFn(url, { ...init, signal });
     } catch (e) {
       if (signal?.aborted) throw e;
       // Network hiccup: treated like a busy source below.

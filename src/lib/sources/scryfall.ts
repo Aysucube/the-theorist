@@ -1,5 +1,5 @@
 import { cacheLife } from "next/cache";
-import type { Printing, ScryfallCard, ScryfallLookup } from "@/lib/types";
+import type { CardInfo, Printing, ScryfallCard, ScryfallLookup } from "@/lib/types";
 import { SourceError, sourceFetch } from "./http";
 import { createThrottle } from "./throttle";
 
@@ -38,13 +38,13 @@ const throttle = createThrottle({
   maxWaitMs: 20_000,
 });
 
-async function get(path: string): Promise<unknown | null> {
+async function get(path: string, json?: unknown): Promise<unknown | null> {
   try {
     await throttle.wait(SLOW_ENDPOINT.test(path) ? "slow" : "fast");
   } catch (e) {
     throw new SourceError("Scryfall", e instanceof Error ? e.message : "busy");
   }
-  const res = await sourceFetch("Scryfall", `${API}${path}`, "application/json");
+  const res = await sourceFetch("Scryfall", `${API}${path}`, "application/json", json);
   if (res.status === 404) return null;
   if (res.status === 429) {
     throttle.backOff();
@@ -221,4 +221,61 @@ export async function getPrintings(oracleId: string): Promise<Printing[]> {
     path = list.has_more && list.next_page?.startsWith(API) ? list.next_page.slice(API.length) : null;
   }
   return printings;
+}
+
+// --- Card info in bulk --------------------------------------------------------
+
+/** Scryfall's /cards/collection takes up to 75 cards per request. */
+const COLLECTION_SIZE = 75;
+
+const nameKey = (name: string) => name.trim().toLowerCase();
+
+/**
+ * Type line, mana cost and colors for many cards at once, keyed by the name as
+ * given. Uses Scryfall's bulk lookup (2 requests for a 100-card deck instead
+ * of 100). Names Scryfall doesn't know are left out; for split cards, which it
+ * only finds by their first half, the first half is tried too.
+ */
+export async function getCardInfo(names: string[]): Promise<Record<string, CardInfo>> {
+  "use cache: remote";
+  cacheLife("days");
+
+  // Found cards by lower-cased name; each distinct card is asked about once (first spelling wins).
+  const byKey: Record<string, CardInfo> = {};
+  const firstSpelling = new Map<string, string>();
+  for (const n of names) if (n.trim() && !firstSpelling.has(nameKey(n))) firstSpelling.set(nameKey(n), n.trim());
+  const unique = [...firstSpelling.values()];
+
+  async function lookup(batch: { asked: string; query: string }[]) {
+    const list = (await get("/cards/collection", { identifiers: batch.map((b) => ({ name: b.query })) })) as {
+      data: RawCard[];
+      not_found?: { name?: string }[];
+    } | null;
+    if (!list) return [];
+    // Cards come back in the order asked, minus the ones not found.
+    const missing = new Set((list.not_found ?? []).map((n) => nameKey(n.name ?? "")));
+    const found = batch.filter((b) => !missing.has(nameKey(b.query)));
+    found.forEach((b, i) => {
+      const card = list.data[i];
+      if (card) byKey[nameKey(b.asked)] = { name: card.name, typeLine: card.type_line, manaCost: toCard(card).manaCost, colorIdentity: card.color_identity };
+    });
+    return batch.filter((b) => missing.has(nameKey(b.query)));
+  }
+
+  const notFound: { asked: string; query: string }[] = [];
+  for (let i = 0; i < unique.length; i += COLLECTION_SIZE) {
+    notFound.push(...(await lookup(unique.slice(i, i + COLLECTION_SIZE).map((n) => ({ asked: n, query: n })))));
+  }
+  const splitCards = notFound.filter((b) => b.query.includes(" // ")).map((b) => ({ asked: b.asked, query: b.query.split(" // ")[0] }));
+  for (let i = 0; i < splitCards.length; i += COLLECTION_SIZE) {
+    await lookup(splitCards.slice(i, i + COLLECTION_SIZE));
+  }
+
+  // Answer every spelling that was asked for.
+  const result: Record<string, CardInfo> = {};
+  for (const n of names) {
+    const info = byKey[nameKey(n)];
+    if (info) result[n] = info;
+  }
+  return result;
 }

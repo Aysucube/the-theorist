@@ -12,6 +12,8 @@ const LIMITS = {
   autocomplete: createRateLimiter({ limit: 120, windowMs: 60_000 }),
   // Hover cards on card links: a person pausing over links, not a sweep.
   preview: createRateLimiter({ limit: 120, windowMs: 60_000 }),
+  // Card types and costs for a whole deck, one request per deck change.
+  info: createRateLimiter({ limit: 30, windowMs: 60_000 }),
   // Opening card pages, which look up all three sources.
   card: createRateLimiter({ limit: 60, windowMs: 60_000 }),
 };
@@ -20,6 +22,7 @@ function bucket(pathname: string): keyof typeof LIMITS | null {
   if (pathname === "/api/price") return "price";
   if (pathname === "/api/autocomplete") return "autocomplete";
   if (pathname === "/api/preview") return "preview";
+  if (pathname === "/api/cards/info") return "info";
   if (pathname === "/card") return "card";
   return null;
 }
@@ -41,5 +44,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/api/price", "/api/autocomplete", "/api/preview", "/card"],
+  matcher: ["/api/price", "/api/autocomplete", "/api/preview", "/api/cards/info", "/card"],
 };

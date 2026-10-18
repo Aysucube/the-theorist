@@ -2,7 +2,10 @@
 
 import { addCard, importCards, removeCard, type DeckCard } from "@/lib/deck";
 import { createLocalStore, useHydrated } from "@/lib/local-store";
+import { useEffect } from "react";
 import type { Lookup } from "@/lib/price-lookup";
+import { fetchJsonWithRetry } from "@/lib/retry";
+import type { CardInfo } from "@/lib/types";
 
 // Everything here lives in this browser's localStorage: no account needed, but
 // it doesn't follow the user to another device or browser.
@@ -41,6 +44,51 @@ const boughtStore = createLocalStore<string[]>(
   [],
   (v): v is string[] => Array.isArray(v) && v.every((s) => typeof s === "string"),
 );
+
+// Type line and mana cost per card, keyed by lower-cased name. null = Scryfall
+// doesn't know the name, so it isn't asked again.
+const infoStore = createLocalStore<Record<string, CardInfo | null>>(
+  "commander-ph:card-info",
+  {},
+  (v): v is Record<string, CardInfo | null> => typeof v === "object" && v !== null && !Array.isArray(v),
+);
+
+const infoKey = (name: string) => name.trim().toLowerCase();
+// Names already being looked up this visit, so two renders don't ask twice.
+const infoRequested = new Set<string>();
+
+/**
+ * Type line, mana cost and colors for every card in the deck, looked up in one
+ * request for the cards not seen before (retried if busy) and saved here.
+ */
+export function useCardInfo(deck: DeckCard[]): (name: string) => CardInfo | undefined {
+  const info = infoStore.useValue();
+  const missing = deck.map((c) => c.name).filter((n) => !(infoKey(n) in info) && !infoRequested.has(infoKey(n)));
+  const missingKey = missing.join("\n");
+
+  useEffect(() => {
+    if (!missingKey) return;
+    const names = missingKey.split("\n");
+    names.forEach((n) => infoRequested.add(infoKey(n)));
+    const controller = new AbortController();
+    void fetchJsonWithRetry<{ cards: Record<string, CardInfo> }>("/api/cards/info", {
+      init: { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ names }) },
+      signal: controller.signal,
+      busyReason: "Scryfall is busy",
+    })
+      .then((result) => {
+        if (result === "error") return;
+        const merged = { ...infoStore.get() };
+        for (const n of names) merged[infoKey(n)] = result.cards[n] ?? null;
+        infoStore.set(merged);
+      })
+      .catch(() => {})
+      .finally(() => names.forEach((n) => infoRequested.delete(infoKey(n))));
+    return () => controller.abort();
+  }, [missingKey]);
+
+  return (name) => info[infoKey(name)] ?? undefined;
+}
 
 /** The saved deck, plus edits that every component using it sees immediately. */
 export function useDeck() {

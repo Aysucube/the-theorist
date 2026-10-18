@@ -4,17 +4,21 @@ import { useState } from "react";
 import type { DeckCard } from "@/lib/deck";
 import { formatCount, formatPhp } from "@/lib/format";
 import { orderText, planCheapest, planFewestStores, type ShoppingStop } from "@/lib/shopping";
-import type { PriceResponse } from "@/lib/types";
+import type { CardInfo, PriceResponse } from "@/lib/types";
 import { useBought } from "@/lib/use-deck";
 import { CardLink } from "./card-link";
+import { ManaCost } from "./mana";
 
 /** Where to buy the deck with the fewest store visits, one checklist per store. */
 export function ShoppingList({
   deck,
   prices,
+  infoFor,
 }: {
   deck: DeckCard[];
   prices: Record<string, PriceResponse | undefined>;
+  /** Type line and mana cost per card, when known. */
+  infoFor: (name: string) => CardInfo | undefined;
 }) {
   const plan = planFewestStores(deck, prices);
   const cheapest = planCheapest(deck, prices);
@@ -66,7 +70,7 @@ export function ShoppingList({
 
       <ol className="flex flex-col gap-4">
         {plan.stops.map((stop, i) => (
-          <StopCard key={stop.store} stop={stop} number={i + 1} isBought={isBought} onToggle={toggle} />
+          <StopCard key={stop.store} stop={stop} number={i + 1} isBought={isBought} onToggle={toggle} infoFor={infoFor} />
         ))}
       </ol>
 
@@ -85,11 +89,13 @@ function StopCard({
   number,
   isBought,
   onToggle,
+  infoFor,
 }: {
   stop: ShoppingStop;
   number: number;
   isBought: (name: string) => boolean;
   onToggle: (name: string) => void;
+  infoFor: (name: string) => CardInfo | undefined;
 }) {
   const cards = stop.items.reduce((sum, i) => sum + i.qty, 0);
 
@@ -107,6 +113,8 @@ function StopCard({
       <ul>
         {stop.items.map((item) => {
           const bought = isBought(item.name);
+          const info = infoFor(item.name);
+          const stock = item.offer.quantity;
           return (
             <li
               key={item.name}
@@ -120,12 +128,17 @@ function StopCard({
                 className="size-4 shrink-0 accent-emerald-600"
               />
               <div className={`min-w-0 flex-1 ${bought ? "text-zinc-400 line-through" : ""}`}>
-                <div className="truncate">
-                  {item.qty > 1 && <span className="tabular-nums">{item.qty}× </span>}
-                  <CardLink name={item.name} className="hover:underline" />
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className="min-w-0 truncate">
+                    {item.qty > 1 && <span className="tabular-nums">{item.qty}× </span>}
+                    <CardLink name={item.name} className="hover:underline" />
+                  </span>
+                  {info?.manaCost && <ManaCost cost={info.manaCost} />}
                 </div>
                 <div className="truncate text-xs text-zinc-500">
-                  {[item.offer.printing, item.offer.conditionLabel ?? item.offer.condition].filter(Boolean).join(" · ")}
+                  {[info?.typeLine, item.offer.printing, item.offer.conditionLabel ?? item.offer.condition]
+                    .filter(Boolean)
+                    .join(" · ")}
                 </div>
               </div>
               <div className="shrink-0 text-right">
@@ -140,6 +153,15 @@ function StopCard({
                 </a>
                 {item.qty > 1 && (
                   <div className="text-xs text-zinc-500 tabular-nums">{formatPhp(item.offer.pricePhp)} each</div>
+                )}
+                {stock !== undefined && (
+                  <div
+                    className={`text-xs tabular-nums ${
+                      stock < item.qty ? "font-medium text-amber-700 dark:text-amber-400" : "text-zinc-500"
+                    }`}
+                  >
+                    {stock < item.qty ? `only ${formatCount(stock)} in stock` : `${formatCount(stock)} in stock`}
+                  </div>
                 )}
               </div>
             </li>

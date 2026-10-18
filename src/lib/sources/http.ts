@@ -22,10 +22,22 @@ export function reportSourceError(where: string, error: unknown): string {
 }
 
 /** fetch() with our User-Agent and a timeout; network failures become SourceErrors. */
-export async function sourceFetch(source: string, url: string, accept: string): Promise<Response> {
+export async function sourceFetch(
+  source: string,
+  url: string,
+  accept: string,
+  /** For a POST: the JSON body to send. */
+  json?: unknown,
+): Promise<Response> {
   try {
     return await fetch(url, {
-      headers: { "User-Agent": USER_AGENT, Accept: accept },
+      method: json === undefined ? "GET" : "POST",
+      headers: {
+        "User-Agent": USER_AGENT,
+        Accept: accept,
+        ...(json === undefined ? {} : { "Content-Type": "application/json" }),
+      },
+      body: json === undefined ? undefined : JSON.stringify(json),
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
   } catch (e) {

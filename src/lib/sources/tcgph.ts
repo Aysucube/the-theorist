@@ -161,6 +161,7 @@ export function summarizePrices(prices: TcgphPrices): TcgphSummary {
     condition: listing.condition,
     conditionLabel: listing.conditionLabel,
     url: listing.url,
+    quantity: listing.quantity,
     printing:
       [print.setCode && `${print.setCode} #${print.collectorNumber}`, print.finish]
         .filter(Boolean)

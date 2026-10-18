@@ -23,6 +23,16 @@ export interface ScryfallCard {
   canBeCommander: boolean;
 }
 
+/** The basics shown next to a card name in deck lists. */
+export interface CardInfo {
+  /** Scryfall's full name, e.g. both faces of a double-faced card. */
+  name: string;
+  typeLine: string;
+  manaCost?: string;
+  /** W, U, B, R, G; empty for colorless. */
+  colorIdentity: string[];
+}
+
 /** One paper printing of a card, from Scryfall. */
 export interface Printing {
   /** Upper-case, as TCGph shows it, e.g. "CMM". */
@@ -119,7 +129,7 @@ export interface TcgphPrices {
 
 /** One store listing, trimmed to what the price button and shopping list show. */
 export interface ListingBrief
-  extends Pick<TcgphListing, "pricePhp" | "store" | "condition" | "conditionLabel" | "url"> {
+  extends Pick<TcgphListing, "pricePhp" | "store" | "condition" | "conditionLabel" | "url" | "quantity"> {
   /** Which printing, e.g. "CMM #410 · Foil", so a store knows which copy is meant. */
   printing?: string;
 }

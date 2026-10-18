@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fakeFetch, fixture } from "./__fixtures__/load";
-import { AUTOCOMPLETE_LIMIT, getPrintings, rankSuggestions, suggestCardNames } from "./scryfall";
+import { AUTOCOMPLETE_LIMIT, getCardInfo, getPrintings, rankSuggestions, suggestCardNames } from "./scryfall";
 
 vi.mock("next/cache", () => ({ cacheLife: () => {} }));
 
@@ -98,6 +98,42 @@ describe("getPrintings", () => {
       expect(p.collectorNumber).not.toBe("");
       expect(p.releasedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     }
+  });
+});
+
+describe("getCardInfo", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  const card = (name: string, type_line: string, mana_cost: string, color_identity: string[]) => ({
+    id: name, name, layout: "normal", type_line, mana_cost, color_identity,
+    scryfall_uri: "https://scryfall.com/card/x", prices: {}, legalities: {},
+  });
+  const KNOWN: Record<string, ReturnType<typeof card>> = {
+    "sol ring": card("Sol Ring", "Artifact", "{1}", []),
+    // Scryfall's bulk lookup only finds split cards by their first half.
+    fire: card("Fire // Ice", "Instant // Instant", "{1}{R} // {1}{U}", ["R", "U"]),
+  };
+
+  it("looks up many cards at once, in order, retrying split cards by their first half", async () => {
+    const asked: string[][] = [];
+    vi.stubGlobal("fetch", async (_url: string, init: RequestInit) => {
+      const names = (JSON.parse(String(init.body)) as { identifiers: { name: string }[] }).identifiers.map((i) => i.name);
+      asked.push(names);
+      const found = names.filter((n) => KNOWN[n.toLowerCase()]);
+      return Response.json({
+        data: found.map((n) => KNOWN[n.toLowerCase()]),
+        not_found: names.filter((n) => !KNOWN[n.toLowerCase()]).map((name) => ({ name })),
+      });
+    });
+
+    const info = await getCardInfo(["Sol Ring", "Fire // Ice", "Nope", "sol ring"]);
+
+    expect(asked).toEqual([["Sol Ring", "Fire // Ice", "Nope"], ["Fire"]]);
+    expect(info).toEqual({
+      "Sol Ring": { name: "Sol Ring", typeLine: "Artifact", manaCost: "{1}", colorIdentity: [] },
+      "sol ring": { name: "Sol Ring", typeLine: "Artifact", manaCost: "{1}", colorIdentity: [] },
+      "Fire // Ice": { name: "Fire // Ice", typeLine: "Instant // Instant", manaCost: "{1}{R} // {1}{U}", colorIdentity: ["R", "U"] },
+    });
   });
 });
 

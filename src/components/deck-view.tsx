@@ -6,9 +6,11 @@ import { MAX_DECK_CARDS, parseDeckList, priceDeck, type DeckCard, type StoreCove
 import { formatCount, formatPhp } from "@/lib/format";
 import { lookupPrice, sleep } from "@/lib/price-lookup";
 import { planCheapest, planFewestStores } from "@/lib/shopping";
-import { useDeck, useSavedPrices, type Lookup } from "@/lib/use-deck";
+import type { CardInfo } from "@/lib/types";
+import { useCardInfo, useDeck, useSavedPrices, type Lookup } from "@/lib/use-deck";
 import { ShoppingList } from "./shopping-list";
 import { CardLink } from "./card-link";
+import { ManaCost } from "./mana";
 
 // Cards are priced one at a time with a short breather in between. Slow, but
 // it keeps well inside Scryfall's and TCGph's limits, and busy sources are
@@ -27,6 +29,8 @@ interface Progress {
 export function DeckView() {
   const { deck, ready, remove, importCards, clear } = useDeck();
   const { lookups, pricedAt, record, markDone } = useSavedPrices();
+  // Type line and mana cost for every card, fetched once per new card and saved.
+  const infoFor = useCardInfo(deck);
   const [progress, setProgress] = useState<Progress | null>(null);
   const controller = useRef<AbortController | null>(null);
 
@@ -195,13 +199,13 @@ export function DeckView() {
             )}
           </section>
 
-          {!progress && <ShoppingList deck={deck} prices={prices} />}
+          {!progress && <ShoppingList deck={deck} prices={prices} infoFor={infoFor} />}
 
           {pricing.stores.length > 0 && (
             <StoresTable stores={pricing.stores} inStock={pricing.inStock.length} />
           )}
 
-          <CardsTable deck={deck} lookups={lookups} onRemove={remove} />
+          <CardsTable deck={deck} lookups={lookups} infoFor={infoFor} onRemove={remove} />
         </>
       )}
     </div>
@@ -334,36 +338,47 @@ function StoresTable({ stores, inStock }: { stores: StoreCoverage[]; inStock: nu
 function CardsTable({
   deck,
   lookups,
+  infoFor,
   onRemove,
 }: {
   deck: DeckCard[];
   lookups: Record<string, Lookup>;
+  infoFor: (name: string) => CardInfo | undefined;
   onRemove: (name: string) => void;
 }) {
   return (
     <section className="rounded-xl border border-zinc-200 p-4 sm:p-6 dark:border-zinc-800">
       <h2 className="text-xl font-semibold">Cards</h2>
       <ul className="mt-3">
-        {deck.map((card) => (
-          <li
-            key={card.name}
-            className="flex items-center gap-3 border-b border-zinc-100 py-2 text-sm last:border-0 dark:border-zinc-900"
-          >
-            <span className="w-8 shrink-0 text-right text-zinc-500 tabular-nums">{card.qty}×</span>
-            <CardLink name={card.name} className="min-w-0 flex-1 truncate hover:underline" />
-            <span className="shrink-0 text-right text-xs">
-              <LinePrice qty={card.qty} lookup={lookups[card.name]} />
-            </span>
-            <button
-              type="button"
-              onClick={() => onRemove(card.name)}
-              aria-label={`Remove ${card.name} from deck`}
-              className="flex size-6 shrink-0 items-center justify-center rounded-full text-zinc-500 hover:bg-red-100 hover:text-red-700 dark:hover:bg-red-950 dark:hover:text-red-400"
+        {deck.map((card) => {
+          const info = infoFor(card.name);
+          return (
+            <li
+              key={card.name}
+              className="flex items-center gap-3 border-b border-zinc-100 py-2 text-sm last:border-0 dark:border-zinc-900"
             >
-              ×
-            </button>
-          </li>
-        ))}
+              <span className="w-8 shrink-0 text-right text-zinc-500 tabular-nums">{card.qty}×</span>
+              <div className="min-w-0 flex-1">
+                <div className="flex min-w-0 items-center gap-2">
+                  <CardLink name={card.name} className="min-w-0 truncate hover:underline" />
+                  {info?.manaCost && <ManaCost cost={info.manaCost} />}
+                </div>
+                {info?.typeLine && <p className="truncate text-xs text-zinc-500">{info.typeLine}</p>}
+              </div>
+              <span className="shrink-0 text-right text-xs">
+                <LinePrice qty={card.qty} lookup={lookups[card.name]} />
+              </span>
+              <button
+                type="button"
+                onClick={() => onRemove(card.name)}
+                aria-label={`Remove ${card.name} from deck`}
+                className="flex size-6 shrink-0 items-center justify-center rounded-full text-zinc-500 hover:bg-red-100 hover:text-red-700 dark:hover:bg-red-950 dark:hover:text-red-400"
+              >
+                ×
+              </button>
+            </li>
+          );
+        })}
       </ul>
     </section>
   );

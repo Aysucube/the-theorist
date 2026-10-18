@@ -233,3 +233,12 @@ describe("getPrices on a heavily reprinted card", () => {
     expect(cheapestFirst(prices!)[0].listing.pricePhp).toBe(5);
   });
 });
+
+describe("store stock", () => {
+  it("passes each store's stock count through to the price summary", () => {
+    const page = parseCardPage(fixture("tcgph/sol-ring.html"), SOL_RING);
+    const { byStore, cheapest } = summarizePrices({ url: SOL_RING, prints: page.prints });
+    expect(cheapest?.quantity).toBeGreaterThanOrEqual(1);
+    expect(byStore.every((s) => s.quantity === undefined || s.quantity >= 1)).toBe(true);
+  });
+});
