@@ -21,7 +21,10 @@ export interface ScryfallCard {
   edhrecRank?: number;
   priceUsd?: number;
   commanderLegal: boolean;
-  /** Legendary creature, or text says it can be your commander. */
+  /**
+   * Can lead a deck: a legendary card with power/toughness on its front face
+   * (creatures, and since 2025 Vehicles and Spacecraft), or text that says so.
+   */
   canBeCommander: boolean;
 }
 

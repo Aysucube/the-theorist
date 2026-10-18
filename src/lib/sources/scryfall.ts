@@ -1,4 +1,5 @@
 import { cacheLife } from "next/cache";
+import { canBeCommander } from "@/lib/commander-rules";
 import type { CardDetails, CardInfo, Printing, Ruling, ScryfallCard, ScryfallLookup } from "@/lib/types";
 import { SourceError, sourceFetch } from "./http";
 import { createThrottle } from "./throttle";
@@ -11,6 +12,9 @@ interface RawFace {
   type_line?: string;
   mana_cost?: string;
   oracle_text?: string;
+  /** Printed power and toughness ("6", "*"); missing on cards without a P/T box. */
+  power?: string;
+  toughness?: string;
   image_uris?: { normal?: string; small?: string; art_crop?: string };
 }
 
@@ -80,9 +84,12 @@ function toCard(raw: RawCard): ScryfallCard {
     edhrecRank: raw.edhrec_rank,
     priceUsd: usd ? Number(usd) : undefined,
     commanderLegal: raw.legalities.commander === "legal",
-    canBeCommander:
-      (/\bLegendary\b/.test(frontType) && /\bCreature\b/.test(frontType)) ||
-      /can be your commander/i.test(frontText),
+    canBeCommander: canBeCommander({
+      typeLine: frontType,
+      power: front?.power ?? raw.power,
+      toughness: front?.toughness ?? raw.toughness,
+      oracleText: frontText,
+    }),
   };
 }
 
