@@ -3,8 +3,8 @@
 import { useState } from "react";
 import type { DeckCard } from "@/lib/deck";
 import { formatCount, formatPhp } from "@/lib/format";
-import { orderText, planCheapest, planFewestStores, type ShoppingStop } from "@/lib/shopping";
-import type { CardInfo, PriceResponse } from "@/lib/types";
+import { orderText, planCheapest, planFewestStores, tickKey, type ShoppingStop } from "@/lib/shopping";
+import type { CardInfo, ListingBrief, PriceResponse } from "@/lib/types";
 import { useBought } from "@/lib/use-deck";
 import { CardLink } from "./card-link";
 import { ManaCost } from "./mana";
@@ -26,8 +26,8 @@ export function ShoppingList({
 
   if (plan.stops.length === 0) return null;
 
-  const items = plan.stops.flatMap((s) => s.items);
-  const boughtCount = items.filter((i) => isBought(i.name)).length;
+  const ticks = plan.stops.flatMap((s) => s.items.map((i) => tickKey(i, s.store)));
+  const boughtCount = ticks.filter(isBought).length;
   const extra = plan.totalPhp - cheapest.totalPhp;
   const stopCount = plan.stops.length;
 
@@ -59,7 +59,7 @@ export function ShoppingList({
 
       <div className="flex flex-wrap items-center gap-3 text-sm">
         <span className="tabular-nums">
-          Bought {formatCount(boughtCount)} of {formatCount(items.length)}
+          Bought {formatCount(boughtCount)} of {formatCount(ticks.length)}
         </span>
         {boughtCount > 0 && (
           <button type="button" onClick={reset} className="text-zinc-500 underline hover:text-zinc-700 dark:hover:text-zinc-300">
@@ -74,6 +74,14 @@ export function ShoppingList({
         ))}
       </ol>
 
+      {plan.short.length > 0 && (
+        <p className="text-sm text-amber-700 dark:text-amber-400">
+          <span className="font-medium">Not enough copies in stock ({formatCount(plan.short.length)}):</span>{" "}
+          {plan.short.map((c) => `${c.name} (${formatCount(c.inStock)} of ${formatCount(c.qty)})`).join(", ")}. The
+          list above buys every copy there is.
+        </p>
+      )}
+
       {plan.unavailable.length > 0 && (
         <p className="text-sm text-zinc-600 dark:text-zinc-400">
           <span className="font-medium">Not in stock anywhere ({formatCount(plan.unavailable.length)}):</span>{" "}
@@ -83,6 +91,9 @@ export function ShoppingList({
     </section>
   );
 }
+
+/** Which copy a listing is, so the store hands over the right one. */
+const copyDetails = (offer: ListingBrief) => [offer.printing, offer.conditionLabel ?? offer.condition];
 
 function StopCard({
   stop,
@@ -112,9 +123,10 @@ function StopCard({
       </div>
       <ul>
         {stop.items.map((item) => {
-          const bought = isBought(item.name);
+          const tick = tickKey(item, stop.store);
+          const bought = isBought(tick);
           const info = infoFor(item.name);
-          const stock = item.offer.quantity;
+          const [first, ...more] = item.parts;
           return (
             <li
               key={item.name}
@@ -123,7 +135,7 @@ function StopCard({
               <input
                 type="checkbox"
                 checked={bought}
-                onChange={() => onToggle(item.name)}
+                onChange={() => onToggle(tick)}
                 aria-label={`Bought ${item.name}`}
                 className="size-4 shrink-0 accent-emerald-600"
               />
@@ -136,14 +148,30 @@ function StopCard({
                   {info?.manaCost && <ManaCost cost={info.manaCost} />}
                 </div>
                 <div className="truncate text-xs text-zinc-500">
-                  {[info?.typeLine, item.offer.printing, item.offer.conditionLabel ?? item.offer.condition]
-                    .filter(Boolean)
-                    .join(" · ")}
+                  {[info?.typeLine, ...(more.length === 0 ? copyDetails(first.offer) : [])].filter(Boolean).join(" · ")}
                 </div>
+                {more.length > 0 && (
+                  // One listing hasn't enough copies: say which copies to take from each.
+                  <ul className="text-xs text-zinc-500">
+                    {item.parts.map((part, i) => (
+                      <li key={i} className="truncate tabular-nums">
+                        {part.qty}× {copyDetails(part.offer).filter(Boolean).join(" · ")} at{" "}
+                        <a href={part.offer.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                          {formatPhp(part.offer.pricePhp)}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {item.alsoAt.length > 0 && (
+                  <div className="text-xs text-amber-700 dark:text-amber-400">
+                    + {item.alsoAt.map((a) => `${formatCount(a.qty)} more at ${a.store}`).join(", ")}
+                  </div>
+                )}
               </div>
               <div className="shrink-0 text-right">
                 <a
-                  href={item.offer.url}
+                  href={first.offer.url}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="font-semibold text-emerald-700 tabular-nums hover:underline dark:text-emerald-400"
@@ -151,18 +179,10 @@ function StopCard({
                 >
                   {formatPhp(item.lineTotalPhp)} ↗
                 </a>
-                {item.qty > 1 && (
-                  <div className="text-xs text-zinc-500 tabular-nums">{formatPhp(item.offer.pricePhp)} each</div>
+                {item.qty > 1 && more.length === 0 && (
+                  <div className="text-xs text-zinc-500 tabular-nums">{formatPhp(first.offer.pricePhp)} each</div>
                 )}
-                {stock !== undefined && (
-                  <div
-                    className={`text-xs tabular-nums ${
-                      stock < item.qty ? "font-medium text-amber-700 dark:text-amber-400" : "text-zinc-500"
-                    }`}
-                  >
-                    {stock < item.qty ? `only ${formatCount(stock)} in stock` : `${formatCount(stock)} in stock`}
-                  </div>
-                )}
+                <div className="text-xs text-zinc-500 tabular-nums">{formatCount(item.stock)} in stock</div>
               </div>
             </li>
           );

@@ -1,4 +1,5 @@
 // Deck list logic, kept free of React and storage so it's easy to test.
+import { buyAnywhere, buyCheapest, listingsOf, stockOf } from "@/lib/stock";
 import type { PriceResponse } from "@/lib/types";
 
 export interface DeckCard {
@@ -71,16 +72,18 @@ export function importCards(deck: DeckCard[], cards: DeckCard[]): DeckCard[] {
 
 export interface StoreCoverage {
   store: string;
-  /** How many of the deck's in-stock cards this store has. */
+  /** How many of the deck's in-stock cards this store has enough copies of. */
   cards: number;
-  /** Cost of those cards at this store, using its cheapest listing for each. */
+  /** Cost of those cards at this store, buying its cheapest copies of each. */
   totalPhp: number;
-  /** In-stock cards (elsewhere) that this store doesn't have. */
+  /** In-stock cards (elsewhere) that this store doesn't have enough copies of. */
   missing: string[];
+  /** Of the missing cards, the ones this store has some copies of: name → copies. */
+  tooFew: Record<string, number>;
 }
 
 export interface DeckPricing {
-  /** Each card at its cheapest listing anywhere, times its quantity. */
+  /** Each card's cheapest copies anywhere, as many as the deck needs (or as are in stock). */
   cheapestTotalPhp: number;
   /** Cards with at least one listing. */
   inStock: string[];
@@ -94,12 +97,13 @@ export interface DeckPricing {
 
 /**
  * Totals for a deck given each card's price lookup (keyed by card name, any
- * case). Totals assume a store has enough copies; TCGph only gives per-listing stock.
+ * case). Several copies of a card are bought cheapest first, which can take
+ * more than one listing when a listing hasn't enough stock.
  */
 export function priceDeck(deck: DeckCard[], prices: Record<string, PriceResponse | undefined>): DeckPricing {
   const lookup = new Map(Object.entries(prices).map(([name, price]) => [key(name), price]));
   const result: DeckPricing = { cheapestTotalPhp: 0, inStock: [], unavailable: [], unpriced: [], stores: [] };
-  const stores = new Map<string, { cards: Set<string>; totalPhp: number }>();
+  const stores = new Map<string, { cards: Set<string>; totalPhp: number; tooFew: Record<string, number> }>();
 
   for (const card of deck) {
     const price = lookup.get(key(card.name));
@@ -112,21 +116,27 @@ export function priceDeck(deck: DeckCard[], prices: Record<string, PriceResponse
       continue;
     }
     result.inStock.push(card.name);
-    result.cheapestTotalPhp += price.cheapest.pricePhp * card.qty;
+    result.cheapestTotalPhp += buyAnywhere(price.byStore, card.qty).totalPhp;
     for (const offer of price.byStore) {
-      const store = stores.get(offer.store) ?? { cards: new Set<string>(), totalPhp: 0 };
-      store.cards.add(card.name);
-      store.totalPhp += offer.pricePhp * card.qty;
+      const store = stores.get(offer.store) ?? { cards: new Set<string>(), totalPhp: 0, tooFew: {} };
+      const purchase = buyCheapest([listingsOf(offer)], card.qty);
+      if (purchase.qty < card.qty) {
+        store.tooFew[card.name] = stockOf(offer);
+      } else {
+        store.cards.add(card.name);
+        store.totalPhp += purchase.totalPhp;
+      }
       stores.set(offer.store, store);
     }
   }
 
   result.stores = [...stores.entries()]
-    .map(([store, { cards, totalPhp }]) => ({
+    .map(([store, { cards, totalPhp, tooFew }]) => ({
       store,
       cards: cards.size,
       totalPhp,
       missing: result.inStock.filter((name) => !cards.has(name)),
+      tooFew,
     }))
     .sort((a, b) => b.cards - a.cards || a.totalPhp - b.totalPhp);
   return result;

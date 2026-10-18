@@ -6,6 +6,7 @@ import { MAX_DECK_CARDS, parseDeckList, priceDeck, type DeckCard, type StoreCove
 import { formatCount, formatPhp } from "@/lib/format";
 import { lookupPrice, sleep } from "@/lib/price-lookup";
 import { planCheapest, planFewestStores } from "@/lib/shopping";
+import { buyAnywhere } from "@/lib/stock";
 import type { CardInfo } from "@/lib/types";
 import { useCardInfo, useDeck, useSavedPrices, type Lookup } from "@/lib/use-deck";
 import { ShoppingList } from "./shopping-list";
@@ -188,7 +189,8 @@ export function DeckView() {
             )}
             {anyPriced && (
               <p className="text-xs text-zinc-500">
-                Totals assume a store has enough copies; TCGph only shows stock per listing.
+                Totals count each store’s stock: when one listing hasn’t enough copies, the next cheapest
+                makes up the rest.
               </p>
             )}
             {pricing.unavailable.length > 0 && (
@@ -287,8 +289,8 @@ function StoresTable({ stores, inStock }: { stores: StoreCoverage[]; inStock: nu
     <details className="rounded-xl border border-zinc-200 p-4 sm:p-6 dark:border-zinc-800">
       <summary className="cursor-pointer text-xl font-semibold">Compare all stores</summary>
       <p className="mt-1 text-sm text-zinc-500">
-        Stores with the most of your deck first. Each total uses that store’s cheapest copy of
-        the cards it has.
+        Stores with the most of your deck first. A store has a card when it has enough copies;
+        each total buys that store’s cheapest copies of the cards it has.
       </p>
       <table className="mt-4 w-full text-left text-sm">
         <thead className="text-xs text-zinc-500">
@@ -321,7 +323,10 @@ function StoresTable({ stores, inStock }: { stores: StoreCoverage[]; inStock: nu
                     </summary>
                     <ul className="mt-1 text-xs">
                       {s.missing.map((name) => (
-                        <li key={name}>{name}</li>
+                        <li key={name}>
+                          {name}
+                          {name in s.tooFew && ` (only ${formatCount(s.tooFew[name])})`}
+                        </li>
                       ))}
                     </ul>
                   </details>
@@ -388,16 +393,29 @@ function LinePrice({ qty, lookup }: { qty: number; lookup: Lookup | undefined })
   if (!lookup) return <span className="text-zinc-400">—</span>;
   if (lookup === "error") return <span className="text-red-600 dark:text-red-400">Failed</span>;
   if (!lookup.found) return <span className="text-zinc-500">Not on TCGph</span>;
-  if (!lookup.cheapest) return <span className="text-zinc-500">Out of stock</span>;
+  // The cheapest copies anywhere, which for several copies may span listings and stores.
+  const purchase = buyAnywhere(lookup.byStore, qty);
+  if (purchase.qty === 0) return <span className="text-zinc-500">Out of stock</span>;
 
-  const { pricePhp, store } = lookup.cheapest;
+  const stores = [...new Set(purchase.parts.map((p) => p.offer.store))];
+  const low = purchase.parts[0].offer.pricePhp;
+  const high = purchase.parts[purchase.parts.length - 1].offer.pricePhp;
   return (
     <a href={lookup.url} target="_blank" rel="noopener noreferrer" className="whitespace-nowrap hover:underline">
       <span className="font-semibold text-emerald-700 tabular-nums dark:text-emerald-400">
-        {formatPhp(pricePhp * qty)}
+        {formatPhp(purchase.totalPhp)}
       </span>{" "}
-      <span className="text-zinc-600 dark:text-zinc-400">{store}</span>
-      {qty > 1 && <span className="block text-zinc-500">{formatPhp(pricePhp)} each</span>}
+      <span className="text-zinc-600 dark:text-zinc-400">
+        {stores.length === 1 ? stores[0] : `${formatCount(stores.length)} stores`}
+      </span>
+      {qty > 1 && (
+        <span className="block text-zinc-500">
+          {low === high ? formatPhp(low) : `${formatPhp(low)}–${formatPhp(high)}`} each
+        </span>
+      )}
+      {purchase.qty < qty && (
+        <span className="block text-amber-700 dark:text-amber-400">only {formatCount(purchase.qty)} in stock</span>
+      )}
     </a>
   );
 }

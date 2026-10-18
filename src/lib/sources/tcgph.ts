@@ -1,7 +1,9 @@
 import * as cheerio from "cheerio";
 import { cacheLife } from "next/cache";
+import { copiesOf, enoughFor } from "@/lib/stock";
 import type {
   ListingBrief,
+  StoreOffer,
   TcgphListing,
   TcgphPrice,
   TcgphPrices,
@@ -20,6 +22,11 @@ const SITE = "https://tcgph.com";
 const MAX_PAGES = 40;
 // A short breather between pages keeps a 25-page card from hammering TCGph.
 const PAUSE_BETWEEN_PAGES_MS = 250;
+// A Commander deck holds at most 99 copies of a card besides the commander, so
+// listings for that many copies per store are enough to buy any deck. Basic
+// lands have thousands of listings; sending every one would bloat each price
+// response and the prices the deck page saves in the browser.
+const LISTED_COPIES_PER_STORE = 99;
 
 export interface ParsedCardPage {
   /** Unknown slugs still return 200, but only real card pages carry schema.org Product data. */
@@ -169,11 +176,19 @@ export function summarizePrices(prices: TcgphPrices): TcgphSummary {
   });
 
   const rows = cheapestFirst(prices);
-  // Rows are cheapest first, so the first listing seen per store is that store's cheapest.
-  const byStore = new Map<string, TcgphPrice>();
+  // Rows are cheapest first, so each store's listings come out cheapest first,
+  // and stores in order of their cheapest listing.
+  const byStore = new Map<string, ListingBrief[]>();
   for (const row of rows) {
-    if (!byStore.has(row.listing.store)) byStore.set(row.listing.store, row);
+    const listings = byStore.get(row.listing.store);
+    if (listings) listings.push(brief(row));
+    else byStore.set(row.listing.store, [brief(row)]);
   }
+  const offer = (listings: ListingBrief[]): StoreOffer => ({
+    ...listings[0],
+    stock: listings.reduce((sum, l) => sum + copiesOf(l), 0),
+    listings: enoughFor(listings, LISTED_COPIES_PER_STORE),
+  });
 
   return {
     url: prices.url,
@@ -181,6 +196,6 @@ export function summarizePrices(prices: TcgphPrices): TcgphSummary {
     imageUrl: rows[0]?.print.imageUrl ?? prices.prints.find((p) => p.imageUrl)?.imageUrl,
     stores: byStore.size,
     listings: rows.length,
-    byStore: [...byStore.values()].map(brief),
+    byStore: [...byStore.values()].map(offer),
   };
 }

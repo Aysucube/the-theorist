@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { TcgphPrint } from "@/lib/types";
+import type { TcgphListing, TcgphPrint } from "@/lib/types";
 import { fakeFetch, fixture } from "./__fixtures__/load";
 import { cheapestFirst, getPrices, mergePrints, parseCardPage, summarizePrices } from "./tcgph";
 
@@ -240,5 +240,69 @@ describe("store stock", () => {
     const { byStore, cheapest } = summarizePrices({ url: SOL_RING, prints: page.prints });
     expect(cheapest?.quantity).toBeGreaterThanOrEqual(1);
     expect(byStore.every((s) => s.quantity === undefined || s.quantity >= 1)).toBe(true);
+  });
+
+  const listing = (id: string, store: string, pricePhp: number, quantity?: number): TcgphListing => ({
+    listingId: id,
+    store,
+    condition: "NM",
+    conditionLabel: "Near Mint",
+    quantity,
+    pricePhp,
+    url: `https://${store.toLowerCase()}.example/${id}`,
+  });
+  const print = (printId: string, setCode: string, listings: TcgphListing[]): TcgphPrint => ({
+    printId,
+    setName: "Set",
+    setCode,
+    collectorNumber: "1",
+    finish: "Nonfoil",
+    url: "https://tcgph.com/cards/x",
+    listings,
+  });
+  const ISLAND = "https://tcgph.com/card/island";
+
+  it("adds up each store's copies across its listings and printings, cheapest listing first", () => {
+    const { byStore } = summarizePrices({
+      url: ISLAND,
+      prints: [
+        print("p1", "M21", [listing("1", "HMO", 35, 10), listing("2", "GGH", 32, 2)]),
+        print("p2", "ZNR", [listing("3", "HMO", 30, 5), listing("4", "GGH", 40)]),
+      ],
+    });
+
+    expect(byStore.map((s) => s.store)).toEqual(["HMO", "GGH"]);
+    const [hmo, ggh] = byStore;
+    // Still the store's cheapest listing on top, for everything that only needs one copy.
+    expect(hmo).toMatchObject({ pricePhp: 30, quantity: 5, printing: "ZNR #1 · Nonfoil", stock: 15 });
+    // Enough to buy 8: 5 at ₱30, then 3 more from the ₱35 listing.
+    expect(hmo.listings!.map((l) => [l.pricePhp, l.quantity, l.printing, l.url])).toEqual([
+      [30, 5, "ZNR #1 · Nonfoil", "https://hmo.example/3"],
+      [35, 10, "M21 #1 · Nonfoil", "https://hmo.example/1"],
+    ]);
+    // A listing with no readable count is still at least one copy.
+    expect(ggh.stock).toBe(3);
+  });
+
+  it("lists only enough of a store's listings for 99 copies, but counts all of its stock", () => {
+    const listings = Array.from({ length: 150 }, (_, i) => listing(String(i), "HMO", 10 + i, 1));
+    const [hmo] = summarizePrices({ url: ISLAND, prints: [print("p1", "M21", listings)] }).byStore;
+    expect(hmo.stock).toBe(150);
+    expect(hmo.listings).toHaveLength(99);
+    expect(hmo.listings!.at(-1)!.pricePhp).toBe(10 + 98);
+  });
+
+  it("counts every copy a store lists on a real card page", () => {
+    const page = parseCardPage(fixture("tcgph/sol-ring.html"), SOL_RING);
+    const listings = allListings(page.prints);
+    const { byStore } = summarizePrices({ url: SOL_RING, prints: page.prints });
+
+    for (const entry of byStore) {
+      const atStore = listings.filter((l) => l.store === entry.store);
+      expect(entry.stock).toBe(atStore.reduce((sum, l) => sum + (l.quantity ?? 1), 0));
+      const prices = entry.listings!.map((l) => l.pricePhp);
+      expect(prices).toEqual([...prices].sort((a, b) => a - b));
+      expect(entry.listings![0]).toEqual(expect.objectContaining({ pricePhp: entry.pricePhp, url: entry.url }));
+    }
   });
 });

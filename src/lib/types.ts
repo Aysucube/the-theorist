@@ -134,6 +134,18 @@ export interface ListingBrief
   printing?: string;
 }
 
+/**
+ * A store's offer for a card: its cheapest listing, plus what it takes to buy
+ * several copies. `stock` and `listings` are missing from prices saved by older
+ * versions of the app; read them through lib/stock.ts, which fills them in.
+ */
+export interface StoreOffer extends ListingBrief {
+  /** Copies in stock across all of this store's listings of the card. */
+  stock?: number;
+  /** This store's listings of the card, cheapest first, enough to buy up to 99 copies. */
+  listings?: ListingBrief[];
+}
+
 /** The short version of a card's TCGph prices, for showing next to a card name. */
 export interface TcgphSummary {
   url: string;
@@ -143,8 +155,8 @@ export interface TcgphSummary {
   imageUrl?: string;
   stores: number;
   listings: number;
-  /** Each store's cheapest listing for the card, cheapest store first. */
-  byStore: ListingBrief[];
+  /** Each store's cheapest listing for the card, with its stock, cheapest store first. */
+  byStore: StoreOffer[];
 }
 
 /** What GET /api/preview returns: enough for a hover card. */

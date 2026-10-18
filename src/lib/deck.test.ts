@@ -8,7 +8,7 @@ import {
   removeCard,
   type DeckCard,
 } from "./deck";
-import type { PriceResponse } from "./types";
+import type { PriceResponse, StoreOffer } from "./types";
 
 describe("parseDeckList", () => {
   it("reads the formats deck sites export", () => {
@@ -77,8 +77,15 @@ describe("deck edits", () => {
 });
 
 describe("priceDeck", () => {
-  const offer = (store: string, pricePhp: number) => ({ store, pricePhp, condition: "NM", url: "https://example.com" });
-  const found = (...byStore: ReturnType<typeof offer>[]): PriceResponse => ({
+  // Plenty of copies unless a test says otherwise.
+  const offer = (store: string, pricePhp: number, quantity = 20): StoreOffer => ({
+    store,
+    pricePhp,
+    quantity,
+    condition: "NM",
+    url: "https://example.com",
+  });
+  const found = (...byStore: StoreOffer[]): PriceResponse => ({
     found: true,
     url: "https://tcgph.com/card/x",
     cheapest: byStore[0],
@@ -112,11 +119,41 @@ describe("priceDeck", () => {
   it("ranks stores by how much of the deck they have, then by cost", () => {
     const { stores } = priceDeck(deck, prices);
     expect(stores).toEqual([
-      { store: "GGH", cards: 2, totalPhp: 10 * 8 + 1500, missing: ["Sol Ring"] },
-      { store: "HMO", cards: 2, totalPhp: 110 + 10 * 5, missing: ["Rhystic Study"] },
-      { store: "Vault", cards: 1, totalPhp: 90, missing: ["Island", "Rhystic Study"] },
+      { store: "GGH", cards: 2, totalPhp: 10 * 8 + 1500, missing: ["Sol Ring"], tooFew: {} },
+      { store: "HMO", cards: 2, totalPhp: 110 + 10 * 5, missing: ["Rhystic Study"], tooFew: {} },
+      { store: "Vault", cards: 1, totalPhp: 90, missing: ["Island", "Rhystic Study"], tooFew: {} },
     ].sort((a, b) => b.cards - a.cards || a.totalPhp - b.totalPhp));
     expect(stores[0].store).toBe("HMO");
+  });
+
+  describe("with limited stock", () => {
+    // HMO's cheapest Islands run out after 4; its next listing costs ₱7. GGH has only 3.
+    const hmo: StoreOffer = {
+      ...offer("HMO", 5, 4),
+      stock: 24,
+      listings: [offer("HMO", 5, 4), offer("HMO", 7, 20)],
+    };
+    const island = { Island: found(hmo, { ...offer("GGH", 6, 3), stock: 3 }) };
+    const islands: DeckCard[] = [{ name: "Island", qty: 10 }];
+
+    it("buys the cheapest copies anywhere, across listings and stores", () => {
+      // 4 at ₱5 (HMO), 3 at ₱6 (GGH), then 3 at ₱7 (HMO).
+      expect(priceDeck(islands, island).cheapestTotalPhp).toBe(4 * 5 + 3 * 6 + 3 * 7);
+    });
+
+    it("counts a card at a store only when it has enough copies, priced across its listings", () => {
+      const { stores } = priceDeck(islands, island);
+      expect(stores).toEqual([
+        { store: "HMO", cards: 1, totalPhp: 4 * 5 + 6 * 7, missing: [], tooFew: {} },
+        { store: "GGH", cards: 0, totalPhp: 0, missing: ["Island"], tooFew: { Island: 3 } },
+      ]);
+    });
+
+    it("prices what's in stock when every store together has too few", () => {
+      const pricing = priceDeck([{ name: "Island", qty: 30 }], island);
+      expect(pricing.cheapestTotalPhp).toBe(4 * 5 + 3 * 6 + 20 * 7);
+      expect(pricing.inStock).toEqual(["Island"]);
+    });
   });
 
   it("is empty for an empty deck", () => {
