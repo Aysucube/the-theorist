@@ -7,7 +7,7 @@ import { importCards, MAX_DECK_CARDS, removeCard, type DeckCard } from "@/lib/de
 import { createLocalStore, useHydrated } from "@/lib/local-store";
 import { fetchJsonWithRetry, sleep } from "@/lib/retry";
 import type { CardDetails } from "@/lib/types";
-import type { CardsResponse, PairingsResponse } from "./api";
+import type { CardsResponse, PairingsResponse, RulingsResponse } from "./api";
 
 function isDeckCard(value: unknown): value is DeckCard {
   const card = value as DeckCard;
@@ -178,6 +178,44 @@ export function requestPairings(card: CardDetails) {
 function subscribePairings(notify: () => void) {
   pairingListeners.add(notify);
   return () => pairingListeners.delete(notify);
+}
+
+// --- Rulings ------------------------------------------------------------------
+
+export type RulingsState =
+  | { state: "loading" }
+  | { state: "waiting"; seconds: number; reason: string }
+  | { state: "done"; result: RulingsResponse }
+  | { state: "error" };
+
+const rulings = new Map<string, RulingsState>();
+
+function setRulings(key: string, state: RulingsState) {
+  rulings.set(key, state);
+  // Shares the pairings' listeners: both are "this card's extra data changed".
+  pairingsVersion++;
+  pairingListeners.forEach((notify) => notify());
+}
+
+/** Starts (or restarts, after an error) loading a card's rulings. */
+export function requestRulings(card: CardDetails) {
+  const key = detailsKey(card.name);
+  const current = rulings.get(key);
+  if (current && current.state !== "error") return;
+  setRulings(key, { state: "loading" });
+  void fetchJsonWithRetry<RulingsResponse>(`/api/deck-beta/rulings?${new URLSearchParams({ name: card.name })}`, {
+    onWait: (ms, reason) => setRulings(key, { state: "waiting", seconds: Math.round(ms / 1000), reason }),
+    busyReason: "Scryfall is busy",
+  }).then((result) => setRulings(key, result === "error" ? { state: "error" } : { state: "done", result }));
+}
+
+/** A card's official rulings, loaded on first ask. */
+export function useRulings(card: CardDetails | null | undefined): RulingsState | undefined {
+  useSyncExternalStore(subscribePairings, () => pairingsVersion, () => 0);
+  useEffect(() => {
+    if (card) requestRulings(card);
+  }, [card]);
+  return card ? rulings.get(detailsKey(card.name)) : undefined;
 }
 
 /** A card's EDHREC pairings, loaded on first ask. */

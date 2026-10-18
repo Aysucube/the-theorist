@@ -3,12 +3,13 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { pairingsInDeck } from "@/lib/deck-beta/recommend";
-import { usePairings } from "@/lib/deck-beta/store";
+import { usePairings, useRulings } from "@/lib/deck-beta/store";
 import { interactionsOf, type DeckAnalysis } from "@/lib/deck-beta/synergy";
 import { placeHoverCard } from "@/lib/hover-card";
 import type { CardDetails } from "@/lib/types";
 import { ColorIdentity, ManaCost } from "../mana";
 import { RetryingImage } from "../retrying-image";
+import { BetaRulings } from "./beta-rulings";
 import { formatLift, LinkRow, MiniGallery, pairingsMessage } from "./bits";
 
 const WIDTH = 380;
@@ -38,6 +39,8 @@ export function InteractionsPopover({
   const ref = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
   const pairings = usePairings(card);
+  const rulings = useRulings(card);
+  const [view, setView] = useState<"interactions" | "rulings">("interactions");
   const byName = new Map(cards.map((c) => [c.name, c]));
   const cardFor = (name: string) => byName.get(name);
 
@@ -101,53 +104,76 @@ export function InteractionsPopover({
         </div>
       </div>
 
-      <div className="flex flex-col gap-4 overflow-y-auto p-3">
-        <section>
-          <h3 className="mb-2 font-semibold">Interacts with</h3>
-          {links.uses.length > 0 ? (
-            <ul className="flex flex-col gap-3">
-              {links.uses.map((link) => (
-                <LinkRow key={link.tag} link={link} cardFor={cardFor} />
-              ))}
-            </ul>
-          ) : (
-            <p className="text-xs text-zinc-500">Nothing in its rules text points at other cards in your deck.</p>
-          )}
-        </section>
-
-        {links.usedBy.length > 0 && (
-          <section>
-            <h3 className="mb-2 font-semibold">Cards in your deck that want it</h3>
-            <ul className="flex flex-col gap-3">
-              {links.usedBy.map((link) => (
-                <LinkRow key={link.tag} link={link} cardFor={cardFor} />
-              ))}
-            </ul>
-          </section>
-        )}
-
-        <section>
-          <h3 className="mb-1 font-semibold">EDHREC: played with it</h3>
-          {pairingsMessage(pairings) ?? (
-            <>
-              <p className="mb-2 text-xs text-zinc-500">
-                {edhrec.length > 0
-                  ? `${edhrec.length} of your cards show up with it more often than usual in EDHREC decks.`
-                  : pairings?.state === "done" && !pairings.result.found
-                    ? "EDHREC has no page for this card."
-                    : "None of your other cards stand out as EDHREC partners for it."}
-              </p>
-              {edhrec.length > 0 && (
-                <MiniGallery
-                  label="Played with it on EDHREC"
-                  items={edhrec.map((p) => ({ name: p.name, note: formatLift(p.lift) }))}
-                  cardFor={cardFor}
-                />
-              )}
-            </>
-          )}
-        </section>
+      <div role="tablist" className="flex border-b border-zinc-200 dark:border-zinc-800">
+        {(["interactions", "rulings"] as const).map((v) => (
+          <button
+            key={v}
+            type="button"
+            role="tab"
+            aria-selected={view === v}
+            onClick={() => setView(v)}
+            className={`flex-1 px-3 py-2 text-sm font-medium ${view === v ? "border-b-2 border-amber-500" : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"}`}
+          >
+            {v === "interactions"
+              ? "Interacts with"
+              : `Rulings${rulings?.state === "done" && rulings.result.found ? ` (${rulings.result.rulings.length})` : ""}`}
+          </button>
+        ))}
       </div>
+
+      {view === "rulings" ? (
+        <div className="p-3">
+          <BetaRulings card={card} />
+        </div>
+      ) : (
+        <div className="flex flex-col gap-4 overflow-y-auto p-3">
+          <section>
+            <h3 className="mb-2 font-semibold">Interacts with</h3>
+            {links.uses.length > 0 ? (
+              <ul className="flex flex-col gap-3">
+                {links.uses.map((link) => (
+                  <LinkRow key={link.tag} link={link} cardFor={cardFor} />
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs text-zinc-500">Nothing in its rules text points at other cards in your deck.</p>
+            )}
+          </section>
+
+          {links.usedBy.length > 0 && (
+            <section>
+              <h3 className="mb-2 font-semibold">Cards in your deck that want it</h3>
+              <ul className="flex flex-col gap-3">
+                {links.usedBy.map((link) => (
+                  <LinkRow key={link.tag} link={link} cardFor={cardFor} />
+                ))}
+              </ul>
+            </section>
+          )}
+
+          <section>
+            <h3 className="mb-1 font-semibold">EDHREC: played with it</h3>
+            {pairingsMessage(pairings) ?? (
+              <>
+                <p className="mb-2 text-xs text-zinc-500">
+                  {edhrec.length > 0
+                    ? `${edhrec.length} of your cards show up with it more often than usual in EDHREC decks.`
+                    : pairings?.state === "done" && !pairings.result.found
+                      ? "EDHREC has no page for this card."
+                      : "None of your other cards stand out as EDHREC partners for it."}
+                </p>
+                {edhrec.length > 0 && (
+                  <MiniGallery
+                    label="Played with it on EDHREC"
+                    items={edhrec.map((p) => ({ name: p.name, note: formatLift(p.lift) }))}
+                    cardFor={cardFor}
+                  />
+                )}
+              </>
+            )}
+          </section>
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-3 border-t border-zinc-200 p-3 dark:border-zinc-800">
         <button type="button" onClick={onOpenMap} className="h-9 rounded-lg bg-amber-500 px-3 text-sm font-medium text-zinc-950 hover:bg-amber-400">

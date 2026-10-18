@@ -1,5 +1,5 @@
 // What the deck beta's API routes return.
-import type { CardDetails, EdhrecPairing } from "@/lib/types";
+import type { CardDetails, EdhrecPairing, Ruling } from "@/lib/types";
 
 /** POST /api/deck-beta/cards */
 export interface CardsResponse {
@@ -19,3 +19,6 @@ export type PairingsResponse =
       /** Details for the strongest pairings and the similar cards, for recommendations. */
       details: Record<string, CardDetails>;
     };
+
+/** GET /api/deck-beta/rulings */
+export type RulingsResponse = { found: false } | { found: true; name: string; scryfallUrl: string; rulings: Ruling[] };

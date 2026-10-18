@@ -8,6 +8,7 @@ import { formatCount, formatPercent } from "@/lib/format";
 import type { CardDetails } from "@/lib/types";
 import { ColorIdentity, ManaCost } from "../mana";
 import { RetryingImage } from "../retrying-image";
+import { BetaRulings } from "./beta-rulings";
 import { formatLift, LinkRow, MiniGallery, pairingsMessage, TagName, type CardLookup } from "./bits";
 import { LazyCardImage } from "./lazy-card-image";
 
@@ -17,8 +18,9 @@ const FIRST_RECOMMENDATIONS = 25;
 /**
  * The double-click view: a flowchart of how one card works with the rest of
  * the deck (cards that help it → the card → cards it helps), EDHREC's
- * "played together" cards from the deck, and a side tab of recommendations
- * that aren't in the deck yet, the deck's colors first.
+ * "played together" cards from the deck, and a sidebar with the card's
+ * rulings and recommendations that aren't in the deck yet, the deck's
+ * colors first.
  */
 export function SynergyMap({
   initial,
@@ -37,7 +39,7 @@ export function SynergyMap({
   const dialog = useRef<HTMLDialogElement>(null);
   // Cards clicked through, so "Back" can return to the previous one.
   const [trail, setTrail] = useState<string[]>([initial.name]);
-  const [tab, setTab] = useState<"map" | "others">("map");
+  const [tab, setTab] = useState<"map" | "rulings" | "others">("map");
   // The deck as it was when the map opened: added recommendations stay listed, marked "In deck".
   const [openedWith] = useState(() => cards.map((c) => c.name));
 
@@ -103,7 +105,7 @@ export function SynergyMap({
 
         {/* Tabs on small screens; side by side on wide ones. */}
         <div role="tablist" className="flex border-b border-zinc-200 lg:hidden dark:border-zinc-800">
-          {(["map", "others"] as const).map((t) => (
+          {(["map", "rulings", "others"] as const).map((t) => (
             <button
               key={t}
               type="button"
@@ -112,7 +114,7 @@ export function SynergyMap({
               onClick={() => setTab(t)}
               className={`flex-1 px-3 py-2 text-sm font-medium ${tab === t ? "border-b-2 border-amber-500" : "text-zinc-500"}`}
             >
-              {t === "map" ? "Synergies" : `Other recommendations${found ? ` (${recommendations.length})` : ""}`}
+              {t === "map" ? "Synergies" : t === "rulings" ? "Rulings" : `Recommendations${found ? ` (${recommendations.length})` : ""}`}
             </button>
           ))}
         </div>
@@ -154,25 +156,33 @@ export function SynergyMap({
 
           <aside
             className={`min-h-0 overflow-y-auto border-zinc-200 bg-zinc-50 p-4 lg:border-l dark:border-zinc-800 dark:bg-zinc-900/60 ${
-              tab === "others" ? "" : "hidden lg:block"
+              tab === "map" ? "hidden lg:block" : ""
             }`}
           >
-            <h3 className="font-semibold">Other recommendations</h3>
-            <p className="mt-1 text-xs text-zinc-500">
-              Not in your deck: cards EDHREC decks play with {focus.name}, and cards that do a similar job.{" "}
-              {analysis.colors.length > 0 ? (
-                <>
-                  Cards in your colors (<ColorIdentity colors={analysis.colors} />) come first.
-                </>
+            {/* Phones show one section per tab; wide screens show both. */}
+            <section className={`mb-6 ${tab === "rulings" ? "" : "hidden lg:block"}`}>
+              <h3 className="mb-2 font-semibold">Rulings: {focus.name}</h3>
+              <BetaRulings key={focus.name} card={focus} />
+            </section>
+
+            <section className={tab === "others" ? "" : "hidden lg:block"}>
+              <h3 className="font-semibold">Other recommendations</h3>
+              <p className="mt-1 text-xs text-zinc-500">
+                Not in your deck: cards EDHREC decks play with {focus.name}, and cards that do a similar job.{" "}
+                {analysis.colors.length > 0 ? (
+                  <>
+                    Cards in your colors (<ColorIdentity colors={analysis.colors} />) come first.
+                  </>
+                ) : (
+                  "Your deck is colorless, so colorless cards come first."
+                )}
+              </p>
+              {pairingsMessage(pairings) ? (
+                <PairingsStatus message={pairingsMessage(pairings)!} focus={focus} failed={pairings?.state === "error"} />
               ) : (
-                "Your deck is colorless, so colorless cards come first."
+                <RecommendationList recommendations={recommendations} inDeck={inDeck} onAdd={onAdd} />
               )}
-            </p>
-            {pairingsMessage(pairings) ? (
-              <PairingsStatus message={pairingsMessage(pairings)!} focus={focus} failed={pairings?.state === "error"} />
-            ) : (
-              <RecommendationList recommendations={recommendations} inDeck={inDeck} onAdd={onAdd} />
-            )}
+            </section>
           </aside>
         </div>
       </div>

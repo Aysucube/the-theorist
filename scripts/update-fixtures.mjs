@@ -36,6 +36,8 @@ const FIXTURES = [
     "https://api.scryfall.com/cards/search?q=oracleid%3A6ad8011d-3471-4369-9d68-b264cc027487%20game%3Apaper&unique=prints&order=released",
     "application/json",
   ],
+  // A card's official rulings, as Scryfall publishes them.
+  ["scryfall/rulings-doubling-season.json", "https://api.scryfall.com/cards/fdn/216/rulings", "application/json"],
   // Scryfall's suggestions for a partial name, including loose matches like "Heat Ray".
   [
     "scryfall/autocomplete-atra.json",

@@ -63,6 +63,15 @@ export interface Printing {
   scryfallUrl: string;
 }
 
+/** One official ruling (or Scryfall note) about how a card works. */
+export interface Ruling {
+  /** "wotc": Wizards of the Coast's official ruling; "scryfall": a note from Scryfall. */
+  source: "wotc" | "scryfall";
+  /** "2024-11-08" */
+  publishedAt: string;
+  comment: string;
+}
+
 export interface ScryfallLookup {
   card: ScryfallCard;
   /** Other matching names when the search was ambiguous. */

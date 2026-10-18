@@ -26,3 +26,7 @@ export const formatPercent = (n: number) => {
 export function cardHref(name: string) {
   return { pathname: "/card", query: { q: name } };
 }
+
+const date = new Intl.DateTimeFormat("en-PH", { dateStyle: "medium", timeZone: "UTC" });
+/** "2024-11-08" as "Nov 8, 2024". The date is read as UTC so it can't shift a day. */
+export const formatDate = (isoDate: string) => date.format(new Date(`${isoDate}T00:00:00Z`));

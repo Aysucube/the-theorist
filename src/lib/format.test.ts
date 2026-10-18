@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatPercent, formatPhp } from "./format";
+import { formatDate, formatPercent, formatPhp } from "./format";
 
 describe("formatPhp", () => {
   it("shows whole pesos without decimals", () => {
@@ -22,5 +22,12 @@ describe("formatPercent", () => {
     expect(formatPercent(0.834)).toBe("83%");
     expect(formatPercent(0.0008)).toBe("0.1%");
     expect(formatPercent(0)).toBe("0%");
+  });
+});
+
+describe("formatDate", () => {
+  it("writes a plain date the same in every time zone", () => {
+    expect(formatDate("2024-11-08")).toBe("Nov 8, 2024");
+    expect(formatDate("2004-01-01")).toBe("Jan 1, 2004");
   });
 });

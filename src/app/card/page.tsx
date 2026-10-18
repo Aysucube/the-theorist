@@ -5,6 +5,7 @@ import { CardSearch } from "@/components/card-search";
 import { EdhrecPanel } from "@/components/edhrec-panel";
 import { PanelSkeleton, SourceMessage } from "@/components/panel";
 import { PrintingsPanel } from "@/components/printings-panel";
+import { RulingsPanel } from "@/components/rulings-panel";
 import { SimilarPanel } from "@/components/similar-panel";
 import { TcgphPanel } from "@/components/tcgph-panel";
 import { reportSourceError } from "@/lib/sources/http";
@@ -68,6 +69,9 @@ async function Results({ searchParams }: { searchParams: SearchParams }) {
   return (
     <div className="flex flex-col gap-8">
       <CardOverview lookup={lookup} />
+      <Suspense fallback={<PanelSkeleton title="Rulings" />}>
+        <RulingsPanel card={lookup.card} />
+      </Suspense>
       <Suspense fallback={<PanelSkeleton title="Printings" />}>
         <PrintingsPanel card={lookup.card} />
       </Suspense>

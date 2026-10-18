@@ -1,5 +1,5 @@
 import { cacheLife } from "next/cache";
-import type { CardDetails, CardInfo, Printing, ScryfallCard, ScryfallLookup } from "@/lib/types";
+import type { CardDetails, CardInfo, Printing, Ruling, ScryfallCard, ScryfallLookup } from "@/lib/types";
 import { SourceError, sourceFetch } from "./http";
 import { createThrottle } from "./throttle";
 
@@ -224,6 +224,31 @@ export async function getPrintings(oracleId: string): Promise<Printing[]> {
     path = list.has_more && list.next_page?.startsWith(API) ? list.next_page.slice(API.length) : null;
   }
   return printings;
+}
+
+// --- Rulings ------------------------------------------------------------------
+
+interface RawRuling {
+  source: string;
+  published_at: string;
+  comment: string;
+}
+
+/**
+ * A card's rulings, oldest first: Wizards of the Coast's official rulings (the
+ * ones Gatherer and play sites show) plus any notes from Scryfall. Every
+ * printing of a card has the same rulings, so any printing's id works.
+ */
+export async function getRulings(cardId: string): Promise<Ruling[]> {
+  "use cache: remote";
+  cacheLife("days");
+
+  const list = (await get(`/cards/${encodeURIComponent(cardId)}/rulings`)) as RawList<RawRuling> | null;
+  return (list?.data ?? []).map((r) => ({
+    source: r.source === "wotc" ? "wotc" : "scryfall",
+    publishedAt: r.published_at,
+    comment: r.comment,
+  }));
 }
 
 // --- Card info in bulk --------------------------------------------------------

@@ -6,7 +6,7 @@ Search a Magic: The Gathering card and see, on one page:
 - **EDHREC**: how often Commander decks play it, and for commanders, recommended cards
 - **TCGph**: what it costs right now at Philippine game stores, in pesos
 
-Each card page also lists **every printing** with the cheapest PH copy of each,
+Each card page also shows its **official rulings** and lists **every printing** with the cheapest PH copy of each,
 and hovering any card link shows a quick preview (artwork, cheapest price, shop).
 
 Then collect cards on the **Shopping** page (or paste a list from Moxfield or Archidekt), price

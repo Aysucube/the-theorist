@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fakeFetch, fixture } from "./__fixtures__/load";
-import { AUTOCOMPLETE_LIMIT, getCardInfo, getPrintings, rankSuggestions, suggestCardNames } from "./scryfall";
+import { AUTOCOMPLETE_LIMIT, getCardInfo, getPrintings, getRulings, rankSuggestions, suggestCardNames } from "./scryfall";
 
 vi.mock("next/cache", () => ({ cacheLife: () => {} }));
 
@@ -98,6 +98,31 @@ describe("getPrintings", () => {
       expect(p.collectorNumber).not.toBe("");
       expect(p.releasedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     }
+  });
+});
+
+describe("getRulings", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("reads a card's real rulings, oldest first, with their source and date", async () => {
+    const url = "https://api.scryfall.com/cards/abc-123/rulings";
+    vi.stubGlobal("fetch", fakeFetch({ [url]: fixture("scryfall/rulings-doubling-season.json") }).fetch);
+
+    const rulings = await getRulings("abc-123");
+
+    expect(rulings.length).toBeGreaterThan(0);
+    for (const r of rulings) {
+      expect(["wotc", "scryfall"]).toContain(r.source);
+      expect(r.publishedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(r.comment.length).toBeGreaterThan(10);
+    }
+    const dates = rulings.map((r) => r.publishedAt);
+    expect(dates).toEqual([...dates].sort());
+  });
+
+  it("returns no rulings for a card Scryfall doesn't know", async () => {
+    vi.stubGlobal("fetch", fakeFetch({}).fetch);
+    expect(await getRulings("missing")).toEqual([]);
   });
 });
 
