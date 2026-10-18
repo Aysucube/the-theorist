@@ -146,3 +146,31 @@ describe("getCardPreview", () => {
     expect(preview.oracleText).toBe("{T}: Add {C}{C}.");
   });
 });
+
+describe("getCardPreview completeness", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("marks a preview incomplete when Scryfall failed, so the browser asks again", async () => {
+    vi.stubGlobal(
+      "fetch",
+      fakeFetch({
+        "https://tcgph.com/card/sol-ring": fixture("tcgph/esika-god-of-the-tree-the-prismatic-bridge.html"),
+        [named("Sol Ring")]: { status: 500 },
+      }).fetch,
+    );
+    const preview = await getCardPreview("Sol Ring");
+    expect(preview.incomplete).toBe(true);
+    expect(preview.cheapest).toBeDefined();
+  });
+
+  it("doesn't mark a preview incomplete just because no store has the card", async () => {
+    vi.stubGlobal(
+      "fetch",
+      fakeFetch({
+        "https://tcgph.com/card/nope": fixture("tcgph/unknown-card.html"),
+        [named("Nope")]: scryfallCard("Nope"),
+      }).fetch,
+    );
+    expect((await getCardPreview("Nope")).incomplete).toBeUndefined();
+  });
+});

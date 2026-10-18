@@ -146,6 +146,8 @@ export interface CardPreview {
   stores: number;
   /** True when TCGph couldn't be reached, so a missing price means "unknown", not "out of stock". */
   priceUnavailable?: boolean;
+  /** True when any source failed this time; asking again later may fill the gaps. */
+  incomplete?: boolean;
   /** From Scryfall; missing if it couldn't be reached. */
   typeLine?: string;
   manaCost?: string;

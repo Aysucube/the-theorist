@@ -41,16 +41,21 @@ export async function getCardPreview(name: string): Promise<CardPreview> {
         return { summary: null, failed: true };
       },
     ),
-    findCard(name).catch((error) => {
-      reportSourceError("preview card", error);
-      return null;
-    }),
+    findCard(name).then(
+      (found) => ({ found, failed: false }),
+      (error) => {
+        reportSourceError("preview card", error);
+        return { found: null, failed: true };
+      },
+    ),
   ]);
 
-  const card = lookup?.card;
+  const card = lookup.found?.card;
+  let decksFailed = false;
   const stats = card
     ? await getCardStats(edhrecSlug(card.name, card.layout)).catch((error) => {
         reportSourceError("preview decks", error);
+        decksFailed = true;
         return null;
       })
     : null;
@@ -61,6 +66,7 @@ export async function getCardPreview(name: string): Promise<CardPreview> {
     cheapest: priced.summary?.cheapest,
     stores: priced.summary?.stores ?? 0,
     priceUnavailable: priced.failed || undefined,
+    incomplete: priced.failed || lookup.failed || decksFailed || undefined,
     typeLine: card?.typeLine,
     manaCost: card?.manaCost,
     colorIdentity: card?.colorIdentity,

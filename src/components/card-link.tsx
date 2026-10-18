@@ -1,10 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
 import { createPortal } from "react-dom";
 import { cardHref, formatCount, formatPercent, formatPhp } from "@/lib/format";
 import { placeHoverCard } from "@/lib/hover-card";
+import { getImageStatus, subscribeImage } from "@/lib/image-loader";
+import { fetchJsonWithRetry, RETRY_WAITS_MS, sleep } from "@/lib/retry";
 import type { CardPreview } from "@/lib/types";
 import { ColorIdentity, ManaCost } from "./mana";
 
@@ -12,46 +23,89 @@ import { ColorIdentity, ManaCost } from "./mana";
 const HOVER_DELAY_MS = 350;
 const CARD_SIZE = { width: 460, height: 360 };
 
-// Previews already fetched this visit, so hovering a card again is instant.
-const previews = new Map<string, Promise<CardPreview | null>>();
-
-function loadPreview(name: string): Promise<CardPreview | null> {
-  const cached = previews.get(name);
-  if (cached) return cached;
-  const request = fetch(`/api/preview?name=${encodeURIComponent(name)}`)
-    .then((res) => (res.ok ? (res.json() as Promise<CardPreview>) : null))
-    .catch(() => null);
-  previews.set(name, request);
-  // Don't remember failures: the next hover tries again.
-  void request.then((preview) => preview ?? previews.delete(name));
-  return request;
+/** What a hover card knows about a card's preview so far. */
+interface Snapshot {
+  preview?: CardPreview;
+  /** Set while waiting before another try. */
+  waiting?: { seconds: number; reason: string };
+  done: boolean;
 }
 
-type PreviewState = CardPreview | "loading" | "error";
+interface Tracker {
+  snapshot: Snapshot;
+  listeners: Set<(snapshot: Snapshot) => void>;
+}
+
+// One tracker per card for this visit. It keeps retrying after the hover card
+// closes, so the next hover shows the finished preview at once.
+const trackers = new Map<string, Tracker>();
+
+function update(tracker: Tracker, patch: Partial<Snapshot>) {
+  tracker.snapshot = { ...tracker.snapshot, ...patch };
+  tracker.listeners.forEach((listener) => listener(tracker.snapshot));
+}
+
+async function track(name: string, tracker: Tracker) {
+  const url = `/api/preview?name=${encodeURIComponent(name)}`;
+  const onWait = (ms: number, reason: string) =>
+    update(tracker, { waiting: { seconds: Math.round(ms / 1000), reason } });
+
+  for (let attempt = 0; ; attempt++) {
+    const result = await fetchJsonWithRetry<CardPreview>(url, { onWait, busyReason: "a card source is busy" });
+    if (result === "error") break;
+    update(tracker, { preview: result, waiting: undefined });
+    // A source failed this time (e.g. Scryfall's pause): ask again for the missing parts.
+    if (!result.incomplete || attempt >= RETRY_WAITS_MS.length) break;
+    onWait(RETRY_WAITS_MS[attempt], "some details are still loading");
+    await sleep(RETRY_WAITS_MS[attempt]);
+  }
+  update(tracker, { waiting: undefined, done: true });
+  // Nothing at all came back: forget it so a later hover starts over.
+  if (!tracker.snapshot.preview) trackers.delete(name);
+}
+
+/** Calls `listener` now and on every change to this card's preview. Returns an unsubscribe function. */
+function watchPreview(name: string, listener: (snapshot: Snapshot) => void): () => void {
+  let tracker = trackers.get(name);
+  if (!tracker) {
+    tracker = { snapshot: { done: false }, listeners: new Set() };
+    trackers.set(name, tracker);
+    void track(name, tracker);
+  }
+  const t = tracker;
+  t.listeners.add(listener);
+  listener(t.snapshot);
+  return () => t.listeners.delete(listener);
+}
 
 /**
  * A link to a card's page that shows a preview (artwork, colors, rules text,
  * cheapest PH price and shop, how decks use it, similar cards) while the
- * mouse rests on it or the link has keyboard focus.
+ * mouse rests on it or the link has keyboard focus. Busy sources and slow
+ * images are waited out and retried, so the preview fills in completely.
  * Touch screens just follow the link.
  */
 export function CardLink({ name, className, children }: { name: string; className?: string; children?: ReactNode }) {
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
-  const [preview, setPreview] = useState<PreviewState>("loading");
+  const [snapshot, setSnapshot] = useState<Snapshot>({ done: false });
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const unwatch = useRef<(() => void) | undefined>(undefined);
   const id = useId();
 
   function show(anchor: { left: number; right: number; top: number; bottom: number }) {
     clearTimeout(timer.current);
-    timer.current = setTimeout(async () => {
-      setPreview("loading");
+    timer.current = setTimeout(() => {
       setPosition(placeHoverCard(anchor, { width: window.innerWidth, height: window.innerHeight }, CARD_SIZE));
-      setPreview((await loadPreview(name)) ?? "error");
+      unwatch.current?.();
+      unwatch.current = watchPreview(name, setSnapshot);
     }, HOVER_DELAY_MS);
   }
 
   function hide() {
     clearTimeout(timer.current);
+    // Stop listening; the tracker keeps loading in the background.
+    unwatch.current?.();
+    unwatch.current = undefined;
     setPosition(null);
   }
 
@@ -60,13 +114,21 @@ export function CardLink({ name, className, children }: { name: string; classNam
     if (!position) return;
     const close = () => {
       clearTimeout(timer.current);
+      unwatch.current?.();
+      unwatch.current = undefined;
       setPosition(null);
     };
     window.addEventListener("scroll", close, { passive: true, capture: true });
     return () => window.removeEventListener("scroll", close, { capture: true });
   }, [position]);
 
-  useEffect(() => () => clearTimeout(timer.current), []);
+  useEffect(
+    () => () => {
+      clearTimeout(timer.current);
+      unwatch.current?.();
+    },
+    [],
+  );
 
   return (
     <>
@@ -87,7 +149,7 @@ export function CardLink({ name, className, children }: { name: string; classNam
       >
         {children ?? name}
       </Link>
-      {position && createPortal(<HoverCard id={id} name={name} preview={preview} position={position} />, document.body)}
+      {position && createPortal(<HoverCard id={id} name={name} snapshot={snapshot} position={position} />, document.body)}
     </>
   );
 }
@@ -95,15 +157,16 @@ export function CardLink({ name, className, children }: { name: string; classNam
 function HoverCard({
   id,
   name,
-  preview,
+  snapshot,
   position,
 }: {
   id: string;
   name: string;
-  preview: PreviewState;
+  snapshot: Snapshot;
   position: { left: number; top: number };
 }) {
-  const loaded = typeof preview === "object" ? preview : null;
+  const loaded = snapshot.preview;
+  const waiting = snapshot.waiting;
   const cheapest = loaded?.cheapest;
   const ref = useRef<HTMLDivElement>(null);
   const [top, setTop] = useState(position.top);
@@ -112,7 +175,7 @@ function HoverCard({
   useLayoutEffect(() => {
     const height = ref.current?.offsetHeight ?? 0;
     setTop(Math.max(12, Math.min(position.top, window.innerHeight - height - 12)));
-  }, [position.top, preview]);
+  }, [position.top, snapshot]);
 
   return (
     <div
@@ -123,9 +186,13 @@ function HoverCard({
       className="pointer-events-none fixed z-50 grid grid-cols-[150px_1fr] gap-3 rounded-xl border border-zinc-200 bg-white p-3 text-zinc-900 shadow-xl dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
     >
       <div className="aspect-[488/680] self-start overflow-hidden rounded-[4.75%] bg-zinc-200 dark:bg-zinc-800">
-        {loaded?.imageUrl && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={loaded.imageUrl} alt="" width={488} height={680} className="h-full w-full object-cover" />
+        {loaded?.imageUrl ? (
+          // A new key starts a fresh load if the preview's image changes.
+          <CardImage key={loaded.imageUrl} url={loaded.imageUrl} />
+        ) : snapshot.done ? (
+          <ImageNote text="No image available" />
+        ) : (
+          <ImageNote text="Loading image…" spinner />
         )}
       </div>
 
@@ -135,8 +202,13 @@ function HoverCard({
           {loaded?.manaCost && <ManaCost cost={loaded.manaCost} />}
         </div>
 
-        {preview === "loading" && <p className="text-zinc-500">Loading card details…</p>}
-        {preview === "error" && <p className="text-zinc-500">Couldn’t load this card right now.</p>}
+        {waiting && (
+          <p className="text-amber-700 dark:text-amber-400">
+            Waiting {waiting.seconds}s because {waiting.reason}, then trying again…
+          </p>
+        )}
+        {!loaded && !waiting && !snapshot.done && <p className="text-zinc-500">Loading card details…</p>}
+        {!loaded && snapshot.done && <p className="text-zinc-500">Couldn’t load this card after several tries.</p>}
 
         {loaded && (
           <>
@@ -186,6 +258,41 @@ function HoverCard({
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+/** The card's artwork, with a spinner and retry status until it has really loaded. */
+function CardImage({ url }: { url: string }) {
+  // Shared with every hover card showing this image; the download outlives this one.
+  const subscribe = useCallback((notify: () => void) => subscribeImage(url, notify), [url]);
+  const state = useSyncExternalStore(
+    subscribe,
+    () => getImageStatus(url),
+    () => getImageStatus(url),
+  );
+
+  if (state.src) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={state.src} alt="" width={488} height={680} className="h-full w-full object-cover" />;
+  }
+  if (state.failed) return <ImageNote text="Image couldn’t load. Hover again to retry." />;
+  if (state.retryIn !== undefined) {
+    return <ImageNote text={`Image is slow; retrying in ${state.retryIn}s (try ${(state.attempt ?? 0) + 1})…`} spinner />;
+  }
+  return <ImageNote text="Loading image…" spinner />;
+}
+
+function ImageNote({ text, spinner }: { text: string; spinner?: boolean }) {
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-2 p-3 text-center text-[11px] text-zinc-500">
+      {spinner && (
+        <span
+          aria-hidden
+          className="size-5 animate-spin rounded-full border-2 border-zinc-300 border-t-amber-500 dark:border-zinc-600 dark:border-t-amber-400"
+        />
+      )}
+      {text}
     </div>
   );
 }
