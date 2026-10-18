@@ -19,8 +19,8 @@ import { ImageNote, RetryingImage } from "./retrying-image";
 
 /** How long the pointer must rest on a link before its preview loads. */
 const HOVER_DELAY_MS = 350;
-// The artwork column is 225px wide, big enough to read the card's own text.
-const CARD_SIZE = { width: 535, height: 420 };
+// A roomy window: a 300px card image you can read, and details in normal-size text.
+const CARD_SIZE = { width: 720, height: 480 };
 
 /** What a hover card knows about a card's preview so far. */
 interface Snapshot {
@@ -182,7 +182,7 @@ function HoverCard({
       id={id}
       role="tooltip"
       style={{ left: position.left, top, width: CARD_SIZE.width, maxWidth: "calc(100vw - 24px)" }}
-      className="pointer-events-none fixed z-50 grid grid-cols-[225px_1fr] gap-3 rounded-xl border border-zinc-200 bg-white p-3 text-zinc-900 shadow-xl dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+      className="pointer-events-none fixed z-50 grid grid-cols-[300px_1fr] gap-4 rounded-xl border border-zinc-200 bg-white p-4 text-zinc-900 shadow-xl dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
     >
       <div className="aspect-[488/680] self-start overflow-hidden rounded-[4.75%] bg-zinc-200 dark:bg-zinc-800">
         {loaded?.imageUrl ? (
@@ -195,9 +195,9 @@ function HoverCard({
         )}
       </div>
 
-      <div className="flex min-w-0 flex-col gap-1.5 text-xs">
+      <div className="flex min-w-0 flex-col gap-2 text-sm leading-relaxed">
         <div className="flex items-start justify-between gap-2">
-          <p className="text-sm leading-tight font-semibold">{loaded?.name ?? name}</p>
+          <p className="text-lg leading-tight font-semibold">{loaded?.name ?? name}</p>
           {loaded?.manaCost && <ManaCost cost={loaded.manaCost} />}
         </div>
 
@@ -217,9 +217,9 @@ function HoverCard({
                 <ColorIdentity colors={loaded.colorIdentity} />
               </p>
             )}
-            {loaded.oracleText && <p className="line-clamp-6 whitespace-pre-line">{loaded.oracleText}</p>}
+            {loaded.oracleText && <p className="line-clamp-12 whitespace-pre-line">{loaded.oracleText}</p>}
 
-            <div className="border-t border-zinc-200 pt-1.5 dark:border-zinc-700">
+            <div className="border-t border-zinc-200 pt-2 dark:border-zinc-700">
               {cheapest ? (
                 <>
                   <p>
