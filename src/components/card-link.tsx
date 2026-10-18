@@ -2,22 +2,20 @@
 
 import Link from "next/link";
 import {
-  useCallback,
   useEffect,
   useId,
   useLayoutEffect,
   useRef,
   useState,
-  useSyncExternalStore,
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
 import { cardHref, formatCount, formatPercent, formatPhp } from "@/lib/format";
 import { placeHoverCard } from "@/lib/hover-card";
-import { getImageStatus, subscribeImage } from "@/lib/image-loader";
 import { fetchJsonWithRetry, RETRY_WAITS_MS, sleep } from "@/lib/retry";
 import type { CardPreview } from "@/lib/types";
 import { ColorIdentity, ManaCost } from "./mana";
+import { ImageNote, RetryingImage } from "./retrying-image";
 
 /** How long the pointer must rest on a link before its preview loads. */
 const HOVER_DELAY_MS = 350;
@@ -188,7 +186,7 @@ function HoverCard({
       <div className="aspect-[488/680] self-start overflow-hidden rounded-[4.75%] bg-zinc-200 dark:bg-zinc-800">
         {loaded?.imageUrl ? (
           // A new key starts a fresh load if the preview's image changes.
-          <CardImage key={loaded.imageUrl} url={loaded.imageUrl} />
+          <RetryingImage key={loaded.imageUrl} url={loaded.imageUrl} failedText="Image couldn’t load. Hover again to retry." />
         ) : snapshot.done ? (
           <ImageNote text="No image available" />
         ) : (
@@ -258,41 +256,6 @@ function HoverCard({
           </>
         )}
       </div>
-    </div>
-  );
-}
-
-/** The card's artwork, with a spinner and retry status until it has really loaded. */
-function CardImage({ url }: { url: string }) {
-  // Shared with every hover card showing this image; the download outlives this one.
-  const subscribe = useCallback((notify: () => void) => subscribeImage(url, notify), [url]);
-  const state = useSyncExternalStore(
-    subscribe,
-    () => getImageStatus(url),
-    () => getImageStatus(url),
-  );
-
-  if (state.src) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={state.src} alt="" width={488} height={680} className="h-full w-full object-cover" />;
-  }
-  if (state.failed) return <ImageNote text="Image couldn’t load. Hover again to retry." />;
-  if (state.retryIn !== undefined) {
-    return <ImageNote text={`Image is slow; retrying in ${state.retryIn}s (try ${(state.attempt ?? 0) + 1})…`} spinner />;
-  }
-  return <ImageNote text="Loading image…" spinner />;
-}
-
-function ImageNote({ text, spinner }: { text: string; spinner?: boolean }) {
-  return (
-    <div className="flex h-full flex-col items-center justify-center gap-2 p-3 text-center text-[11px] text-zinc-500">
-      {spinner && (
-        <span
-          aria-hidden
-          className="size-5 animate-spin rounded-full border-2 border-zinc-300 border-t-amber-500 dark:border-zinc-600 dark:border-t-amber-400"
-        />
-      )}
-      {text}
     </div>
   );
 }

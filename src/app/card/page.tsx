@@ -5,6 +5,7 @@ import { CardSearch } from "@/components/card-search";
 import { EdhrecPanel } from "@/components/edhrec-panel";
 import { PanelSkeleton, SourceMessage } from "@/components/panel";
 import { PrintingsPanel } from "@/components/printings-panel";
+import { SimilarPanel } from "@/components/similar-panel";
 import { TcgphPanel } from "@/components/tcgph-panel";
 import { reportSourceError } from "@/lib/sources/http";
 import { findCard } from "@/lib/sources/scryfall";
@@ -69,6 +70,9 @@ async function Results({ searchParams }: { searchParams: SearchParams }) {
       <CardOverview lookup={lookup} />
       <Suspense fallback={<PanelSkeleton title="Printings" />}>
         <PrintingsPanel card={lookup.card} />
+      </Suspense>
+      <Suspense fallback={<PanelSkeleton title="Similar cards" />}>
+        <SimilarPanel card={lookup.card} />
       </Suspense>
       <Suspense fallback={<PanelSkeleton title="Philippine store prices" />}>
         <TcgphPanel card={lookup.card} />
