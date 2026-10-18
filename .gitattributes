@@ -1,2 +1,4 @@
 # Windows batch files need CRLF line endings to run reliably.
 *.cmd text eol=crlf
+# The launcher's PowerShell script keeps Windows line endings too.
+*.ps1 text eol=crlf

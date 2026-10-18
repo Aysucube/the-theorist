@@ -22,7 +22,33 @@ click a card to see which of your cards it interacts with (by card type, subtype
 and theme), and double-click for a synergy map with EDHREC-based recommendations
 in your colors. It keeps its own deck and never changes the Shopping list.
 
-## Running it locally
+## Running it on a Windows computer (no setup)
+
+Anyone with Windows 10 or 11 and an internet connection can run the app from
+GitHub's ZIP. Nothing needs installing first.
+
+1. On the GitHub page, click **Code → Download ZIP**.
+2. Right-click the downloaded ZIP, choose **Properties**, tick **Unblock**
+   and click **OK**. That stops Windows warning about every file. Then
+   right-click it again and choose **Extract All**.
+3. Open the extracted folder and double-click **Start Commander PH.cmd**. If
+   Windows says it protected your PC, click **More info**, then **Run anyway**.
+4. The first start takes about 5 to 10 minutes. If the computer has no
+   Node.js, the launcher downloads a private copy from nodejs.org into the
+   folder (it checks nodejs.org's published checksum first). Then it installs
+   the app's packages and builds it. Later starts take a few seconds.
+5. Your browser opens the app. Keep the black window open while you use it,
+   and close it to stop the app. If Windows Firewall asks about Node.js, you
+   can click **Cancel**. Allow it only if you want phones on the same Wi-Fi to
+   use the app through the "Network" address the window shows.
+
+The app uses port 3000, or the next free port if another program has it. To
+remove everything, delete the folder.
+
+On macOS or Linux, install [Node.js](https://nodejs.org) 20.9 or newer, then run
+`npm ci`, `npm run build` and `npm start` in the folder.
+
+## Running it locally (developers)
 
 Needs Node.js 20.9 or newer.
 
