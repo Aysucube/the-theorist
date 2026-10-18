@@ -9,7 +9,7 @@ import { placeHoverCard } from "@/lib/hover-card";
 import type { CardDetails } from "@/lib/types";
 import { ColorIdentity, ManaCost } from "../mana";
 import { RetryingImage } from "../retrying-image";
-import { CardChip, formatLift, LinkRow, pairingsMessage } from "./bits";
+import { formatLift, LinkRow, MiniGallery, pairingsMessage } from "./bits";
 
 const WIDTH = 380;
 
@@ -21,7 +21,7 @@ export function InteractionsPopover({
   card,
   anchor,
   analysis,
-  deckNames,
+  cards,
   onClose,
   onOpenMap,
   onRemove,
@@ -29,7 +29,8 @@ export function InteractionsPopover({
   card: CardDetails;
   anchor: DOMRect;
   analysis: DeckAnalysis;
-  deckNames: string[];
+  /** The deck's loaded cards, for names and artwork. */
+  cards: CardDetails[];
   onClose: () => void;
   onOpenMap: () => void;
   onRemove: () => void;
@@ -37,11 +38,13 @@ export function InteractionsPopover({
   const ref = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
   const pairings = usePairings(card);
+  const byName = new Map(cards.map((c) => [c.name, c]));
+  const cardFor = (name: string) => byName.get(name);
 
   const traits = analysis.traits.get(card.name);
   const links = traits ? interactionsOf(traits, analysis.traits, card.name) : { uses: [], usedBy: [] };
   const edhrec =
-    pairings?.state === "done" && pairings.result.found ? pairingsInDeck(pairings.result.pairings, deckNames).filter((p) => p.name !== card.name) : [];
+    pairings?.state === "done" && pairings.result.found ? pairingsInDeck(pairings.result.pairings, [...byName.keys()]).filter((p) => p.name !== card.name) : [];
 
   // Placed beside the card that was clicked, kept on screen, and scrolling with the page.
   useLayoutEffect(() => {
@@ -104,7 +107,7 @@ export function InteractionsPopover({
           {links.uses.length > 0 ? (
             <ul className="flex flex-col gap-3">
               {links.uses.map((link) => (
-                <LinkRow key={link.tag} link={link} />
+                <LinkRow key={link.tag} link={link} cardFor={cardFor} />
               ))}
             </ul>
           ) : (
@@ -117,7 +120,7 @@ export function InteractionsPopover({
             <h3 className="mb-2 font-semibold">Cards in your deck that want it</h3>
             <ul className="flex flex-col gap-3">
               {links.usedBy.map((link) => (
-                <LinkRow key={link.tag} link={link} />
+                <LinkRow key={link.tag} link={link} cardFor={cardFor} />
               ))}
             </ul>
           </section>
@@ -134,11 +137,13 @@ export function InteractionsPopover({
                     ? "EDHREC has no page for this card."
                     : "None of your other cards stand out as EDHREC partners for it."}
               </p>
-              <div className="flex flex-wrap gap-1">
-                {edhrec.slice(0, 12).map((p) => (
-                  <CardChip key={p.name} name={p.name} note={formatLift(p.lift)} />
-                ))}
-              </div>
+              {edhrec.length > 0 && (
+                <MiniGallery
+                  label="Played with it on EDHREC"
+                  items={edhrec.map((p) => ({ name: p.name, note: formatLift(p.lift) }))}
+                  cardFor={cardFor}
+                />
+              )}
             </>
           )}
         </section>

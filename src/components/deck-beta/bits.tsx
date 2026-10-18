@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
 import { formatCount } from "@/lib/format";
 import { tagKind, tagLabel, type Tag, type TagLinks } from "@/lib/deck-beta/synergy";
 import type { PairingsState } from "@/lib/deck-beta/store";
+import type { CardDetails } from "@/lib/types";
+import { LazyCardImage } from "./lazy-card-image";
 
 const KIND_LABEL = { type: "Card type", subtype: "Subtype", theme: "Theme" } as const;
 const KIND_STYLE = {
@@ -22,47 +23,68 @@ export function TagName({ tag }: { tag: Tag }) {
   );
 }
 
-/** One tag and the deck cards behind it, folded after a few names. */
-export function LinkRow({ link, onCard, fold = 6 }: { link: TagLinks; onCard?: (name: string) => void; fold?: number }) {
-  const [open, setOpen] = useState(false);
-  const shown = open ? link.cards : link.cards.slice(0, fold);
+/** Finds a deck card's details by name, for its artwork. */
+export type CardLookup = (name: string) => CardDetails | undefined;
+
+/** One tag and the deck cards behind it, as a scrollable gallery. */
+export function LinkRow({ link, cardFor, onCard }: { link: TagLinks; cardFor: CardLookup; onCard?: (name: string) => void }) {
   return (
-    <li className="flex flex-col gap-1">
+    <li className="flex flex-col gap-1.5">
       <div className="flex items-center gap-2">
         <TagName tag={link.tag} />
         <span className="text-xs text-zinc-500 tabular-nums">
           {formatCount(link.cards.length)} {link.cards.length === 1 ? "card" : "cards"}
         </span>
       </div>
-      <div className="flex flex-wrap gap-1">
-        {shown.map((name) => (
-          <CardChip key={name} name={name} onClick={onCard && (() => onCard(name))} />
-        ))}
-        {link.cards.length > fold && (
-          <button type="button" onClick={() => setOpen(!open)} className="px-1 text-xs text-amber-700 hover:underline dark:text-amber-400">
-            {open ? "Show fewer" : `+${link.cards.length - fold} more`}
-          </button>
-        )}
-      </div>
+      <MiniGallery label={tagLabel(link.tag)} items={link.cards.map((name) => ({ name }))} cardFor={cardFor} onCard={onCard} />
     </li>
   );
 }
 
-export function CardChip({ name, note, onClick }: { name: string; note?: string; onClick?: () => void }) {
-  const className =
-    "inline-flex max-w-full items-center gap-1 truncate rounded-md border border-zinc-200 bg-white px-2 py-0.5 text-xs dark:border-zinc-700 dark:bg-zinc-900";
-  const body = (
-    <>
-      <span className="truncate">{name}</span>
-      {note && <span className="shrink-0 text-zinc-500 tabular-nums">{note}</span>}
-    </>
-  );
-  return onClick ? (
-    <button type="button" onClick={onClick} title={`Show ${name}'s synergies`} className={`${className} hover:border-amber-500`}>
-      {body}
-    </button>
-  ) : (
-    <span className={className}>{body}</span>
+/**
+ * A small gallery of cards (artwork and name) in a box that scrolls once it
+ * holds more than about two rows. Images load as they scroll into view.
+ */
+export function MiniGallery({
+  label,
+  items,
+  cardFor,
+  onCard,
+}: {
+  label: string;
+  /** `note` goes under the name, e.g. EDHREC's "×3.2". */
+  items: { name: string; note?: string }[];
+  cardFor: CardLookup;
+  onCard?: (name: string) => void;
+}) {
+  return (
+    <ul
+      aria-label={label}
+      className="grid max-h-64 grid-cols-[repeat(auto-fill,minmax(76px,1fr))] content-start gap-2 overflow-y-auto overscroll-contain rounded-lg border border-zinc-200 bg-zinc-50 p-2 dark:border-zinc-800 dark:bg-zinc-950/60"
+    >
+      {items.map(({ name, note }) => {
+        const body = (
+          <>
+            <div className="aspect-[488/680] overflow-hidden rounded-[4.75%] bg-zinc-200 transition-opacity group-hover:opacity-85 dark:bg-zinc-800">
+              <LazyCardImage url={cardFor(name)?.imageUrl} alt={name} />
+            </div>
+            <p className="mt-1 truncate text-[11px] leading-tight font-medium group-hover:underline">{name}</p>
+            {note && <p className="text-[11px] leading-tight text-zinc-500 tabular-nums">{note}</p>}
+          </>
+        );
+        return (
+          <li key={name} className="min-w-0">
+            {onCard ? (
+              <button type="button" onClick={() => onCard(name)} title={`Show ${name}’s synergies`} className="group block w-full text-left">
+                {body}
+              </button>
+            ) : (
+              <div title={name}>{body}</div>
+            )}
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 

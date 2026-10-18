@@ -8,7 +8,7 @@ import { formatCount, formatPercent } from "@/lib/format";
 import type { CardDetails } from "@/lib/types";
 import { ColorIdentity, ManaCost } from "../mana";
 import { RetryingImage } from "../retrying-image";
-import { CardChip, formatLift, LinkRow, pairingsMessage, TagName } from "./bits";
+import { formatLift, LinkRow, MiniGallery, pairingsMessage, TagName, type CardLookup } from "./bits";
 import { LazyCardImage } from "./lazy-card-image";
 
 /** Recommendations shown before "Show more". */
@@ -41,6 +41,8 @@ export function SynergyMap({
   // The deck as it was when the map opened: added recommendations stay listed, marked "In deck".
   const [openedWith] = useState(() => cards.map((c) => c.name));
 
+  const byName = new Map(cards.map((c) => [c.name, c]));
+  const cardFor = (name: string) => byName.get(name);
   const focus = cards.find((c) => c.name === trail.at(-1)) ?? initial;
   const pairings = usePairings(focus);
 
@@ -52,7 +54,7 @@ export function SynergyMap({
   const traits = analysis.traits.get(focus.name);
   const links = traits ? interactionsOf(traits, analysis.traits, focus.name) : { uses: [], usedBy: [] };
   const found = pairings?.state === "done" && pairings.result.found ? pairings.result : null;
-  const edhrec = found ? pairingsInDeck(found.pairings, cards.map((c) => c.name)).filter((p) => p.name !== focus.name) : [];
+  const edhrec = found ? pairingsInDeck(found.pairings, [...byName.keys()]).filter((p) => p.name !== focus.name) : [];
 
   const recommendations = useMemo(
     () =>
@@ -117,7 +119,7 @@ export function SynergyMap({
 
         <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(0,1fr)_360px]">
           <div className={`min-h-0 overflow-y-auto p-4 sm:p-6 ${tab === "map" ? "" : "hidden lg:block"}`}>
-            <Flowchart focus={focus} uses={links.uses} usedBy={links.usedBy} onCard={goTo} />
+            <Flowchart focus={focus} uses={links.uses} usedBy={links.usedBy} cardFor={cardFor} onCard={goTo} />
 
             <section className="mt-8">
               <h3 className="font-semibold">EDHREC: often played with {focus.name}</h3>
@@ -132,11 +134,14 @@ export function SynergyMap({
                         ? "None of your other cards stand out as EDHREC partners for it."
                         : "EDHREC has no page for this card."}
                   </p>
-                  <div className="flex flex-wrap gap-1">
-                    {edhrec.map((p) => (
-                      <CardChip key={p.name} name={p.name} note={formatLift(p.lift)} onClick={() => goTo(p.name)} />
-                    ))}
-                  </div>
+                  {edhrec.length > 0 && (
+                    <MiniGallery
+                      label={`Played with ${focus.name} on EDHREC`}
+                      items={edhrec.map((p) => ({ name: p.name, note: formatLift(p.lift) }))}
+                      cardFor={cardFor}
+                      onCard={goTo}
+                    />
+                  )}
                   {found && (
                     <a href={found.url} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block text-sm text-amber-700 hover:underline dark:text-amber-400">
                       View on EDHREC ↗
@@ -196,18 +201,20 @@ function Flowchart({
   focus,
   uses,
   usedBy,
+  cardFor,
   onCard,
 }: {
   focus: CardDetails;
   uses: TagLinks[];
   usedBy: TagLinks[];
+  cardFor: CardLookup;
   onCard: (name: string) => void;
 }) {
   return (
-    <div className="grid items-center gap-4 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:gap-0">
-      <Branch title={`Helps ${focus.name}`} empty="No cards in your deck feed it." links={uses} side="left" onCard={onCard} />
+    <div className="grid items-center gap-4 xl:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] xl:gap-0">
+      <Branch title={`Helps ${focus.name}`} empty="No cards in your deck feed it." links={uses} side="left" cardFor={cardFor} onCard={onCard} />
 
-      <div className="flex flex-col items-center lg:flex-row">
+      <div className="flex flex-col items-center xl:flex-row">
         <Connector />
         <div className="w-40 shrink-0 rounded-xl border-2 border-amber-500 bg-white p-2 shadow-lg dark:bg-zinc-900">
           <div className="aspect-[488/680] overflow-hidden rounded-[4.75%] bg-zinc-200 dark:bg-zinc-800">
@@ -218,17 +225,17 @@ function Flowchart({
         <Connector />
       </div>
 
-      <Branch title={`${focus.name} helps`} empty="No cards in your deck reward it." links={usedBy} side="right" onCard={onCard} />
+      <Branch title={`${focus.name} helps`} empty="No cards in your deck reward it." links={usedBy} side="right" cardFor={cardFor} onCard={onCard} />
     </div>
   );
 }
 
-/** An arrow between the columns: down on small screens, right on wide ones. */
+/** An arrow between the columns: down on narrower screens, right on wide ones. */
 function Connector() {
   return (
     <span aria-hidden className="flex items-center justify-center text-zinc-400 dark:text-zinc-600">
-      <span className="lg:hidden">↓</span>
-      <span className="hidden items-center lg:flex">
+      <span className="xl:hidden">↓</span>
+      <span className="hidden items-center xl:flex">
         <span className="h-0.5 w-6 bg-current" />▶
       </span>
     </span>
@@ -240,30 +247,32 @@ function Branch({
   empty,
   links,
   side,
+  cardFor,
   onCard,
 }: {
   title: string;
   empty: string;
   links: TagLinks[];
   side: "left" | "right";
+  cardFor: CardLookup;
   onCard: (name: string) => void;
 }) {
-  const trunk = side === "left" ? "lg:border-r-2 lg:pr-6" : "lg:border-l-2 lg:pl-6";
+  const trunk = side === "left" ? "xl:border-r-2 xl:pr-6" : "xl:border-l-2 xl:pl-6";
   const twig = side === "left" ? "-right-6" : "-left-6";
   return (
     <div className="min-w-0">
-      <h3 className={`mb-2 text-sm font-semibold text-zinc-600 dark:text-zinc-400 ${side === "left" ? "lg:pr-6 lg:text-right" : "lg:pl-6"}`}>
+      <h3 className={`mb-2 text-sm font-semibold text-zinc-600 dark:text-zinc-400 ${side === "left" ? "xl:pr-6 xl:text-right" : "xl:pl-6"}`}>
         {title}
       </h3>
       {links.length === 0 ? (
-        <p className={`text-sm text-zinc-500 ${side === "left" ? "lg:pr-6 lg:text-right" : "lg:pl-6"}`}>{empty}</p>
+        <p className={`text-sm text-zinc-500 ${side === "left" ? "xl:pr-6 xl:text-right" : "xl:pl-6"}`}>{empty}</p>
       ) : (
         <ul className={`flex flex-col gap-3 border-zinc-300 dark:border-zinc-700 ${trunk}`}>
           {links.map((link) => (
             <li key={link.tag} className="relative">
-              <span aria-hidden className={`absolute top-5 hidden h-0.5 w-6 bg-zinc-300 lg:block dark:bg-zinc-700 ${twig}`} />
+              <span aria-hidden className={`absolute top-5 hidden h-0.5 w-6 bg-zinc-300 xl:block dark:bg-zinc-700 ${twig}`} />
               <ul className="rounded-lg border border-zinc-200 bg-white p-2.5 dark:border-zinc-800 dark:bg-zinc-900" aria-label={tagLabel(link.tag)}>
-                <LinkRow link={link} onCard={onCard} fold={8} />
+                <LinkRow link={link} cardFor={cardFor} onCard={onCard} />
               </ul>
             </li>
           ))}

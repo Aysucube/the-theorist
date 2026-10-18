@@ -139,7 +139,7 @@ export function DeckBeta() {
           card={previewCard}
           anchor={preview.anchor}
           analysis={analysis}
-          deckNames={loaded.map((c) => c.name)}
+          cards={loaded}
           onClose={() => setPreview(null)}
           onOpenMap={() => {
             setPreview(null);
