@@ -1,5 +1,6 @@
 import { formatCount, formatPhp } from "@/lib/format";
 import { pricePrintings, type PricedPrinting } from "@/lib/printings";
+import { scryfallImageAs } from "@/lib/scryfall-images";
 import { tcgphSlug } from "@/lib/slugs";
 import { reportSourceError } from "@/lib/sources/http";
 import { getPrintings } from "@/lib/sources/scryfall";
@@ -54,12 +55,13 @@ export async function PrintingsPanel({ card }: { card: ScryfallCard }) {
         )}
         {printings === null && " · couldn’t reach Scryfall, so only in-stock printings are listed"}
         {prices === undefined && " · couldn’t reach TCGph, so prices are missing"}
+        . Click a printing to see it at the top of the page; click its price to buy it on TCGph.
       </p>
 
       {inStock.length > 0 && (
         <>
           <h3 className="mb-2 text-sm font-medium">In stock, cheapest first</h3>
-          <PrintingGrid tiles={inStock.map(toTile)} label="in-stock printings" />
+          <PrintingGrid tiles={inStock.map(toTile)} label="in-stock printings" cardName={card.name} />
         </>
       )}
 
@@ -69,7 +71,7 @@ export async function PrintingsPanel({ card }: { card: ScryfallCard }) {
             Not in PH stores right now ({formatCount(notInStock.length)})
           </summary>
           <div className="mt-2">
-            <PrintingGrid tiles={notInStock.map(toTile)} label="printings" />
+            <PrintingGrid tiles={notInStock.map(toTile)} label="printings" cardName={card.name} />
           </div>
         </details>
       )}
@@ -86,6 +88,9 @@ function toTile(p: PricedPrinting): PrintingTile {
     collectorNumber: p.collectorNumber,
     year: p.releasedAt?.slice(0, 4),
     imageUrl: p.imageUrl,
+    // Scryfall images come in every size; TCGph's only in one.
+    largeImageUrl: scryfallImageAs(p.imageUrl, "normal") ?? p.imageUrl,
+    artUrl: scryfallImageAs(p.imageUrl, "art_crop"),
     href: p.tcgphUrl ?? p.scryfallUrl,
     pricePhp: p.cheapest?.pricePhp,
     store: p.cheapest?.store,

@@ -1,7 +1,7 @@
-import Image from "next/image";
 import { formatCount, formatUsd } from "@/lib/format";
 import type { ScryfallLookup } from "@/lib/types";
 import { AddToDeckButton } from "./deck-buttons";
+import { ArtBackground, CardImage } from "./card-display";
 import { CardLink } from "./card-link";
 
 export function CardOverview({ lookup }: { lookup: ScryfallLookup }) {
@@ -9,26 +9,8 @@ export function CardOverview({ lookup }: { lookup: ScryfallLookup }) {
 
   return (
     <section className="grid gap-6 text-zinc-100 sm:grid-cols-[minmax(0,240px)_1fr]">
-      {card.artUrl && <ArtBackground url={card.artUrl} />}
-
-      <div className="mx-auto w-full max-w-[240px]">
-        {card.imageUrl ? (
-          <Image
-            src={card.imageUrl}
-            alt={card.name}
-            width={488}
-            height={680}
-            priority
-            // Scryfall's CDN already serves sized images and rejects the optimizer's requests.
-            unoptimized
-            className="h-auto w-full rounded-[4.75%] shadow-lg shadow-black/50"
-          />
-        ) : (
-          <div className="flex aspect-[488/680] items-center justify-center rounded-xl bg-zinc-800 text-sm text-zinc-400">
-            No image
-          </div>
-        )}
-      </div>
+      <ArtBackground name={card.name} artUrl={card.artUrl} />
+      <CardImage name={card.name} imageUrl={card.imageUrl} />
 
       <div className="flex min-w-0 flex-col gap-3 [text-shadow:0_1px_3px_rgb(0_0_0/0.6)]">
         <div>
@@ -83,20 +65,6 @@ export function CardOverview({ lookup }: { lookup: ScryfallLookup }) {
         )}
       </div>
     </section>
-  );
-}
-
-/**
- * The card's artwork behind the whole page, in grayscale and darkened so the
- * text on top stays readable (like EDHREC's card headers). It sits behind
- * everything and fades darker further down, where the panels are.
- */
-function ArtBackground({ url }: { url: string }) {
-  return (
-    <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10 overflow-hidden bg-zinc-950">
-      <Image src={url} alt="" fill unoptimized sizes="100vw" className="object-cover object-top brightness-[0.4] grayscale" />
-      <div className="absolute inset-0 bg-linear-to-b from-zinc-950/20 via-zinc-950/55 to-zinc-950/90" />
-    </div>
   );
 }
 
