@@ -233,6 +233,19 @@ export async function getPrintings(oracleId: string): Promise<Printing[]> {
   return printings;
 }
 
+// --- Daily bulk file ----------------------------------------------------------
+
+/**
+ * Where to download Scryfall's daily file of every card (one printing each,
+ * with today's prices), and when it was made. Scryfall asks apps that need
+ * many cards to use these files instead of thousands of API calls.
+ */
+export async function getOracleCardsFile(): Promise<{ updatedAt: string; url: string }> {
+  const info = (await get("/bulk-data/oracle-cards")) as { updated_at?: string; jsonl_download_uri?: string } | null;
+  if (!info?.updated_at || !info.jsonl_download_uri) throw new SourceError("Scryfall", "no daily card file listed");
+  return { updatedAt: info.updated_at, url: info.jsonl_download_uri };
+}
+
 // --- Rulings ------------------------------------------------------------------
 
 interface RawRuling {

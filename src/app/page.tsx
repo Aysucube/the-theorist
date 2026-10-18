@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { CardSearch } from "@/components/card-search";
+import { MarketTrendsSection } from "@/components/market-trends";
 import { PanelSkeleton, SourceMessage } from "@/components/panel";
 import { ThemePicker } from "@/components/theme-picker";
 import { ThemeResults } from "@/components/theme-results";
@@ -50,6 +51,19 @@ export default function Home(props: PageProps<"/">) {
           ))}
         </ul>
       </div>
+
+      <section id="trends" className="flex scroll-mt-6 flex-col gap-6">
+        <div>
+          <h2 className="text-2xl font-semibold tracking-tight">Price trends</h2>
+          <p className="mt-1 text-zinc-600 dark:text-zinc-400">
+            Cards whose market price jumped the most lately, and what the cheapest copy costs in Philippine stores
+            right now.
+          </p>
+        </div>
+        <Suspense fallback={<p className="text-sm text-zinc-500">Loading price trends…</p>}>
+          <MarketTrendsSection />
+        </Suspense>
+      </section>
 
       <section id="theme" className="flex scroll-mt-6 flex-col gap-6">
         <div>

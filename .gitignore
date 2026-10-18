@@ -43,3 +43,6 @@ next-env.d.ts
 
 # private Node.js copy downloaded by the Windows launcher
 /.runtime/
+
+# this app's own daily price history (see src/lib/trends/local.ts)
+/.data/

@@ -1,0 +1,43 @@
+name: Market trends
+
+# Once a day, works out which cards' market prices are surging, from MTGJSON's
+# 90-day TCGplayer price history, and publishes the result as trends.json on
+# the "trends-data" branch. Every copy of the app reads that file (see
+# src/lib/trends/shared.ts) as long as the repository is public. Takes a few
+# minutes of Actions time: two big MTGJSON downloads, read as streams.
+
+on:
+  schedule:
+    - cron: "30 7 * * *" # 07:30 UTC, 3:30 PM in the Philippines
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: market-trends
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      # Only Node's own modules are needed, so no npm install.
+      - name: Build trends.json from MTGJSON
+        run: node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/build-market-trends.ts out/trends.json
+      # A single-commit branch, replaced each day, so the repository doesn't grow.
+      - name: Publish to the trends-data branch
+        working-directory: out
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git init -q -b trends-data
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add trends.json
+          git commit -q -m "Market trends for $(date -u +%F)"
+          git push -q -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" trends-data

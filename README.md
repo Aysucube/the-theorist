@@ -70,6 +70,21 @@ Other scripts:
 Run `npm run fixtures:update && npm test` now and then: if TCGph or EDHREC change
 their pages, the tests fail instead of the app quietly showing wrong prices.
 
+## Price trends
+
+The front page lists cards whose market price (TCGplayer, in US dollars) jumped the most over the
+past day, week or month, with the cheapest copy in Philippine stores. Two sources, best first:
+
+1. **A shared daily file.** `.github/workflows/market-trends.yml` runs every day on GitHub. It
+   reads MTGJSON's 90-day price history as a stream (`scripts/build-market-trends.ts`) and
+   publishes `trends.json` on the `trends-data` branch. Every copy of the app reads it, but only
+   while the repository is public.
+2. **The app's own tracking.** Otherwise the app saves every card's price once a day from
+   Scryfall's daily card file (about 25 MB) into `.data/price-history`. It compares against
+   earlier days, so surges show from the second day it runs, and weekly ones after a week.
+
+Only Commander-legal cards that cost at least $2 and rose by at least 10% (and 50 cents) count.
+
 ## Configuration
 
 Copy `.env.example` to `.env.local` (locally) or set these in your host:
@@ -77,6 +92,7 @@ Copy `.env.example` to `.env.local` (locally) or set these in your host:
 | Variable  | Required | Purpose                                                                   |
 | --------- | -------- | ------------------------------------------------------------------------- |
 | `APP_URL` | Recommended in production | Your site's URL, added to our User-Agent so Scryfall, EDHREC and TCGph can see who is calling |
+| `TRENDS_URL` | No | Where to read the shared price-trends file; defaults to this repository's `trends-data` branch |
 
 ## How we treat the data sources
 
