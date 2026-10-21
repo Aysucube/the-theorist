@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { fakeFetch, fixture } from "./__fixtures__/load";
 import {
   getCardStats,
+  getCommanderTheme,
   getCommanderStats,
   getTheme,
   parseCardPairings,
@@ -180,6 +181,31 @@ describe("deck themes", () => {
     const { fetch, calls } = fakeFetch({});
     vi.stubGlobal("fetch", fetch);
     expect(await getTheme("../cards/sol-ring")).toBeNull();
+    expect(calls).toHaveLength(0);
+    vi.unstubAllGlobals();
+  });
+});
+
+describe("commander playstyles", () => {
+  it("reads the playstyles a commander's decks are built around", () => {
+    const stats = parseCommanderStats(atraxa(), "commanders/atraxa-praetors-voice")!;
+    expect(stats.themes!.length).toBeGreaterThan(5);
+    expect(stats.themes![0]).toMatchObject({ name: "Infect", slug: "infect" });
+    expect(stats.themes![0].numDecks).toBeGreaterThan(0);
+  });
+
+  it("reads one playstyle's page, with synergy for that playstyle", () => {
+    const page = JSON.parse(fixture("edhrec/commanders-atraxa-praetors-voice-infect.json")) as RawPage;
+    const stats = parseCommanderStats(page, "commanders/atraxa-praetors-voice/infect")!;
+    expect(stats.url).toBe("https://edhrec.com/commanders/atraxa-praetors-voice/infect");
+    expect(stats.lists.length).toBeGreaterThan(3);
+    expect(stats.lists.flatMap((l) => l.cards).some((c) => typeof c.synergy === "number")).toBe(true);
+  });
+
+  it("asks EDHREC only for playstyle names that look like slugs", async () => {
+    const { fetch, calls } = fakeFetch({});
+    vi.stubGlobal("fetch", fetch);
+    expect(await getCommanderTheme("atraxa-praetors-voice", "../../cards/sol-ring")).toBeNull();
     expect(calls).toHaveLength(0);
     vi.unstubAllGlobals();
   });

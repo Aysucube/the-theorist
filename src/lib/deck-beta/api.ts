@@ -1,5 +1,5 @@
 // What the deck beta's API routes return.
-import type { CardDetails, EdhrecPairing, Ruling } from "@/lib/types";
+import type { CardDetails, DeckCombos, EdhrecPairing, EdhrecTheme, Ruling } from "@/lib/types";
 
 /** POST /api/deck-beta/cards */
 export interface CardsResponse {
@@ -22,3 +22,36 @@ export type PairingsResponse =
 
 /** GET /api/deck-beta/rulings */
 export type RulingsResponse = { found: false } | { found: true; name: string; scryfallUrl: string; rulings: Ruling[] };
+
+/** POST /api/deck-beta/analysis */
+export interface AnalysisResponse {
+  /** Null when Commander Spellbook couldn't be reached. */
+  combos: DeckCombos | null;
+  /** The commander's playstyles on EDHREC, most decks first. */
+  themes: EdhrecTheme[];
+  commanderUrl?: string;
+  /** Details for the cards one-card-away combos are missing, to show and add them. */
+  missing: Record<string, CardDetails>;
+}
+
+export interface PlaystyleCard {
+  name: string;
+  /** EDHREC synergy for this commander and playstyle (-1 to 1). */
+  synergy?: number;
+  /** Share of these decks that run it (0–1). */
+  inclusion?: number;
+  numDecks: number;
+}
+
+/** GET /api/deck-beta/playstyle */
+export type PlaystyleResponse =
+  | { found: false }
+  | {
+      found: true;
+      url: string;
+      /** The playstyle's best cards for this commander, highest synergy first. */
+      cards: PlaystyleCard[];
+      /** Every card EDHREC lists for it, to spot deck cards that don't fit. */
+      listed: string[];
+      details: Record<string, CardDetails>;
+    };

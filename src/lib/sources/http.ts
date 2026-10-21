@@ -1,7 +1,7 @@
 // Identifies us to the sites we query; Scryfall requires a User-Agent. Set
 // APP_URL in production so site owners can see who is calling.
 const contact = process.env.APP_URL ? `+${process.env.APP_URL}; ` : "";
-export const USER_AGENT = `CommanderPH/0.1 (${contact}MTG Commander price lookup for PH players)`;
+export const USER_AGENT = `TheTheorist/0.1 (${contact}MTG Commander deck and price tool for PH players)`;
 
 /** Give up on a source after this long so a slow site can't hang a page. */
 const TIMEOUT_MS = 10_000;
@@ -28,6 +28,7 @@ export async function sourceFetch(
   accept: string,
   /** For a POST: the JSON body to send. */
   json?: unknown,
+  timeoutMs = TIMEOUT_MS,
 ): Promise<Response> {
   try {
     return await fetch(url, {
@@ -38,10 +39,10 @@ export async function sourceFetch(
         ...(json === undefined ? {} : { "Content-Type": "application/json" }),
       },
       body: json === undefined ? undefined : JSON.stringify(json),
-      signal: AbortSignal.timeout(TIMEOUT_MS),
+      signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (e) {
     const timedOut = e instanceof Error && e.name === "TimeoutError";
-    throw new SourceError(source, timedOut ? `no answer within ${TIMEOUT_MS / 1000}s` : "network error");
+    throw new SourceError(source, timedOut ? `no answer within ${timeoutMs / 1000}s` : "network error");
   }
 }

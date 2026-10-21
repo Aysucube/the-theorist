@@ -50,6 +50,37 @@ export interface CardDetails extends CardInfo {
   keywords: string[];
   /** Mana value. */
   cmc: number;
+  /** Front face's printed power and toughness, if it has a P/T box. */
+  power?: string;
+  toughness?: string;
+  /** Can lead a deck (see lib/commander-rules.ts). Missing on details saved by older versions. */
+  canBeCommander?: boolean;
+}
+
+/** A combo from Commander Spellbook. */
+export interface Combo {
+  id: string;
+  /** The cards it needs, by name (including the commander when it's a piece). */
+  cards: string[];
+  /** Pieces any matching card can fill, e.g. "Permanent Castable for {C}". */
+  templates: string[];
+  /** What it does, e.g. "Infinite colorless mana". */
+  results: string[];
+  /** How to do it, one step per line. */
+  steps: string;
+  /** What has to be set up first, if anything. */
+  prerequisites: string;
+  manaNeeded?: string;
+  /** How many decks play it, per Commander Spellbook. */
+  popularity?: number;
+  url: string;
+}
+
+export interface DeckCombos {
+  /** Combos the deck (with its commander) already has every piece of. */
+  included: Combo[];
+  /** Combos one card away, most popular first. */
+  almostIncluded: Combo[];
 }
 
 /** One paper printing of a card, from Scryfall. */
@@ -153,6 +184,8 @@ export interface EdhrecCommanderStats {
   numDecks: number;
   rank?: number;
   lists: EdhrecCardList[];
+  /** The playstyles its decks are built around ("Infect", "+1/+1 Counters"...), most decks first. */
+  themes?: EdhrecTheme[];
 }
 
 // --- TCGph ------------------------------------------------------------------

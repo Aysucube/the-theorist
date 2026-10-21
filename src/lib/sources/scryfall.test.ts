@@ -43,7 +43,7 @@ describe("suggestCardNames", () => {
     const names = await suggestCardNames("  Atra ");
 
     expect(calls.map((c) => c.url)).toEqual([`${AUTOCOMPLETE}?q=atra`]);
-    expect(calls[0].headers["user-agent"]).toMatch(/^CommanderPH\//);
+    expect(calls[0].headers["user-agent"]).toMatch(/^TheTheorist\//);
     expect(names[0]).toMatch(/^Atra/);
     expect(names.length).toBeLessThanOrEqual(AUTOCOMPLETE_LIMIT);
   });

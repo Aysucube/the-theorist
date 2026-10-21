@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { DeckBeta } from "@/components/deck-beta/deck-beta";
 
 export const metadata: Metadata = {
-  title: "Deck (beta)",
+  title: "Deck Synergy (beta)",
 };
 
 // The beta deck is stored in the visitor's browser, so everything renders on the client.

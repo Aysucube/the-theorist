@@ -307,13 +307,19 @@ export async function getCardDetails(names: string[]): Promise<Record<string, Ca
   "use cache: remote";
   cacheLife("days");
 
-  return mapValues(await collectCards(names), (card) => ({
-    ...toCardInfo(card),
-    layout: card.layout,
-    oracleText: toCard(card).oracleText ?? "",
-    keywords: card.keywords ?? [],
-    cmc: card.cmc ?? 0,
-  }));
+  return mapValues(await collectCards(names), (card) => {
+    const front = card.card_faces?.[0];
+    return {
+      ...toCardInfo(card),
+      layout: card.layout,
+      oracleText: toCard(card).oracleText ?? "",
+      keywords: card.keywords ?? [],
+      cmc: card.cmc ?? 0,
+      power: front?.power ?? card.power,
+      toughness: front?.toughness ?? card.toughness,
+      canBeCommander: toCard(card).canBeCommander,
+    };
+  });
 }
 
 function mapValues<A, B>(record: Record<string, A>, fn: (value: A) => B): Record<string, B> {

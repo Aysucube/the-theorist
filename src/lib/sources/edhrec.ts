@@ -34,6 +34,8 @@ export interface RawPage {
   redirect?: string;
   /** Names of cards EDHREC considers similar (e.g. other mana rocks for Sol Ring). */
   similar?: unknown[];
+  /** On commander pages: the playstyles (themes) its decks are built around, most decks first. */
+  panels?: { taglinks?: { value?: string; slug?: string; count?: number }[] };
   container?: {
     json_dict?: {
       card?: {
@@ -174,11 +176,16 @@ export function parseCommanderStats(page: RawPage, path: string): EdhrecCommande
     .sort((a, b) => Number(a.tag === "newcards") - Number(b.tag === "newcards"))
     .map((l) => ({ header: l.header, cards: l.cardviews.map(toRef) }));
 
+  const themes: EdhrecTheme[] = (page.panels?.taglinks ?? []).flatMap((t) =>
+    t.value && t.slug && /^[a-z0-9-]+$/.test(t.slug) ? [{ name: t.value, slug: t.slug, numDecks: t.count ?? 0 }] : [],
+  );
+
   return {
     url: `${SITE}/${path}`,
     numDecks: dict.card.num_decks ?? 0,
     rank: dict.card.rank,
     lists,
+    themes,
   };
 }
 
@@ -218,6 +225,20 @@ export async function getCardPairings(slug: string): Promise<EdhrecCardPairings 
 
   const result = await getPage(`cards/${slug}`);
   return result && parseCardPairings(result.page, result.path);
+}
+
+/**
+ * Recommendations for one playstyle of a commander, e.g. Atraxa's "Infect"
+ * decks. Synergy here compares those decks with all decks. Null if EDHREC has
+ * no such page.
+ */
+export async function getCommanderTheme(slug: string, themeSlug: string): Promise<EdhrecCommanderStats | null> {
+  "use cache: remote";
+  cacheLife("days");
+
+  if (!/^[a-z0-9-]{1,80}$/.test(themeSlug)) return null;
+  const result = await getPage(`commanders/${slug}/${themeSlug}`);
+  return result && parseCommanderStats(result.page, result.path);
 }
 
 /** Recommendations for decks led by this card. Null if it isn't a commander on EDHREC. */

@@ -1,6 +1,6 @@
-# Commander PH
+# The Theorist
 
-Search a Magic: The Gathering card and see, on one page:
+A Magic: The Gathering Commander tool for Filipino players. Search a card and see, on one page:
 
 - **Scryfall**: the card, its rules text and Commander legality
 - **EDHREC**: how often Commander decks play it, and for commanders, recommended cards
@@ -17,10 +17,22 @@ them all, and get a **shopping list** that uses the fewest stores possible,
 with a ready-to-send order message for each store. Prices always use the cheapest
 printing of a card, whatever printing your list names.
 
-**Deck (beta)** is a separate, early test: paste a deck to see it as a gallery,
-click a card to see which of your cards it interacts with (by card type, subtype
-and theme), and double-click for a synergy map with EDHREC-based recommendations
-in your colors. It keeps its own deck and never changes the Shopping list.
+**Deck Synergy (beta)** is a separate, early test. Paste a deck and pick its commander:
+
+- **Network**: the deck as an animated network, with the commander in the middle, the deck's
+  playstyles (Elves, Tokens, Aristocrats...) around it, every card linked to the playstyles it
+  feeds or rewards, and combos running as coloured chains through their pieces.
+- **Combos**: the combos the deck has and the ones a card away (from
+  [Commander Spellbook](https://commanderspellbook.com)), each with its steps, and how
+  consistently the deck assembles one: the chance of holding every piece by turns 4 to 10,
+  with tutors counted, from shuffling the deck 4,000 times.
+- **Playstyle**: what the deck is built around now, and, for any of the commander's playstyles
+  on EDHREC, the highest-synergy cards to add and the deck's cards those decks rarely play.
+- **Cards**: a gallery. Click a card for what it interacts with; double-click it (or click it
+  in the network) for its own animated network of synergies and combos with your commander,
+  its rulings and recommendations.
+
+It keeps its own deck and never changes the Shopping list.
 
 ## Running it on a Windows computer (no setup)
 
@@ -31,7 +43,7 @@ GitHub's ZIP. Nothing needs installing first.
 2. Right-click the downloaded ZIP, choose **Properties**, tick **Unblock**
    and click **OK**. That stops Windows warning about every file. Then
    right-click it again and choose **Extract All**.
-3. Open the extracted folder and double-click **Start Commander PH.cmd**. If
+3. Open the extracted folder and double-click **Start The Theorist.cmd**. If
    Windows says it protected your PC, click **More info**, then **Run anyway**.
 4. The first start takes about 5 to 10 minutes. If the computer has no
    Node.js, the launcher downloads a private copy from nodejs.org into the
@@ -96,8 +108,8 @@ Copy `.env.example` to `.env.local` (locally) or set these in your host:
 
 ## How we treat the data sources
 
-Only Scryfall has an official API. EDHREC and TCGph are read from the same pages
-their own websites use, so the app is built to stay a light, polite visitor:
+Scryfall and Commander Spellbook have official APIs. EDHREC and TCGph are read from the
+same pages their own websites use, so the app is built to stay a light, polite visitor:
 
 - Every lookup is cached: Scryfall and EDHREC for a day, TCGph prices for an hour.
 - Prices are fetched only when someone asks (a "Check ₱" click or "Price this deck").
@@ -110,7 +122,9 @@ their own websites use, so the app is built to stay a light, polite visitor:
   HTTP 429 the app stops calling Scryfall for 30 seconds.
 - Each visitor is rate limited (`src/proxy.ts`): 60 card pages per minute,
   120 search suggestions per minute, 350 price checks per 10 minutes.
-- Every request names the app in its User-Agent and gives up after 10 seconds.
+- Commander Spellbook is asked once per deck analysis (Deck Synergy), cached for a day.
+- Every request names the app in its User-Agent and gives up after 10 seconds (45 for
+  Commander Spellbook, which works through every combo in a deck).
 
 If a site asks you to stop or offers an API, follow that.
 

@@ -5,11 +5,14 @@ import { cardKey, pairingsInDeck, recommend, type Recommendation } from "@/lib/d
 import { requestPairings, usePairings } from "@/lib/deck-beta/store";
 import { interactionsOf, tagLabel, type DeckAnalysis, type TagLinks } from "@/lib/deck-beta/synergy";
 import { formatCount, formatPercent } from "@/lib/format";
-import type { CardDetails } from "@/lib/types";
+import { combosWith } from "@/lib/deck-beta/combos";
+import type { CardDetails, DeckCombos } from "@/lib/types";
 import { ColorIdentity, ManaCost } from "../mana";
 import { RetryingImage } from "../retrying-image";
 import { useHoverPreview } from "../card-link";
 import { BetaRulings } from "./beta-rulings";
+import { CardNetwork } from "./card-network";
+import { CombosList, type DeckForOdds } from "./combos-panel";
 import { formatLift, LinkRow, MiniGallery, pairingsMessage, TagName, type CardLookup } from "./bits";
 import { LazyCardImage } from "./lazy-card-image";
 
@@ -17,16 +20,20 @@ import { LazyCardImage } from "./lazy-card-image";
 const FIRST_RECOMMENDATIONS = 25;
 
 /**
- * The double-click view: a flowchart of how one card works with the rest of
- * the deck (cards that help it → the card → cards it helps), EDHREC's
- * "played together" cards from the deck, and a sidebar with the card's
- * rulings and recommendations that aren't in the deck yet, the deck's
- * colors first.
+ * The card profile (double-click): an animated network of the card's
+ * synergies and combos with the chosen commander, or a breakdown flowchart
+ * (cards that help it → the card → cards it helps) with EDHREC's "played
+ * together" cards, plus a sidebar with its rulings and recommendations that
+ * aren't in the deck yet, the deck's colors first.
  */
 export function SynergyMap({
   initial,
   cards,
   analysis,
+  commander,
+  combos,
+  odds,
+  missing,
   onAdd,
   onClose,
 }: {
@@ -34,6 +41,11 @@ export function SynergyMap({
   /** The deck's loaded cards. */
   cards: CardDetails[];
   analysis: DeckAnalysis;
+  commander?: CardDetails;
+  /** The deck's combos, once Commander Spellbook has answered. */
+  combos?: DeckCombos | null;
+  odds: DeckForOdds;
+  missing: Record<string, CardDetails>;
   onAdd: (card: CardDetails) => void;
   onClose: () => void;
 }) {
@@ -41,6 +53,7 @@ export function SynergyMap({
   // Cards clicked through, so "Back" can return to the previous one.
   const [trail, setTrail] = useState<string[]>([initial.name]);
   const [tab, setTab] = useState<"map" | "rulings" | "others">("map");
+  const [view, setView] = useState<"network" | "breakdown">("network");
   // The deck as it was when the map opened: added recommendations stay listed, marked "In deck".
   const [openedWith] = useState(() => cards.map((c) => c.name));
 
@@ -122,7 +135,69 @@ export function SynergyMap({
 
         <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(0,1fr)_360px]">
           <div className={`min-h-0 overflow-y-auto p-4 sm:p-6 ${tab === "map" ? "" : "hidden lg:block"}`}>
-            <Flowchart focus={focus} uses={links.uses} usedBy={links.usedBy} cardFor={cardFor} onCard={goTo} />
+            <div role="tablist" aria-label="View" className="mb-4 flex gap-2">
+              {(["network", "breakdown"] as const).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  role="tab"
+                  aria-selected={view === v}
+                  onClick={() => setView(v)}
+                  className={`rounded-full border px-3 py-1 text-sm font-medium ${
+                    view === v ? "border-amber-500 bg-amber-500 text-zinc-950" : "border-zinc-300 hover:border-amber-500 dark:border-zinc-700"
+                  }`}
+                >
+                  {v === "network" ? "Network" : "Breakdown"}
+                </button>
+              ))}
+            </div>
+
+            {view === "network" ? (
+              <>
+                <CardNetwork
+                  focus={focus}
+                  commander={commander}
+                  analysis={analysis}
+                  deckNames={[...byName.keys()]}
+                  details={byName}
+                  combos={combos}
+                  pairings={found?.pairings}
+                  onOpen={goTo}
+                />
+                <p className="mt-2 text-xs text-zinc-500">
+                  Lines from the middle are this card’s strongest synergies in your deck (blue: subtypes, violet: themes,
+                  gray: card types). Coloured chains are combos: each runs from this card through the other pieces to what
+                  the combo does; dashed ones are a card away. Click a card to re-centre on it.
+                </p>
+                <section className="mt-6">
+                  <h3 className="mb-2 font-semibold">Combos with {focus.name}</h3>
+                  {combos === undefined ? (
+                    <p className="text-sm text-zinc-500">Loading combos from Commander Spellbook…</p>
+                  ) : combos === null ? (
+                    <p className="text-sm text-zinc-500">Couldn’t reach Commander Spellbook for combos.</p>
+                  ) : combosWith(combos.included, focus.name).length + combosWith(combos.almostIncluded, focus.name).length === 0 ? (
+                    <p className="text-sm text-zinc-500">
+                      No known combo uses {focus.name} with {commander ? `${commander.name} and ` : ""}your deck.
+                    </p>
+                  ) : (
+                    <div className="flex flex-col gap-2">
+                      <CombosList combos={combosWith(combos.included, focus.name)} deck={odds} onOpen={goTo} />
+                      <CombosList
+                        combos={combosWith(combos.almostIncluded, focus.name)}
+                        deck={odds}
+                        missing={missing}
+                        inDeck={(name) => inDeck.has(cardKey(name))}
+                        onAdd={onAdd}
+                        onOpen={goTo}
+                        colorOffset={combosWith(combos.included, focus.name).length}
+                      />
+                    </div>
+                  )}
+                </section>
+              </>
+            ) : (
+              <Flowchart focus={focus} uses={links.uses} usedBy={links.usedBy} cardFor={cardFor} onCard={goTo} />
+            )}
 
             <section className="mt-8">
               <h3 className="font-semibold">EDHREC: often played with {focus.name}</h3>

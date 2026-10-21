@@ -21,7 +21,7 @@ import { dataEntries } from "../src/lib/trends/json-stream.ts";
 import type { MarketTrends, TrendCard, TrendWindow } from "../src/lib/trends/types.ts";
 
 const MTGJSON = "https://mtgjson.com/api/v5";
-const USER_AGENT = "CommanderPH/0.1 (daily market trends for PH Commander players)";
+const USER_AGENT = "TheTheorist/0.1 (daily market trends for PH Commander players)";
 /** Printings kept per window before looking up their names; several printings of one card often surge together. */
 const CANDIDATES = 400;
 const WINDOW_NAMES = Object.keys(WINDOWS) as TrendWindow[];

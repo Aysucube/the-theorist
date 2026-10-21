@@ -6,7 +6,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "src", "lib", "sources", "__fixtures__");
-const USER_AGENT = "CommanderPH/0.1 (MTG Commander price lookup for PH players)";
+const USER_AGENT = "TheTheorist/0.1 (MTG Commander deck and price tool for PH players)";
 
 const FIXTURES = [
   // A heavily reprinted card: its card page continues on ?page=2.
@@ -27,6 +27,12 @@ const FIXTURES = [
     "https://json.edhrec.com/pages/commanders/atraxa-praetors-voice.json",
     "application/json",
   ],
+  // One playstyle of a commander, with synergy for that playstyle.
+  [
+    "edhrec/commanders-atraxa-praetors-voice-infect.json",
+    "https://json.edhrec.com/pages/commanders/atraxa-praetors-voice/infect.json",
+    "application/json",
+  ],
   // Every deck theme, and one theme's commanders and cards.
   ["edhrec/tags.json", "https://json.edhrec.com/pages/tags.json", "application/json"],
   ["edhrec/tags-tokens.json", "https://json.edhrec.com/pages/tags/tokens.json", "application/json"],
@@ -41,6 +47,16 @@ const FIXTURES = [
   ],
   // A card's official rulings, as Scryfall publishes them.
   ["scryfall/rulings-doubling-season.json", "https://api.scryfall.com/cards/fdn/216/rulings", "application/json"],
+  // Commander Spellbook's combos for a small Atraxa deck (sent as a POST with this deck).
+  [
+    "spellbook/find-my-combos-atraxa.json",
+    "https://backend.commanderspellbook.com/find-my-combos",
+    "application/json",
+    {
+      commanders: [{ card: "Atraxa, Praetors' Voice" }],
+      main: ["Sol Ring", "Walking Ballista", "Heliod, Sun-Crowned", "Basalt Monolith", "Rings of Brighthearth", "Devoted Druid", "Vizier of Remedies"].map((card) => ({ card })),
+    },
+  ],
   // Scryfall's suggestions for a partial name, including loose matches like "Heat Ray".
   [
     "scryfall/autocomplete-atra.json",
@@ -56,8 +72,12 @@ function redactTokens(html) {
     .replace(/(data-phx-(?:session|static)=")[^"]*/g, "$1REDACTED");
 }
 
-for (const [file, url, accept] of FIXTURES) {
-  const res = await fetch(url, { headers: { "User-Agent": USER_AGENT, Accept: accept } });
+for (const [file, url, accept, json] of FIXTURES) {
+  const res = await fetch(url, {
+    method: json ? "POST" : "GET",
+    headers: { "User-Agent": USER_AGENT, Accept: accept, ...(json ? { "Content-Type": "application/json" } : {}) },
+    body: json ? JSON.stringify(json) : undefined,
+  });
   if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
   const path = join(ROOT, file);
   await mkdir(dirname(path), { recursive: true });

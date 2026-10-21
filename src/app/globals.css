@@ -23,3 +23,71 @@ body {
   background: var(--background);
   color: var(--foreground);
 }
+
+/* Deck Synergy networks: links draw themselves in, nodes pop in, then signals
+   pulse along the links like a neural network. Paths use pathLength="1" (draw)
+   or pathLength="100" (pulse), so no lengths need measuring. */
+@keyframes theorist-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes theorist-pulse {
+  from {
+    stroke-dashoffset: 100;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes theorist-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes theorist-glow {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+.net-link {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: theorist-draw 0.9s ease-out forwards;
+}
+.net-pulse {
+  stroke-dasharray: 2.5 97.5;
+  animation: theorist-pulse 2.6s linear infinite;
+}
+.net-node {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: theorist-pop 0.5s ease-out both;
+}
+.net-glow {
+  animation: theorist-glow 3.2s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .net-link,
+  .net-node {
+    animation: none;
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  .net-pulse,
+  .net-glow {
+    display: none;
+  }
+}

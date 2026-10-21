@@ -1,4 +1,4 @@
-# Starts Commander PH on a Windows computer. Run it through "Start Commander PH.cmd".
+# Starts The Theorist on a Windows computer. Run it through "Start The Theorist.cmd".
 #
 # Works on a computer that has never run the app (e.g. from a ZIP downloaded
 # from GitHub):
@@ -176,7 +176,7 @@ if (-not $port) { Fail 'Ports 3000 to 3010 are all in use. Close other local ser
 $url = "http://localhost:$port"
 
 Write-Host ''
-Write-Host "Commander PH is starting at $url" -ForegroundColor Green
+Write-Host "The Theorist is starting at $url" -ForegroundColor Green
 Write-Host 'Keep this window open while you use it. Close it to stop the app.'
 Write-Host ''
 

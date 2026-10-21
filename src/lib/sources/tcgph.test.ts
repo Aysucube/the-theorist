@@ -126,7 +126,7 @@ describe("getPrices", () => {
     const prices = await getPrices("sol-ring");
 
     expect(calls.map((c) => c.url)).toEqual([SOL_RING, `${SOL_RING}?page=2`, `${SOL_RING}?page=3`]);
-    expect(calls[0].headers["user-agent"]).toMatch(/^CommanderPH\//);
+    expect(calls[0].headers["user-agent"]).toMatch(/^TheTheorist\//);
 
     const expected = new Set([
       ...allListings(parseCardPage(page1, SOL_RING).prints).map((l) => l.listingId),

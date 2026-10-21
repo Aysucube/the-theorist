@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Commander PH",
-    template: "%s · Commander PH",
+    default: "The Theorist",
+    template: "%s · The Theorist",
   },
   description:
     "Find EDHREC card recommendations for your Commander and see what they cost at Philippine game stores.",
@@ -35,14 +35,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             href="/"
             className="text-sm font-medium tracking-wider text-amber-600 uppercase dark:text-amber-400"
           >
-            Commander PH
+            The Theorist
           </Link>
           <nav className="flex items-center gap-2">
             <Link
               href="/deck"
               className="shrink-0 rounded-full border border-zinc-300 bg-white px-3 py-1 text-sm font-medium whitespace-nowrap hover:border-amber-500 dark:border-zinc-700 dark:bg-zinc-950"
             >
-              Deck
+              Deck Synergy
               <span className="ml-1.5 rounded-full bg-violet-100 px-1.5 text-[10px] font-semibold text-violet-900 uppercase dark:bg-violet-950 dark:text-violet-300">
                 Beta
               </span>

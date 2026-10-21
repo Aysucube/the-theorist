@@ -2,14 +2,30 @@
 
 import { useId, useMemo, useRef, useState, type MouseEvent } from "react";
 import { parseDeckList, MAX_DECK_CARDS } from "@/lib/deck";
+import type { AnalysisResponse } from "@/lib/deck-beta/api";
+import { commanderOptions } from "@/lib/deck-beta/combos";
+import { deckHubs } from "@/lib/deck-beta/playstyle";
+import { cardKey } from "@/lib/deck-beta/recommend";
 import { analyzeDeck, parseTypeLine } from "@/lib/deck-beta/synergy";
-import { useBetaDeck, useBetaDetails, type LoadStatus } from "@/lib/deck-beta/store";
+import {
+  latestAnalysisFor,
+  requestAnalysis,
+  useBetaDeck,
+  useBetaDetails,
+  useChosenCommander,
+  useDeckAnalysis,
+  type LoadStatus,
+  type RemoteState,
+} from "@/lib/deck-beta/store";
 import { formatCount } from "@/lib/format";
 import type { CardDetails } from "@/lib/types";
 import { ColorIdentity, ManaCost } from "../mana";
 import { ImageNote } from "../retrying-image";
+import { CombosPanel, type DeckForOdds } from "./combos-panel";
+import { DeckNetwork } from "./deck-network";
 import { InteractionsPopover } from "./interactions-popover";
 import { LazyCardImage } from "./lazy-card-image";
+import { PlaystylePanel } from "./playstyle-panel";
 import { SynergyMap } from "./synergy-map";
 
 /** One line of the deck: the name as pasted, and Scryfall's details once loaded. */
@@ -38,30 +54,65 @@ function groupOf(card: CardDetails): string {
 /** Waits this long after a click for a second one, so a double-click doesn't flash the preview. */
 const DOUBLE_CLICK_MS = 250;
 
+type View = "network" | "combos" | "playstyle" | "cards";
+const VIEWS: { id: View; label: string }[] = [
+  { id: "network", label: "Network" },
+  { id: "combos", label: "Combos" },
+  { id: "playstyle", label: "Playstyle" },
+  { id: "cards", label: "Cards" },
+];
+
 /**
- * Deck (beta): paste a deck, see it as a gallery, click a card for what it
- * interacts with, double-click for its synergy map. Kept apart from the rest of
- * the app: its deck and data are its own, and it never touches Shopping.
+ * Deck Synergy (beta): paste a deck and pick its commander to see the deck as
+ * an animated network of playstyles, synergies and combos, how consistently it
+ * assembles those combos, and what to add to lean into one of the commander's
+ * playstyles. Click a card for what it interacts with; double-click (or click
+ * it in the network) for its own network. Kept apart from the rest of the app:
+ * its deck and data are its own, and it never touches Shopping.
  */
 export function DeckBeta() {
   const { deck, ready, replace, addList, add, remove, clear } = useBetaDeck();
   const { detailsFor, status } = useBetaDetails(deck);
+  const [chosenCommander, setChosenCommander] = useChosenCommander();
+  const [view, setView] = useState<View>("network");
+  const commanderSelect = useId();
   const [preview, setPreview] = useState<{ name: string; anchor: DOMRect } | null>(null);
   const [mapFocus, setMapFocus] = useState<string | null>(null);
   const clickTimer = useRef<number | undefined>(undefined);
 
   const entries: Entry[] = deck.map((c) => ({ asked: c.name, qty: c.qty, details: detailsFor(c.name) }));
-  const loaded = entries.flatMap((e) => (e.details ? [e.details] : []));
+  // Each card once, by Scryfall's name.
+  const loaded = [...new Map(entries.flatMap((e) => (e.details ? [[e.details.name, e.details] as const] : []))).values()];
   const loadedKey = loaded.map((c) => c.name).join("\n");
   // Recomputed only when the set of loaded cards changes.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const analysis = useMemo(() => analyzeDeck(loaded), [loadedKey]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const options = useMemo(() => commanderOptions(loaded, analysis.colors), [loadedKey, analysis]);
+  const commander = options.find((c) => c.name === chosenCommander) ?? options[0];
+  const deckNames = loaded.map((c) => c.name);
+  const remote = useDeckAnalysis(commander, deckNames);
+  // While a changed deck is re-analyzed, keep showing the last analysis rather than a loading message.
+  const result = remote?.state === "done" ? remote.result : latestAnalysisFor(commander);
+  const hubs = useMemo(() => deckHubs(analysis), [analysis]);
+
+  const libraryKey = entries.map((e) => `${e.details?.name}×${e.qty}`).join("\n") + commander?.name;
+  const odds: DeckForOdds = useMemo(
+    () => ({
+      library: entries.flatMap((e) => (e.details && e.details.name !== commander?.name ? Array<string>(e.qty).fill(e.details.name) : [])),
+      commander: commander?.name,
+      details: new Map(loaded.map((c) => [c.name, c])),
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [libraryKey],
+  );
 
   if (!ready) return <p className="text-zinc-500">Loading your deck…</p>;
 
   const totalCards = deck.reduce((sum, c) => sum + c.qty, 0);
   const notFound = entries.filter((e) => e.details === null);
   const pending = entries.filter((e) => e.details === undefined).length;
+  const inDeck = (name: string) => loaded.some((c) => cardKey(c.name) === cardKey(name));
 
   function onTileClick(event: MouseEvent<HTMLButtonElement>, name: string) {
     window.clearTimeout(clickTimer.current);
@@ -76,15 +127,21 @@ export function DeckBeta() {
     else clickTimer.current = window.setTimeout(() => setPreview({ name, anchor }), DOUBLE_CLICK_MS);
   }
 
+  const openCard = (name: string) => {
+    const card = loaded.find((c) => c.name === name || cardKey(c.name) === cardKey(name));
+    if (card) setMapFocus(card.name);
+  };
   const previewCard = preview ? loaded.find((c) => c.name === preview.name) : undefined;
   const mapCard = mapFocus ? loaded.find((c) => c.name === mapFocus) : undefined;
+  const combos = result?.combos;
+  const comboCount = combos?.included.length;
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="flex items-center gap-2 text-3xl font-semibold tracking-tight">
-            Deck
+            Deck Synergy
             <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-semibold tracking-normal text-violet-900 uppercase dark:bg-violet-950 dark:text-violet-300">
               Beta
             </span>
@@ -104,9 +161,9 @@ export function DeckBeta() {
       </div>
 
       <p className="rounded-lg border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-950 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-200">
-        This is an early test. It’s kept separate from the rest of the app: this deck isn’t your Shopping list,
-        and nothing here changes it. Synergies are read from each card’s types and rules text, plus EDHREC’s
-        data on which cards are played together, so treat them as hints.
+        An early test, kept separate from the rest of the app: this deck isn’t your Shopping list, and nothing here
+        changes it. Synergies are read from each card’s types and rules text plus EDHREC’s data, combos come from
+        Commander Spellbook, so treat them as hints.
       </p>
 
       <ImportBox hasDeck={deck.length > 0} onReplace={replace} onAdd={addList} />
@@ -114,11 +171,91 @@ export function DeckBeta() {
       {deck.length > 0 && (
         <>
           <StatusLine status={status} pending={pending} />
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            <strong>Click</strong> a card to see what it interacts with in your deck.{" "}
-            <strong>Double-click</strong> it for a synergy map and recommendations.
-          </p>
-          <Gallery entries={entries} selected={preview?.name ?? mapFocus} onTileClick={onTileClick} />
+
+          <div className="flex flex-wrap items-center gap-3 rounded-xl border border-zinc-200 p-3 dark:border-zinc-800">
+            {options.length > 0 ? (
+              <>
+                <label htmlFor={commanderSelect} className="text-sm font-medium">
+                  Commander
+                </label>
+                <select
+                  id={commanderSelect}
+                  value={commander?.name ?? ""}
+                  onChange={(e) => setChosenCommander(e.target.value)}
+                  className="h-9 min-w-0 max-w-full rounded-lg border border-zinc-300 bg-white px-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                >
+                  {options.map((c) => (
+                    <option key={c.name} value={c.name}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+                <AnalysisStatus state={remote} commander={commander} cards={deckNames} />
+              </>
+            ) : (
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                No card in this deck can be a commander yet. Add one (a legendary creature, or a legendary Vehicle or
+                Spacecraft) to see combos and playstyles.
+              </p>
+            )}
+          </div>
+
+          <div role="tablist" aria-label="Deck Synergy view" className="flex flex-wrap gap-2 border-b border-zinc-200 pb-3 dark:border-zinc-800">
+            {VIEWS.map((v) => (
+              <button
+                key={v.id}
+                type="button"
+                role="tab"
+                aria-selected={view === v.id}
+                onClick={() => setView(v.id)}
+                className={`rounded-full border px-3.5 py-1.5 text-sm font-medium ${
+                  view === v.id ? "border-amber-500 bg-amber-500 text-zinc-950" : "border-zinc-300 hover:border-amber-500 dark:border-zinc-700"
+                }`}
+              >
+                {v.label}
+                {v.id === "combos" && comboCount !== undefined && <span className="ml-1 tabular-nums">({formatCount(comboCount)})</span>}
+              </button>
+            ))}
+          </div>
+
+          {view === "network" && (
+            <DeckNetwork commander={commander} cards={loaded} analysis={analysis} combos={combos?.included ?? []} onOpen={openCard} />
+          )}
+
+          {view === "combos" &&
+            (combos ? (
+              <CombosPanel combos={combos} deck={odds} missing={result?.missing ?? {}} inDeck={inDeck} onAdd={add} onOpen={openCard} />
+            ) : (
+              <WaitingFor what="combos" commander={commander} state={remote} failed={combos === null} />
+            ))}
+
+          {view === "playstyle" &&
+            (commander && result ? (
+              <PlaystylePanel
+                commander={commander}
+                themes={result.themes}
+                commanderUrl={result.commanderUrl}
+                hubs={hubs}
+                analysis={analysis}
+                cards={loaded}
+                inDeck={inDeck}
+                onAdd={add}
+                onOpen={openCard}
+              />
+            ) : (
+              <WaitingFor what="playstyles" commander={commander} state={remote} />
+            ))}
+
+          {view === "cards" && (
+            <>
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                <strong>Click</strong> a card to see what it interacts with in your deck.{" "}
+                <strong>Double-click</strong> it for its network, combos and recommendations.
+              </p>
+              <Gallery entries={entries} selected={preview?.name ?? mapFocus} onTileClick={onTileClick} />
+            </>
+          )}
+
           {notFound.length > 0 && (
             <p className="text-sm text-zinc-600 dark:text-zinc-400">
               Scryfall doesn’t know {notFound.map((e) => `“${e.asked}”`).join(", ")}. Check the spelling, or remove{" "}
@@ -154,9 +291,87 @@ export function DeckBeta() {
       )}
 
       {mapFocus && mapCard && (
-        <SynergyMap initial={mapCard} cards={loaded} analysis={analysis} onAdd={add} onClose={() => setMapFocus(null)} />
+        <SynergyMap
+          initial={mapCard}
+          cards={loaded}
+          analysis={analysis}
+          commander={commander}
+          combos={result ? combos : remote?.state === "error" ? null : undefined}
+          odds={odds}
+          missing={result?.missing ?? {}}
+          onAdd={add}
+          onClose={() => setMapFocus(null)}
+        />
       )}
     </div>
+  );
+}
+
+/** How the deck's analysis is going, beside the commander picker. */
+function AnalysisStatus({
+  state,
+  commander,
+  cards,
+}: {
+  state: RemoteState<AnalysisResponse> | undefined;
+  commander?: CardDetails;
+  cards: string[];
+}) {
+  if (!commander || !state) return null;
+  if (state.state === "done") {
+    const combos = state.result.combos;
+    return (
+      <span className="text-xs text-zinc-500">
+        {combos
+          ? `${formatCount(combos.included.length)} combos found, ${formatCount(combos.almostIncluded.length)} a card away.`
+          : "Couldn’t reach Commander Spellbook for combos."}{" "}
+        {(!combos || state.result.themes.length === 0) && (
+          <button type="button" onClick={() => requestAnalysis(commander, cards, true)} className="text-amber-700 underline dark:text-amber-400">
+            Try again
+          </button>
+        )}
+      </span>
+    );
+  }
+  if (state.state === "error") {
+    return (
+      <span className="text-xs text-zinc-500">
+        Couldn’t analyze the deck after several tries.{" "}
+        <button type="button" onClick={() => requestAnalysis(commander, cards, true)} className="text-amber-700 underline dark:text-amber-400">
+          Try again
+        </button>
+      </span>
+    );
+  }
+  return (
+    <span className="flex items-center gap-2 text-xs text-zinc-500">
+      <span aria-hidden className="size-3.5 animate-spin rounded-full border-2 border-zinc-300 border-t-amber-500" />
+      {state.state === "waiting"
+        ? `Waiting ${state.seconds}s because ${state.reason}, then trying again…`
+        : "Finding combos and playstyles (Commander Spellbook and EDHREC)…"}
+    </span>
+  );
+}
+
+function WaitingFor({
+  what,
+  commander,
+  state,
+  failed,
+}: {
+  what: string;
+  commander?: CardDetails;
+  state: RemoteState<AnalysisResponse> | undefined;
+  failed?: boolean;
+}) {
+  return (
+    <p className="text-sm text-zinc-500">
+      {!commander
+        ? `Pick a commander to see ${what}.`
+        : failed || state?.state === "error"
+          ? `Couldn’t load ${what}. Use “Try again” beside the commander.`
+          : `Loading ${what}…`}
+    </p>
   );
 }
 

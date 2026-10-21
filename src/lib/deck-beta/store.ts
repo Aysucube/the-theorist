@@ -7,7 +7,7 @@ import { importCards, MAX_DECK_CARDS, removeCard, type DeckCard } from "@/lib/de
 import { createLocalStore, useHydrated } from "@/lib/local-store";
 import { fetchJsonWithRetry, sleep } from "@/lib/retry";
 import type { CardDetails } from "@/lib/types";
-import type { CardsResponse, PairingsResponse, RulingsResponse } from "./api";
+import type { AnalysisResponse, CardsResponse, PairingsResponse, PlaystyleResponse, RulingsResponse } from "./api";
 
 function isDeckCard(value: unknown): value is DeckCard {
   const card = value as DeckCard;
@@ -21,8 +21,9 @@ const deckStore = createLocalStore<DeckCard[]>(
 );
 
 // Keyed by lower-cased name as typed. null = Scryfall doesn't know the name.
+// (v2: details now include power and toughness, to tell which cards can be a commander.)
 const detailsStore = createLocalStore<Record<string, CardDetails | null>>(
-  "commander-ph:deck-beta-cards",
+  "commander-ph:deck-beta-cards-v2",
   {},
   (v): v is Record<string, CardDetails | null> => typeof v === "object" && v !== null && !Array.isArray(v),
 );
@@ -225,4 +226,115 @@ export function usePairings(card: CardDetails | null | undefined): PairingsState
     if (card) requestPairings(card);
   }, [card]);
   return card ? pairings.get(detailsKey(card.name)) : undefined;
+}
+
+// --- Commander -------------------------------------------------------------------
+
+// The commander chosen for the pasted deck, by name; "" = pick automatically.
+const commanderStore = createLocalStore<string>(
+  "commander-ph:deck-beta-commander",
+  "",
+  (v): v is string => typeof v === "string",
+);
+
+export function useChosenCommander(): [string, (name: string) => void] {
+  return [commanderStore.useValue(), commanderStore.set];
+}
+
+// --- Deck analysis and playstyles ---------------------------------------------------
+
+export type RemoteState<T> =
+  | { state: "loading" }
+  | { state: "waiting"; seconds: number; reason: string }
+  | { state: "done"; result: T }
+  | { state: "error" };
+
+// Results of the slower lookups, kept for this visit by request.
+const remote = new Map<string, RemoteState<unknown>>();
+
+function setRemote(key: string, state: RemoteState<unknown>) {
+  remote.set(key, state);
+  // Shares the pairings' listeners: all of these are "extra data for the deck changed".
+  pairingsVersion++;
+  pairingListeners.forEach((notify) => notify());
+}
+
+function loadRemote<T>(
+  key: string,
+  url: string,
+  init: RequestInit | undefined,
+  busyReason: string,
+  force = false,
+  onDone?: (result: T) => void,
+) {
+  const current = remote.get(key);
+  if (current && current.state !== "error" && !force) return;
+  setRemote(key, { state: "loading" });
+  void fetchJsonWithRetry<T>(url, {
+    init,
+    onWait: (ms, reason) => setRemote(key, { state: "waiting", seconds: Math.round(ms / 1000), reason }),
+    busyReason,
+  }).then((result) => {
+    if (result !== "error") onDone?.(result);
+    setRemote(key, result === "error" ? { state: "error" } : { state: "done", result });
+  });
+}
+
+function analysisRequest(commander: CardDetails, cards: string[]) {
+  const sorted = [...new Set(cards)].sort();
+  return {
+    key: `analysis\n${commander.name}\n${sorted.join("\n")}`,
+    init: {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ commander: commander.name, layout: commander.layout, cards: sorted }),
+    },
+  };
+}
+
+// The last finished analysis per commander, shown while a changed deck is re-analyzed.
+const latestAnalysis = new Map<string, AnalysisResponse>();
+
+/** Starts (or, with force, repeats) the deck's analysis: its combos and its commander's playstyles. */
+export function requestAnalysis(commander: CardDetails, cards: string[], force = false) {
+  const { key, init } = analysisRequest(commander, cards);
+  loadRemote<AnalysisResponse>(key, "/api/deck-beta/analysis", init, "Commander Spellbook or EDHREC is busy", force, (result) =>
+    latestAnalysis.set(commander.name, result),
+  );
+}
+
+/** The most recent finished analysis for this commander, even for an earlier version of the deck. */
+export function latestAnalysisFor(commander: CardDetails | undefined): AnalysisResponse | undefined {
+  return commander ? latestAnalysis.get(commander.name) : undefined;
+}
+
+/** The deck's combos (Commander Spellbook) and its commander's playstyles (EDHREC). */
+export function useDeckAnalysis(commander: CardDetails | undefined, cards: string[]): RemoteState<AnalysisResponse> | undefined {
+  useSyncExternalStore(subscribePairings, () => pairingsVersion, () => 0);
+  const key = commander ? analysisRequest(commander, cards).key : "";
+  useEffect(() => {
+    if (commander && key) requestAnalysis(commander, key.split("\n").slice(2));
+    // The key captures everything the request depends on.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  return key ? (remote.get(key) as RemoteState<AnalysisResponse> | undefined) : undefined;
+}
+
+function playstyleUrl(commander: CardDetails, theme: string) {
+  return `/api/deck-beta/playstyle?${new URLSearchParams({ commander: commander.name, layout: commander.layout, theme })}`;
+}
+
+export function requestPlaystyle(commander: CardDetails, theme: string, force = false) {
+  const url = playstyleUrl(commander, theme);
+  loadRemote<PlaystyleResponse>(url, url, undefined, "EDHREC is busy", force);
+}
+
+/** The best cards for one of the commander's playstyles. */
+export function usePlaystyle(commander: CardDetails | undefined, theme: string | undefined): RemoteState<PlaystyleResponse> | undefined {
+  useSyncExternalStore(subscribePairings, () => pairingsVersion, () => 0);
+  const url = commander && theme ? playstyleUrl(commander, theme) : "";
+  useEffect(() => {
+    if (commander && theme) requestPlaystyle(commander, theme);
+  }, [commander, theme]);
+  return url ? (remote.get(url) as RemoteState<PlaystyleResponse> | undefined) : undefined;
 }
