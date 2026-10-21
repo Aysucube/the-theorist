@@ -6,7 +6,7 @@ import { requestPairings, usePairings } from "@/lib/deck-beta/store";
 import { interactionsOf, tagLabel, type DeckAnalysis, type TagLinks } from "@/lib/deck-beta/synergy";
 import { formatCount, formatPercent } from "@/lib/format";
 import { combosWith } from "@/lib/deck-beta/combos";
-import type { CardDetails, DeckCombos } from "@/lib/types";
+import type { CardDetails, Combo, DeckCombos } from "@/lib/types";
 import { ColorIdentity, ManaCost } from "../mana";
 import { RetryingImage } from "../retrying-image";
 import { useHoverPreview } from "../card-link";
@@ -54,6 +54,13 @@ export function SynergyMap({
   const [trail, setTrail] = useState<string[]>([initial.name]);
   const [tab, setTab] = useState<"map" | "rulings" | "others">("map");
   const [view, setView] = useState<"network" | "breakdown">("network");
+  const [walkId, setWalkId] = useState<string | null>(null);
+  const graphTop = useRef<HTMLDivElement>(null);
+  const walkThrough = (combo: Combo) => {
+    setWalkId(combo.id);
+    setView("network");
+    graphTop.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
   // The deck as it was when the map opened: added recommendations stay listed, marked "In deck".
   const [openedWith] = useState(() => cards.map((c) => c.name));
 
@@ -154,20 +161,28 @@ export function SynergyMap({
 
             {view === "network" ? (
               <>
-                <CardNetwork
-                  focus={focus}
-                  commander={commander}
-                  analysis={analysis}
-                  deckNames={[...byName.keys()]}
-                  details={byName}
-                  combos={combos}
-                  pairings={found?.pairings}
-                  onOpen={goTo}
-                />
+                <div ref={graphTop} className="scroll-mt-4">
+                  <CardNetwork
+                    focus={focus}
+                    commander={commander}
+                    analysis={analysis}
+                    deckNames={[...byName.keys()]}
+                    details={byName}
+                    combos={combos}
+                    pairings={found?.pairings}
+                    missing={missing}
+                    walkId={walkId}
+                    onWalk={setWalkId}
+                    inDeck={(name) => inDeck.has(cardKey(name))}
+                    onAdd={onAdd}
+                    onOpen={goTo}
+                  />
+                </div>
                 <p className="mt-2 text-xs text-zinc-500">
                   Lines from the middle are this card’s strongest synergies in your deck (blue: subtypes, violet: themes,
                   gray: card types). Coloured chains are combos: each runs from this card through the other pieces to what
-                  the combo does; dashed ones are a card away. Click a card to re-centre on it.
+                  the combo does (a diamond: click it to walk through the combo); dashed chains and shaded cards are a card
+                  away. Click a card to select it, double-click to re-centre on it; drag to move, Ctrl + scroll to zoom.
                 </p>
                 <section className="mt-6">
                   <h3 className="mb-2 font-semibold">Combos with {focus.name}</h3>
@@ -181,7 +196,7 @@ export function SynergyMap({
                     </p>
                   ) : (
                     <div className="flex flex-col gap-2">
-                      <CombosList combos={combosWith(combos.included, focus.name)} deck={odds} onOpen={goTo} />
+                      <CombosList combos={combosWith(combos.included, focus.name)} deck={odds} onOpen={goTo} onWalk={walkThrough} />
                       <CombosList
                         combos={combosWith(combos.almostIncluded, focus.name)}
                         deck={odds}
@@ -189,6 +204,7 @@ export function SynergyMap({
                         inDeck={(name) => inDeck.has(cardKey(name))}
                         onAdd={onAdd}
                         onOpen={goTo}
+                        onWalk={walkThrough}
                         colorOffset={combosWith(combos.included, focus.name).length}
                       />
                     </div>

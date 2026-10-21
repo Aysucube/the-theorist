@@ -28,6 +28,7 @@ export function CombosPanel({
   inDeck,
   onAdd,
   onOpen,
+  onWalk,
 }: {
   combos: DeckCombos;
   deck: DeckForOdds;
@@ -35,6 +36,8 @@ export function CombosPanel({
   inDeck: (name: string) => boolean;
   onAdd: (card: CardDetails) => void;
   onOpen: (name: string) => void;
+  /** Zoom the network onto a combo and walk through it. */
+  onWalk?: (combo: Combo) => void;
 }) {
   const tutors = useMemo(() => {
     const found = new Map<string, string[]>();
@@ -88,7 +91,7 @@ export function CombosPanel({
         {combos.included.length === 0 ? (
           <p className="text-sm text-zinc-500">Commander Spellbook knows no combo this deck has every piece of.</p>
         ) : (
-          <CombosList combos={combos.included} deck={deck} onOpen={onOpen} />
+          <CombosList combos={combos.included} deck={deck} onOpen={onOpen} onWalk={onWalk} />
         )}
       </section>
 
@@ -96,7 +99,7 @@ export function CombosPanel({
         <section>
           <h3 className="font-semibold">One card away</h3>
           <p className="mb-2 text-xs text-zinc-500">Combos you could add with one more card, most played first.</p>
-          <CombosList combos={combos.almostIncluded} deck={deck} missing={missing} inDeck={inDeck} onAdd={onAdd} onOpen={onOpen} />
+          <CombosList combos={combos.almostIncluded} deck={deck} missing={missing} inDeck={inDeck} onAdd={onAdd} onOpen={onOpen} onWalk={onWalk} />
         </section>
       )}
     </div>
@@ -120,6 +123,7 @@ export function CombosList({
   inDeck,
   onAdd,
   onOpen,
+  onWalk,
   colorOffset = 0,
 }: {
   combos: Combo[];
@@ -128,6 +132,7 @@ export function CombosList({
   inDeck?: (name: string) => boolean;
   onAdd?: (card: CardDetails) => void;
   onOpen?: (name: string) => void;
+  onWalk?: (combo: Combo) => void;
   colorOffset?: number;
 }) {
   const names = [...deck.details.keys()];
@@ -145,6 +150,15 @@ export function CombosList({
             <div className="flex flex-wrap items-start gap-2">
               <span aria-hidden className="mt-1.5 size-2.5 shrink-0 rounded-full" style={{ background: COMBO_COLORS[(i + colorOffset) % COMBO_COLORS.length] }} />
               <p className="min-w-0 flex-1 font-medium">{combo.results.slice(0, 3).join(" · ") || "Combo"}</p>
+              {onWalk && (
+                <button
+                  type="button"
+                  onClick={() => onWalk(combo)}
+                  className="h-7 rounded-lg border border-zinc-300 px-2.5 text-xs font-medium hover:border-amber-500 dark:border-zinc-700"
+                >
+                  ▶ Walk through
+                </button>
+              )}
               {odds !== undefined && (
                 <span className="text-xs text-zinc-500 tabular-nums" title={`Chance to draw every piece by turn ${ODDS_TURN}, without tutors`}>
                   {formatPercent(odds)} by turn {ODDS_TURN}

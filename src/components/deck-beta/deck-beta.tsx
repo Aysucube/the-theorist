@@ -75,6 +75,7 @@ export function DeckBeta() {
   const { detailsFor, status } = useBetaDetails(deck);
   const [chosenCommander, setChosenCommander] = useChosenCommander();
   const [view, setView] = useState<View>("network");
+  const [walkId, setWalkId] = useState<string | null>(null);
   const commanderSelect = useId();
   const [preview, setPreview] = useState<{ name: string; anchor: DOMRect } | null>(null);
   const [mapFocus, setMapFocus] = useState<string | null>(null);
@@ -219,12 +220,35 @@ export function DeckBeta() {
           </div>
 
           {view === "network" && (
-            <DeckNetwork commander={commander} cards={loaded} analysis={analysis} combos={combos?.included ?? []} onOpen={openCard} />
+            <DeckNetwork
+              commander={commander}
+              cards={loaded}
+              analysis={analysis}
+              combos={combos?.included ?? []}
+              almost={combos?.almostIncluded ?? []}
+              missing={result?.missing ?? {}}
+              walkId={walkId}
+              onWalk={setWalkId}
+              inDeck={inDeck}
+              onAdd={add}
+              onOpen={openCard}
+            />
           )}
 
           {view === "combos" &&
             (combos ? (
-              <CombosPanel combos={combos} deck={odds} missing={result?.missing ?? {}} inDeck={inDeck} onAdd={add} onOpen={openCard} />
+              <CombosPanel
+                combos={combos}
+                deck={odds}
+                missing={result?.missing ?? {}}
+                inDeck={inDeck}
+                onAdd={add}
+                onOpen={openCard}
+                onWalk={(combo) => {
+                  setWalkId(combo.id);
+                  setView("network");
+                }}
+              />
             ) : (
               <WaitingFor what="combos" commander={commander} state={remote} failed={combos === null} />
             ))}

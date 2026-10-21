@@ -1,16 +1,17 @@
 "use client";
 
-import { useId, useMemo, useState } from "react";
-import { layoutNetwork } from "@/lib/deck-beta/force-layout";
+import { useEffect, useId, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { layoutNetwork, type Point } from "@/lib/deck-beta/force-layout";
 import { scryfallImageAs } from "@/lib/scryfall-images";
 
 export interface GraphNode {
   id: string;
   label: string;
-  /** center: the deck's commander or the card in focus; hub: a playstyle; result: what a combo does; ghost: a card the deck lacks. */
+  /** center: the commander or the card in focus; hub: a playstyle; result: what a combo does; ghost: a card the deck lacks. */
   kind: "center" | "hub" | "card" | "result" | "ghost";
   /** 0 = middle, then rings outward. */
   ring: number;
+  /** Its size in the layout (space kept around it). */
   radius: number;
   /** Where on its ring it belongs, in radians. */
   angle?: number;
@@ -39,18 +40,26 @@ export interface GraphLink {
   title?: string;
 }
 
-const KIND_FILL: Record<GraphNode["kind"], string> = {
-  center: "#f59e0b",
-  hub: "#7c3aed",
-  card: "#52525b",
-  result: "#10b981",
-  ghost: "#a1a1aa",
-};
+interface View {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** How big a node grows when it's hovered, selected or part of a walkthrough step. */
+const EXPANDED = 24;
+const ZOOM_MS = 450;
+
+const dotRadius = (n: GraphNode) =>
+  n.kind === "center" ? Math.max(20, n.radius * 0.6) : n.kind === "hub" ? 6 : n.kind === "result" ? 7 : n.kind === "ghost" ? 8 : Math.max(5, n.radius * 0.5);
 
 /**
- * An animated network of cards: links draw in, nodes pop in, and signals
- * pulse along links like a neural network. Hovering a node lights up its
- * connections; clicking (or Enter) calls onNodeClick.
+ * A minimalist, interactive network of cards. Cards are small dots that grow
+ * to show their art on hover; signals pulse along the links. Click a node to
+ * select it (and light up its links), double-click to open it, drag nodes to
+ * move them, drag the background to pan, and zoom with the buttons or
+ * Ctrl + scroll. Give `focus` some node ids to glide the view onto them.
  */
 export function NetworkGraph({
   nodes,
@@ -60,7 +69,11 @@ export function NetworkGraph({
   label,
   showAllLabels = false,
   highlight,
-  onNodeClick,
+  activeLinks,
+  focus,
+  selected,
+  onSelect,
+  onOpen,
 }: {
   nodes: GraphNode[];
   links: GraphLink[];
@@ -68,14 +81,32 @@ export function NetworkGraph({
   height?: number;
   label: string;
   showAllLabels?: boolean;
-  /** Node ids to keep bright while everything else dims (e.g. one combo's pieces). */
+  /** Node ids to keep bright (and show big) while everything else dims, e.g. a walkthrough step's cards. */
   highlight?: Set<string>;
-  onNodeClick?: (id: string) => void;
+  /** Link ids to draw boldly, e.g. a combo's chain. */
+  activeLinks?: Set<string>;
+  /** Node ids to zoom onto; empty or missing shows everything. */
+  focus?: string[];
+  selected?: string | null;
+  onSelect?: (id: string | null) => void;
+  onOpen?: (id: string) => void;
 }) {
   const prefix = useId().replace(/[^a-zA-Z0-9]/g, "");
+  const svg = useRef<SVGSVGElement>(null);
   const [hover, setHover] = useState<string | null>(null);
+  const [moved, setMoved] = useState<Record<string, Point>>({});
+  const full: View = useMemo(() => ({ x: 0, y: 0, w: width, h: height }), [width, height]);
+  const [view, setView] = useState<View>(full);
+  // The view right now, for handlers and animations (state lags a frame behind).
+  const viewNow = useRef<View>(full);
+  const animation = useRef<number | undefined>(undefined);
+  const drag = useRef<
+    | { kind: "pan"; startX: number; startY: number; from: View; moved: boolean }
+    | { kind: "node"; id: string; startX: number; startY: number; from: Point; moved: boolean }
+    | null
+  >(null);
 
-  const positions = useMemo(
+  const layout = useMemo(
     () =>
       layoutNetwork(
         nodes.map((n) => ({ id: n.id, ring: n.ring, radius: n.radius, angle: n.angle, pinned: n.pinned })),
@@ -84,6 +115,7 @@ export function NetworkGraph({
       ),
     [nodes, links, width, height],
   );
+  const pos = (id: string) => moved[id] ?? layout.get(id);
 
   const neighbors = useMemo(() => {
     const map = new Map<string, Set<string>>();
@@ -94,147 +126,336 @@ export function NetworkGraph({
     return map;
   }, [links]);
 
-  // What stays bright: the hovered node and its neighbours, else the highlight, else everything.
-  const lit = hover ? new Set([hover, ...(neighbors.get(hover) ?? [])]) : highlight;
+  function setViewNow(next: View) {
+    viewNow.current = next;
+    setView(next);
+  }
+
+  function animateTo(target: View) {
+    if (animation.current) cancelAnimationFrame(animation.current);
+    const start = viewNow.current;
+    const begun = performance.now();
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const step = (now: number) => {
+      const t = reduce ? 1 : Math.min(1, (now - begun) / ZOOM_MS);
+      const e = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
+      setViewNow({
+        x: start.x + (target.x - start.x) * e,
+        y: start.y + (target.y - start.y) * e,
+        w: start.w + (target.w - start.w) * e,
+        h: start.h + (target.h - start.h) * e,
+      });
+      if (t < 1) animation.current = requestAnimationFrame(step);
+    };
+    animation.current = requestAnimationFrame(step);
+  }
+
+  // The view to glide to: the focused nodes with room around them (same shape as the picture), or everything.
+  const focusKey = focus?.join("\n") ?? "";
+  const target = useMemo((): View => {
+    const points = (focus ?? []).map((id) => moved[id] ?? layout.get(id)).filter((p): p is Point => Boolean(p));
+    if (points.length === 0) return full;
+    const pad = 90;
+    const minX = Math.min(...points.map((p) => p.x)) - pad;
+    const maxX = Math.max(...points.map((p) => p.x)) + pad;
+    const minY = Math.min(...points.map((p) => p.y)) - pad;
+    const maxY = Math.max(...points.map((p) => p.y)) + pad;
+    const aspect = width / height;
+    let w = Math.max(maxX - minX, (maxY - minY) * aspect, width * 0.35);
+    let h = w / aspect;
+    w = Math.min(w, width);
+    h = Math.min(h, height);
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+    return { x: Math.min(Math.max(0, cx - w / 2), width - w), y: Math.min(Math.max(0, cy - h / 2), height - h), w, h };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusKey, layout, full]);
+
+  useEffect(() => {
+    animateTo(target);
+    // Only when the target changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [target]);
+
+  // Ctrl/⌘ + scroll zooms around the pointer; plain scrolling still scrolls the page.
+  useEffect(() => {
+    const element = svg.current;
+    if (!element) return;
+    const onWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      const rect = element.getBoundingClientRect();
+      const v = viewNow.current;
+      const factor = Math.exp(e.deltaY * 0.002);
+      const w = Math.min(width, Math.max(width * 0.15, v.w * factor));
+      const h = (w / v.w) * v.h;
+      const px = v.x + ((e.clientX - rect.left) / rect.width) * v.w;
+      const py = v.y + ((e.clientY - rect.top) / rect.height) * v.h;
+      setViewNow({ x: px - ((px - v.x) / v.w) * w, y: py - ((py - v.y) / v.h) * h, w, h });
+    };
+    element.addEventListener("wheel", onWheel, { passive: false });
+    return () => element.removeEventListener("wheel", onWheel);
+  }, [width]);
+
+  useEffect(() => () => {
+    if (animation.current) cancelAnimationFrame(animation.current);
+  }, []);
+
+  function zoomBy(factor: number) {
+    const v = viewNow.current;
+    const w = Math.min(width, Math.max(width * 0.15, v.w * factor));
+    const h = (w / v.w) * v.h;
+    animateTo({ x: v.x + (v.w - w) / 2, y: v.y + (v.h - h) / 2, w, h });
+  }
+
+  // Pointer units → picture units.
+  const unit = () => viewNow.current.w / (svg.current?.getBoundingClientRect().width || width);
+
+  function onBackgroundDown(e: ReactPointerEvent) {
+    drag.current = { kind: "pan", startX: e.clientX, startY: e.clientY, from: viewNow.current, moved: false };
+    svg.current?.setPointerCapture(e.pointerId);
+  }
+  function onNodeDown(e: ReactPointerEvent, id: string) {
+    e.stopPropagation();
+    const from = pos(id);
+    if (!from) return;
+    drag.current = { kind: "node", id, startX: e.clientX, startY: e.clientY, from, moved: false };
+    svg.current?.setPointerCapture(e.pointerId);
+  }
+  function onPointerMove(e: ReactPointerEvent) {
+    const d = drag.current;
+    if (!d) return;
+    const dx = e.clientX - d.startX;
+    const dy = e.clientY - d.startY;
+    if (!d.moved && Math.hypot(dx, dy) < 4) return;
+    d.moved = true;
+    const u = unit();
+    if (d.kind === "pan") {
+      setViewNow({ ...d.from, x: d.from.x - dx * u, y: d.from.y - dy * u });
+    } else {
+      const id = d.id;
+      setMoved((m) => ({ ...m, [id]: { x: d.from.x + dx * u, y: d.from.y + dy * u } }));
+    }
+  }
+  function onPointerUp() {
+    const d = drag.current;
+    drag.current = null;
+    if (!d || d.moved) return;
+    if (d.kind === "node") onSelect?.(d.id === selected ? null : d.id);
+    else onSelect?.(null);
+  }
+
+  // What stays bright: the hovered node and its neighbours, else the selected one's, else the highlight, else everything.
+  const lit =
+    hover ? new Set([hover, ...(neighbors.get(hover) ?? [])])
+    : selected ? new Set([selected, ...(neighbors.get(selected) ?? [])])
+    : highlight;
   const isLit = (id: string) => !lit || lit.has(id);
+  const isBig = (n: GraphNode) => n.kind !== "hub" && n.kind !== "result" && (hover === n.id || selected === n.id || (highlight?.has(n.id) ?? false));
+
+  const zoomed = view.w < width - 1;
+  const button =
+    "flex size-8 items-center justify-center rounded-lg border border-zinc-200 bg-white/90 text-sm text-zinc-700 shadow-sm hover:border-amber-500 dark:border-zinc-700 dark:bg-zinc-900/90 dark:text-zinc-200";
 
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} role="group" aria-label={label} className="h-auto w-full select-none">
-      <defs>
-        {nodes.map((n, i) => (
-          <clipPath key={n.id} id={`${prefix}-clip-${i}`}>
-            <circle r={n.radius} />
-          </clipPath>
-        ))}
-      </defs>
+    <div className="relative">
+      <svg
+        ref={svg}
+        viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`}
+        role="group"
+        aria-label={label}
+        className="h-auto w-full cursor-grab touch-none select-none active:cursor-grabbing"
+        style={{ aspectRatio: `${width} / ${height}` }}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={() => (drag.current = null)}
+      >
+        <defs>
+          {nodes.map((n, i) => (
+            <clipPath key={n.id} id={`${prefix}-clip-${i}`}>
+              <circle r={n.kind === "center" ? dotRadius(n) : EXPANDED} />
+            </clipPath>
+          ))}
+        </defs>
+        <rect x={-width} y={-height} width={width * 3} height={height * 3} fill="transparent" onPointerDown={onBackgroundDown} />
 
-      <g>
-        {links.map((l) => {
-          const a = positions.get(l.source);
-          const b = positions.get(l.target);
-          if (!a || !b) return null;
-          // A gentle curve, so parallel links don't sit on top of each other.
-          const mx = (a.x + b.x) / 2;
-          const my = (a.y + b.y) / 2;
-          const bend = 0.12;
-          const d = `M ${a.x} ${a.y} Q ${mx - (b.y - a.y) * bend} ${my + (b.x - a.x) * bend} ${b.x} ${b.y}`;
-          const bright = isLit(l.source) && isLit(l.target);
-          const delay = `${l.delay ?? 0}s`;
-          return (
-            <g key={l.id} style={{ opacity: bright ? 1 : 0.08, transition: "opacity 200ms" }}>
-              {l.title && <title>{l.title}</title>}
-              <path
-                d={d}
-                fill="none"
-                stroke={l.color}
-                strokeWidth={l.width ?? 1.2}
-                strokeOpacity={0.55}
-                strokeLinecap="round"
-                pathLength={1}
-                className={l.dashed ? undefined : "net-link"}
-                strokeDasharray={l.dashed ? "0.012 0.012" : undefined}
-                style={{ animationDelay: delay }}
-              />
-              {l.pulse && (
+        <g>
+          {links.map((l) => {
+            const a = pos(l.source);
+            const b = pos(l.target);
+            if (!a || !b) return null;
+            const mx = (a.x + b.x) / 2;
+            const my = (a.y + b.y) / 2;
+            const d = `M ${a.x} ${a.y} Q ${mx - (b.y - a.y) * 0.1} ${my + (b.x - a.x) * 0.1} ${b.x} ${b.y}`;
+            const active = activeLinks?.has(l.id) ?? false;
+            const bright = active || (isLit(l.source) && isLit(l.target));
+            const w = (l.width ?? 1) * (active ? 2 : 0.8);
+            return (
+              <g key={l.id} style={{ opacity: bright ? 1 : 0.06, transition: "opacity 200ms" }} pointerEvents="none">
+                {l.title && <title>{l.title}</title>}
                 <path
                   d={d}
                   fill="none"
                   stroke={l.color}
-                  strokeWidth={(l.width ?? 1.2) + 2}
+                  strokeWidth={w}
+                  strokeOpacity={active ? 0.95 : 0.4}
                   strokeLinecap="round"
-                  pathLength={100}
-                  className="net-pulse"
-                  style={{ animationDelay: delay }}
+                  pathLength={1}
+                  className={l.dashed ? undefined : "net-link"}
+                  strokeDasharray={l.dashed ? "0.015 0.015" : undefined}
+                  style={{ animationDelay: `${l.delay ?? 0}s` }}
                 />
-              )}
-            </g>
-          );
-        })}
-      </g>
-
-      <g>
-        {nodes.map((n, i) => {
-          const p = positions.get(n.id);
-          if (!p) return null;
-          const color = n.color ?? KIND_FILL[n.kind];
-          const image = n.imageUrl ? (scryfallImageAs(n.imageUrl, "art_crop") ?? n.imageUrl) : undefined;
-          const bright = isLit(n.id);
-          const showLabel = showAllLabels || n.kind !== "card" || hover === n.id || (highlight?.has(n.id) ?? false);
-          const clickable = Boolean(onNodeClick) && n.kind !== "hub" && n.kind !== "result";
-          return (
-            <g key={n.id} transform={`translate(${p.x} ${p.y})`} style={{ opacity: bright ? (n.faint ? 0.45 : 1) : 0.15, transition: "opacity 200ms" }}>
-              <g
-                className="net-node"
-                style={{ animationDelay: `${Math.min(1.2, n.ring * 0.25 + (i % 12) * 0.03)}s`, cursor: clickable ? "pointer" : "default" }}
-                onMouseEnter={() => setHover(n.id)}
-                onMouseLeave={() => setHover(null)}
-                onFocus={() => setHover(n.id)}
-                onBlur={() => setHover(null)}
-                onClick={clickable ? () => onNodeClick?.(n.id) : undefined}
-                onKeyDown={clickable ? (e) => e.key === "Enter" && onNodeClick?.(n.id) : undefined}
-                tabIndex={clickable ? 0 : undefined}
-                role={clickable ? "button" : undefined}
-                aria-label={clickable ? `${n.label}: open its synergy map` : n.label}
-              >
-                {n.kind !== "card" && <circle r={n.radius + 7} fill={color} className="net-glow" opacity={0.3} />}
-                <circle
-                  r={n.radius}
-                  fill={n.kind === "hub" || n.kind === "result" ? color : "#18181b"}
-                  stroke={color}
-                  strokeWidth={n.kind === "center" ? 4 : 2}
-                  strokeDasharray={n.kind === "ghost" ? "4 3" : undefined}
-                />
-                {image && (
-                  <image
-                    href={image}
-                    x={-n.radius}
-                    y={-n.radius}
-                    width={n.radius * 2}
-                    height={n.radius * 2}
-                    preserveAspectRatio="xMidYMid slice"
-                    clipPath={`url(#${prefix}-clip-${i})`}
-                    opacity={n.kind === "ghost" ? 0.45 : 1}
+                {(l.pulse || active) && (
+                  <path
+                    d={d}
+                    fill="none"
+                    stroke={l.color}
+                    strokeWidth={w + (active ? 2.5 : 1.5)}
+                    strokeLinecap="round"
+                    pathLength={100}
+                    className="net-pulse"
+                    style={{ animationDelay: `${active ? 0 : (l.delay ?? 0)}s`, animationDuration: active ? "1.4s" : undefined }}
                   />
                 )}
-                {(n.kind === "hub" || n.kind === "result") && (
-                  <text textAnchor="middle" dy="0.35em" fontSize={n.radius > 24 ? 11 : 9} fontWeight={700} fill="#fff">
-                    {shorten(n.label, n.radius > 24 ? 14 : 11)}
-                  </text>
-                )}
-                {showLabel && n.kind !== "hub" && n.kind !== "result" && (
-                  <text
-                    y={n.radius + 13}
-                    textAnchor="middle"
-                    fontSize={n.kind === "center" ? 13 : 10.5}
-                    fontWeight={n.kind === "center" ? 700 : 500}
-                    className="fill-zinc-800 dark:fill-zinc-100"
-                    paintOrder="stroke"
-                    stroke="var(--background)"
-                    strokeWidth={3}
-                  >
-                    {shorten(n.label, n.kind === "center" ? 32 : 22)}
-                  </text>
-                )}
-                {n.sublabel && (n.kind === "hub" || n.kind === "result") && (
-                  <text
-                    y={n.radius + 13}
-                    textAnchor="middle"
-                    fontSize={10}
-                    className="fill-zinc-600 dark:fill-zinc-400"
-                    paintOrder="stroke"
-                    stroke="var(--background)"
-                    strokeWidth={3}
-                  >
-                    {n.sublabel}
-                  </text>
-                )}
-                <title>{n.sublabel ? `${n.label} (${n.sublabel})` : n.label}</title>
               </g>
-            </g>
-          );
-        })}
-      </g>
-    </svg>
+            );
+          })}
+        </g>
+
+        <g>
+          {nodes.map((n, i) => {
+            const p = pos(n.id);
+            if (!p) return null;
+            const color = n.color ?? "#a1a1aa";
+            const big = isBig(n);
+            const r = dotRadius(n);
+            const image = n.imageUrl ? (scryfallImageAs(n.imageUrl, "art_crop") ?? n.imageUrl) : undefined;
+            const showLabel = n.kind === "center" || n.kind === "hub" || n.kind === "result" || big || showAllLabels;
+            const labelY = (big ? EXPANDED : r) + (n.kind === "hub" ? 12 : 13);
+            return (
+              <g
+                key={n.id}
+                transform={`translate(${p.x} ${p.y})`}
+                style={{ opacity: isLit(n.id) ? (n.faint ? 0.5 : 1) : 0.15, transition: "opacity 200ms" }}
+              >
+                <g
+                  className="net-node"
+                  style={{ animationDelay: `${Math.min(1, n.ring * 0.2 + (i % 15) * 0.025)}s`, cursor: "pointer" }}
+                  onPointerDown={(e) => onNodeDown(e, n.id)}
+                  onPointerEnter={() => setHover(n.id)}
+                  onPointerLeave={() => setHover(null)}
+                  onDoubleClick={() => onOpen?.(n.id)}
+                  onFocus={() => setHover(n.id)}
+                  onBlur={() => setHover(null)}
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter") return;
+                    if (selected === n.id) onOpen?.(n.id);
+                    else onSelect?.(n.id);
+                  }}
+                  tabIndex={0}
+                  role="button"
+                  aria-pressed={selected === n.id}
+                  aria-label={`${n.label}${n.sublabel ? `, ${n.sublabel}` : ""}`}
+                >
+                  {/* A wider invisible target, so small dots are easy to hit. */}
+                  <circle r={Math.max(r, 12)} fill="transparent" />
+                  {n.kind === "result" ? (
+                    <rect x={-r} y={-r} width={r * 2} height={r * 2} transform="rotate(45)" fill={color} rx={2} />
+                  ) : n.kind === "hub" ? (
+                    <>
+                      <circle r={r + 5} fill={color} opacity={0.18} className="net-glow" />
+                      <circle r={r} fill={color} />
+                    </>
+                  ) : n.kind === "ghost" ? (
+                    <>
+                      <circle r={r} fill={color} fillOpacity={0.22} stroke={color} strokeWidth={1.5} strokeDasharray="3 2" />
+                      <text textAnchor="middle" dy="0.35em" fontSize={10} fontWeight={700} fill={color}>
+                        +
+                      </text>
+                    </>
+                  ) : n.kind === "center" ? (
+                    <>
+                      <circle r={r + 3} fill="none" stroke={color} strokeWidth={1.5} opacity={0.6} />
+                      {image ? (
+                        <image href={image} x={-r} y={-r} width={r * 2} height={r * 2} preserveAspectRatio="xMidYMid slice" clipPath={`url(#${prefix}-clip-${i})`} />
+                      ) : (
+                        <circle r={r} fill={color} />
+                      )}
+                    </>
+                  ) : (
+                    <circle r={r} className="fill-white dark:fill-zinc-900" stroke={color} strokeWidth={1.75} />
+                  )}
+
+                  {big && n.kind !== "center" && (
+                    <g className="net-node" style={{ animationDuration: "180ms" }}>
+                      <circle r={EXPANDED + 2} className="fill-white dark:fill-zinc-950" stroke={color} strokeWidth={2} strokeDasharray={n.kind === "ghost" ? "4 3" : undefined} />
+                      {image && (
+                        <image
+                          href={image}
+                          x={-EXPANDED}
+                          y={-EXPANDED}
+                          width={EXPANDED * 2}
+                          height={EXPANDED * 2}
+                          preserveAspectRatio="xMidYMid slice"
+                          clipPath={`url(#${prefix}-clip-${i})`}
+                          opacity={n.kind === "ghost" ? 0.5 : 1}
+                        />
+                      )}
+                    </g>
+                  )}
+
+                  {showLabel && (
+                    <text
+                      y={labelY}
+                      textAnchor="middle"
+                      fontSize={n.kind === "center" ? 12.5 : n.kind === "hub" ? 10 : 10.5}
+                      fontWeight={n.kind === "card" && !big ? 500 : 650}
+                      letterSpacing={n.kind === "hub" ? 0.6 : undefined}
+                      fill={n.kind === "hub" || n.kind === "result" ? color : undefined}
+                      className={n.kind === "hub" || n.kind === "result" ? undefined : "fill-zinc-800 dark:fill-zinc-100"}
+                      paintOrder="stroke"
+                      stroke="var(--background)"
+                      strokeWidth={3}
+                    >
+                      {shorten(n.kind === "hub" ? n.label.toUpperCase() : n.label, big || n.kind === "center" ? 30 : 20)}
+                    </text>
+                  )}
+                  {n.sublabel && (n.kind === "hub" || n.kind === "result" || big) && (
+                    <text y={labelY + 12} textAnchor="middle" fontSize={9.5} className="fill-zinc-500" paintOrder="stroke" stroke="var(--background)" strokeWidth={3}>
+                      {n.sublabel}
+                    </text>
+                  )}
+                  <title>{n.sublabel ? `${n.label} (${n.sublabel})` : n.label}</title>
+                </g>
+              </g>
+            );
+          })}
+        </g>
+      </svg>
+
+      <div className="absolute top-2 right-2 flex flex-col gap-1.5">
+        <button type="button" className={button} onClick={() => zoomBy(0.7)} aria-label="Zoom in" title="Zoom in (or Ctrl + scroll)">
+          +
+        </button>
+        <button type="button" className={button} onClick={() => zoomBy(1 / 0.7)} aria-label="Zoom out" title="Zoom out">
+          −
+        </button>
+        {(zoomed || Object.keys(moved).length > 0) && (
+          <button
+            type="button"
+            className={button}
+            onClick={() => {
+              setMoved({});
+              animateTo(full);
+            }}
+            aria-label="Show everything"
+            title="Show everything and undo moves"
+          >
+            ⟲
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
 

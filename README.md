@@ -21,7 +21,10 @@ printing of a card, whatever printing your list names.
 
 - **Network**: the deck as an animated network, with the commander in the middle, the deck's
   playstyles (Elves, Tokens, Aristocrats...) around it, every card linked to the playstyles it
-  feeds or rewards, and combos running as coloured chains through their pieces.
+  feeds or rewards, and combos running as coloured chains through their pieces. Cards that would
+  complete a combo (infinite ones first) sit outside as shaded nodes you can add. Click a combo
+  to zoom onto it and walk through how it works, step by step, with each step's cards lit up.
+  Select, drag and zoom (buttons or Ctrl + scroll) to explore.
 - **Combos**: the combos the deck has and the ones a card away (from
   [Commander Spellbook](https://commanderspellbook.com)), each with its steps, and how
   consistently the deck assembles one: the chance of holding every piece by turns 4 to 10,
@@ -96,6 +99,12 @@ past day, week or month, with the cheapest copy in Philippine stores. Two source
    earlier days, so surges show from the second day it runs, and weekly ones after a week.
 
 Only Commander-legal cards that cost at least $2 and rose by at least 10% (and 50 cents) count.
+
+Below them, the **price history** explorer compares any two days the app has saved and lists the
+biggest rises or falls between them (by percentage or dollars, above a minimum price), each with
+its price line and the cheapest PH copy. The app keeps 90 days of prices in
+`.data/price-history` (one compressed file a day, about 65 MB in all), and keeps saving them even
+when the shared file is used.
 
 ## Configuration
 

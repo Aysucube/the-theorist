@@ -1,41 +1,71 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { missingPiece } from "@/lib/deck-beta/combos";
 import { cardKey } from "@/lib/deck-beta/recommend";
 import { deckHubs } from "@/lib/deck-beta/playstyle";
 import { interactionsOf, parseTypeLine, tagKind, tagLabel, type DeckAnalysis } from "@/lib/deck-beta/synergy";
+import { byImpact } from "@/lib/deck-beta/walkthrough";
 import { formatCount } from "@/lib/format";
 import type { CardDetails, Combo } from "@/lib/types";
+import { useWalkthrough, WalkthroughPanel } from "./combo-walkthrough";
 import { NetworkGraph, type GraphLink, type GraphNode } from "./network-graph";
 
 /** Playstyle hub colors, then combo colors. */
 export const HUB_COLORS = ["#8b5cf6", "#0ea5e9", "#f43f5e", "#14b8a6", "#eab308", "#f97316"];
 export const COMBO_COLORS = ["#22c55e", "#ec4899", "#06b6d4", "#facc15", "#a855f7", "#fb7185", "#4ade80", "#38bdf8"];
 const COMMANDER_COLOR = "#f59e0b";
+/** One-card-away combos drawn with their missing card as a shaded node. */
+const MAX_GHOST_COMBOS = 8;
 
 /**
  * The whole deck as a network: the commander in the middle, the deck's
  * playstyles around it, and every card linked to the playstyles it feeds or
  * rewards. Cards that work with the commander link to it; combos run as
- * coloured chains through their pieces. Click a card for its own network.
+ * coloured chains through their pieces, and the cards that would complete
+ * one-card-away combos (infinite ones first) sit outside as shaded nodes.
+ * Pick a combo to zoom onto it and walk through how it works.
  */
 export function DeckNetwork({
   commander,
   cards,
   analysis,
   combos,
+  almost,
+  missing,
+  walkId,
+  onWalk,
+  inDeck,
+  onAdd,
   onOpen,
 }: {
   commander?: CardDetails;
   cards: CardDetails[];
   analysis: DeckAnalysis;
+  /** Combos the deck has. */
   combos: Combo[];
+  /** Combos a card away. */
+  almost: Combo[];
+  /** Details for the cards those combos lack. */
+  missing: Record<string, CardDetails>;
+  /** The combo being walked through, if any. */
+  walkId: string | null;
+  onWalk: (comboId: string | null) => void;
+  inDeck: (name: string) => boolean;
+  onAdd: (card: CardDetails) => void;
   onOpen: (name: string) => void;
 }) {
   const [shownCombo, setShownCombo] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
   const hubs = useMemo(() => deckHubs(analysis, 6), [analysis]);
+  const deckNames = useMemo(() => cards.map((c) => c.name), [cards]);
+  const ghostCombos = useMemo(() => {
+    const top = [...almost].sort(byImpact).filter((c) => missingPiece(c, deckNames)).slice(0, MAX_GHOST_COMBOS);
+    const walked = almost.find((c) => c.id === walkId && !top.includes(c));
+    return walked ? [...top, walked] : top;
+  }, [almost, deckNames, walkId]);
 
-  const { nodes, links, comboPieces, hiddenLands } = useMemo(() => {
+  const { nodes, links, comboPieces, comboLinks, hiddenLands, centerId } = useMemo(() => {
     const centerId = commander?.name ?? "__deck";
     // Hubs sit evenly around the commander, starting at the top.
     const hubAngle = (i: number) => -Math.PI / 2 + (i / Math.max(1, hubs.length)) * Math.PI * 2;
@@ -54,30 +84,27 @@ export function DeckNetwork({
         sublabel: `${formatCount(hub.cards.length)} cards`,
         kind: "hub",
         ring: 1,
-        radius: 27,
+        radius: 24,
         angle: hubAngle(i),
         pinned: true,
         color: HUB_COLORS[i % HUB_COLORS.length],
       });
-      links.push({ id: `${id}>center`, source: centerId, target: id, color: HUB_COLORS[i % HUB_COLORS.length], width: 3, pulse: true, strength: 1, delay: 0.2 + i * 0.1 });
+      links.push({ id: `${id}>center`, source: centerId, target: id, color: HUB_COLORS[i % HUB_COLORS.length], width: 2.2, pulse: true, strength: 1, delay: 0.2 + i * 0.1 });
     });
 
     const commanderTraits = commander ? analysis.traits.get(commander.name) : undefined;
-    const withCommander = commanderTraits
-      ? new Set(
-          [...interactionsOf(commanderTraits, analysis.traits, commander!.name).uses, ...interactionsOf(commanderTraits, analysis.traits, commander!.name).usedBy]
-            .filter((l) => tagKind(l.tag) !== "type")
-            .flatMap((l) => l.cards),
-        )
-      : new Set<string>();
+    const commanderLinks = commanderTraits ? interactionsOf(commanderTraits, analysis.traits, commander!.name) : null;
+    const withCommander = new Set(
+      commanderLinks ? [...commanderLinks.uses, ...commanderLinks.usedBy].filter((l) => tagKind(l.tag) !== "type").flatMap((l) => l.cards) : [],
+    );
 
     // Each card joins up to two playstyles, rewarding ones first.
-    const comboKeys = new Set(combos.flatMap((c) => c.cards.map(cardKey)));
+    const comboKeys = new Set([...combos, ...ghostCombos].flatMap((c) => c.cards.map(cardKey)));
     let hiddenLands = 0;
-    const primary = (card: CardDetails) =>
-      hubs.findIndex((hub) => hub.payoffs.includes(card.name)) >= 0
-        ? hubs.findIndex((hub) => hub.payoffs.includes(card.name))
-        : hubs.findIndex((hub) => hub.cards.includes(card.name));
+    const primary = (card: CardDetails) => {
+      const payoff = hubs.findIndex((hub) => hub.payoffs.includes(card.name));
+      return payoff >= 0 ? payoff : hubs.findIndex((hub) => hub.cards.includes(card.name));
+    };
     // Spread each playstyle's cards across its slice of the circle; the rest share the gaps between slices.
     const groups = new Map<number, string[]>();
     for (const card of cards) {
@@ -106,65 +133,134 @@ export function DeckNetwork({
         .sort((a, b) => Number(b.payoff) - Number(a.payoff))
         .slice(0, 2);
       const linked = memberOf.length > 0 || withCommander.has(card.name) || comboKeys.has(cardKey(card.name));
-      if (!linked && !comboKeys.has(cardKey(card.name)) && parseTypeLine(card.typeLine).types.has("Land")) {
+      if (!linked && parseTypeLine(card.typeLine).types.has("Land")) {
         hiddenLands++;
         continue;
       }
-      const angle = linked ? angleOf.get(card.name) : undefined;
       nodes.push({
         id: card.name,
         label: card.name,
+        sublabel: memberOf.map(({ hub }) => tagLabel(hub.tag)).join(" · ") || undefined,
         kind: "card",
         ring: linked ? 2 + (staggered.get(card.name) ?? 0) : 3.2,
         radius: linked ? 11 + Math.min(5, memberOf.length * 2 + (withCommander.has(card.name) ? 2 : 0)) : 9,
-        angle,
+        angle: linked ? angleOf.get(card.name) : undefined,
         imageUrl: card.imageUrl,
-        color: memberOf.length > 0 ? HUB_COLORS[memberOf[0].i % HUB_COLORS.length] : withCommander.has(card.name) ? COMMANDER_COLOR : "#71717a",
+        color: memberOf.length > 0 ? HUB_COLORS[memberOf[0].i % HUB_COLORS.length] : withCommander.has(card.name) ? COMMANDER_COLOR : "#a1a1aa",
         faint: !linked,
       });
       for (const { hub, i } of memberOf) {
         links.push({ id: `${card.name}>hub:${hub.tag}`, source: `hub:${hub.tag}`, target: card.name, color: HUB_COLORS[i % HUB_COLORS.length], width: 1, strength: 0.6, delay: 0.6 });
       }
       if (withCommander.has(card.name)) {
-        links.push({ id: `${card.name}>center`, source: centerId, target: card.name, color: COMMANDER_COLOR, width: 1.3, strength: 0.3, delay: 0.8, title: `Works with ${commander!.name}` });
+        links.push({ id: `${card.name}>center`, source: centerId, target: card.name, color: COMMANDER_COLOR, width: 1.2, strength: 0.3, delay: 0.8, title: `Works with ${commander!.name}` });
       }
     }
 
-    // Combos: a coloured chain through their pieces, signals running along it in order.
     const present = new Map(nodes.map((n) => [cardKey(n.id), n.id]));
-    const comboPieces = new Map<string, Set<string>>();
+    const idFor = (name: string) => present.get(cardKey(name)) ?? (commander && cardKey(name) === cardKey(commander.name) ? centerId : undefined);
+    const comboPieces = new Map<string, string[]>();
+    const comboLinks = new Map<string, Set<string>>();
+
+    // Combos the deck has: a coloured chain through their pieces, signals running along it in order.
     combos.forEach((combo, ci) => {
       const color = COMBO_COLORS[ci % COMBO_COLORS.length];
-      const pieces = combo.cards.map((n) => present.get(cardKey(n)) ?? (commander && cardKey(n) === cardKey(commander.name) ? centerId : undefined)).filter((n): n is string => Boolean(n));
-      comboPieces.set(combo.id, new Set(pieces));
+      const pieces = combo.cards.map(idFor).filter((n): n is string => Boolean(n));
+      comboPieces.set(combo.id, pieces);
+      comboLinks.set(combo.id, new Set());
       pieces.slice(1).forEach((piece, pi) => {
-        links.push({
-          id: `combo:${combo.id}:${pi}`,
-          source: pieces[pi],
-          target: piece,
-          color,
-          width: 2.6,
-          pulse: true,
-          strength: 0.9,
-          delay: 1 + pi * 0.35,
-          title: `Combo: ${combo.results.slice(0, 2).join(", ")}`,
-        });
+        const id = `combo:${combo.id}:${pi}`;
+        comboLinks.get(combo.id)!.add(id);
+        links.push({ id, source: pieces[pi], target: piece, color, width: 2.2, pulse: true, strength: 0.9, delay: 1 + pi * 0.35, title: `Combo: ${combo.results.slice(0, 2).join(", ")}` });
       });
     });
-    return { nodes, links, comboPieces, hiddenLands };
-  }, [commander, cards, analysis, hubs, combos]);
+
+    // Combos a card away: the missing card as a shaded node, joined to the pieces the deck has.
+    ghostCombos.forEach((combo, gi) => {
+      const color = COMBO_COLORS[(combos.length + gi) % COMBO_COLORS.length];
+      const lacking = missingPiece(combo, deckNames)!;
+      const ghostId = `ghost:${cardKey(lacking)}`;
+      const have = combo.cards.map(idFor).filter((n): n is string => Boolean(n));
+      if (!nodes.some((n) => n.id === ghostId)) {
+        const angles = have.map((id) => angleOf.get(id)).filter((a): a is number => a !== undefined);
+        nodes.push({
+          id: ghostId,
+          label: lacking,
+          sublabel: "Not in your deck",
+          kind: "ghost",
+          ring: 3,
+          radius: 12,
+          angle: angles.length > 0 ? angles.reduce((a, b) => a + b, 0) / angles.length : undefined,
+          imageUrl: missing[lacking]?.imageUrl,
+          color,
+        });
+      }
+      comboPieces.set(combo.id, [...have, ghostId]);
+      comboLinks.set(combo.id, new Set());
+      have.forEach((piece, pi) => {
+        const id = `almost:${combo.id}:${pi}`;
+        comboLinks.get(combo.id)!.add(id);
+        links.push({ id, source: piece, target: ghostId, color, width: 1.6, dashed: true, strength: 0.5, title: `Add ${lacking} for: ${combo.results.slice(0, 2).join(", ")}` });
+      });
+    });
+    return { nodes, links, comboPieces, comboLinks, hiddenLands, centerId };
+  }, [commander, cards, analysis, hubs, combos, ghostCombos, deckNames, missing]);
+
+  const allCombos = useMemo(() => [...combos, ...ghostCombos], [combos, ghostCombos]);
+  const walkCombo = allCombos.find((c) => c.id === walkId);
+  const walk = useWalkthrough(walkCombo);
+  const colorOf = (comboId: string) => COMBO_COLORS[Math.max(0, allCombos.findIndex((c) => c.id === comboId)) % COMBO_COLORS.length];
+
+  // While walking through a combo: zoom onto its pieces, light up the current step's cards.
+  const idForName = (name: string) =>
+    nodes.find((n) => cardKey(n.id) === cardKey(name) || n.id === `ghost:${cardKey(name)}`)?.id ??
+    (commander && cardKey(name) === cardKey(commander.name) ? centerId : undefined);
+  const stepIds = walkCombo ? new Set(walk.steps[walk.step]?.cards.map(idForName).filter((id): id is string => Boolean(id))) : undefined;
+
+  const selectedNode = nodes.find((n) => n.id === selected);
+  const selectedCombos = selected ? allCombos.filter((c) => comboPieces.get(c.id)?.includes(selected)) : [];
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950">
+    <div className="flex flex-col gap-3">
+      <div className="relative overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950">
         <NetworkGraph
           nodes={nodes}
           links={links}
           label="Your deck as a network of playstyles, synergies and combos"
-          highlight={shownCombo ? comboPieces.get(shownCombo) : undefined}
-          onNodeClick={(id) => id !== "__deck" && onOpen(id)}
+          highlight={walkCombo ? stepIds : shownCombo ? new Set(comboPieces.get(shownCombo)) : undefined}
+          activeLinks={walkCombo ? comboLinks.get(walkCombo.id) : undefined}
+          focus={walkCombo ? comboPieces.get(walkCombo.id) : undefined}
+          selected={selected}
+          onSelect={setSelected}
+          onOpen={(id) => !id.startsWith("hub:") && !id.startsWith("ghost:") && id !== "__deck" && onOpen(id)}
         />
+        {walkCombo && (
+          <WalkthroughPanel
+            combo={walkCombo}
+            color={colorOf(walkCombo.id)}
+            steps={walk.steps}
+            step={walk.step}
+            setStep={walk.setStep}
+            playing={walk.playing}
+            setPlaying={walk.setPlaying}
+            onClose={() => onWalk(null)}
+          />
+        )}
       </div>
+
+      {selectedNode && (
+        <SelectionBar
+          node={selectedNode}
+          combos={selectedCombos}
+          colorOf={colorOf}
+          missingCard={selectedNode.kind === "ghost" ? missing[selectedNode.label] : undefined}
+          inDeck={inDeck}
+          onAdd={onAdd}
+          onOpen={onOpen}
+          onWalk={onWalk}
+          onClose={() => setSelected(null)}
+        />
+      )}
 
       <div className="flex flex-col gap-3 text-sm">
         <div className="flex flex-wrap items-center gap-2">
@@ -172,7 +268,7 @@ export function DeckNetwork({
           {hubs.length === 0 && <span className="text-zinc-500">None stand out yet.</span>}
           {hubs.map((hub, i) => (
             <span key={hub.tag} className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 px-2.5 py-0.5 dark:border-zinc-800">
-              <span aria-hidden className="size-2.5 rounded-full" style={{ background: HUB_COLORS[i % HUB_COLORS.length] }} />
+              <span aria-hidden className="size-2 rounded-full" style={{ background: HUB_COLORS[i % HUB_COLORS.length] }} />
               {tagLabel(hub.tag)}
               <span className="text-xs text-zinc-500 tabular-nums">
                 {formatCount(hub.payoffs.length)} payoffs · {formatCount(hub.enablers.length)} enablers
@@ -180,32 +276,98 @@ export function DeckNetwork({
             </span>
           ))}
         </div>
-        {combos.length > 0 && (
+        {allCombos.length > 0 && (
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-semibold tracking-wide text-zinc-500 uppercase">Combos</span>
-            {combos.map((combo, i) => (
-              <button
-                key={combo.id}
-                type="button"
-                onMouseEnter={() => setShownCombo(combo.id)}
-                onMouseLeave={() => setShownCombo(null)}
-                onFocus={() => setShownCombo(combo.id)}
-                onBlur={() => setShownCombo(null)}
-                className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 px-2.5 py-0.5 hover:border-amber-500 dark:border-zinc-800"
-                title={combo.cards.join(" + ")}
-              >
-                <span aria-hidden className="size-2.5 rounded-full" style={{ background: COMBO_COLORS[i % COMBO_COLORS.length] }} />
-                {combo.results[0] ?? "Combo"}
-              </button>
-            ))}
+            {allCombos.map((combo) => {
+              const ghost = ghostCombos.includes(combo);
+              return (
+                <button
+                  key={combo.id}
+                  type="button"
+                  onMouseEnter={() => setShownCombo(combo.id)}
+                  onMouseLeave={() => setShownCombo(null)}
+                  onFocus={() => setShownCombo(combo.id)}
+                  onBlur={() => setShownCombo(null)}
+                  onClick={() => onWalk(walkId === combo.id ? null : combo.id)}
+                  aria-pressed={walkId === combo.id}
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 hover:border-amber-500 ${
+                    walkId === combo.id ? "border-amber-500 bg-amber-50 dark:bg-amber-950/40" : "border-zinc-200 dark:border-zinc-800"
+                  } ${ghost ? "border-dashed" : ""}`}
+                  title={`${combo.cards.join(" + ")}: click to walk through it`}
+                >
+                  <span aria-hidden className="size-2 rounded-full" style={{ background: colorOf(combo.id) }} />
+                  {combo.results[0] ?? "Combo"}
+                  {ghost && <span className="text-xs text-zinc-500">+1 card</span>}
+                </button>
+              );
+            })}
           </div>
         )}
         <p className="text-xs text-zinc-500">
-          Hover a card or combo to light up its links; click a card to open its own network.
-          {hiddenLands > 0 && ` ${formatCount(hiddenLands)} lands that don’t link to anything aren’t shown.`} Faint cards
-          on the edge don’t link to the deck’s playstyles or commander.
+          Click a combo to zoom in and walk through it step by step. Click a card to select it, double-click to open its
+          own network; drag cards or the background to move them, and zoom with the buttons or Ctrl + scroll. Shaded dashed
+          cards aren’t in your deck: each completes a combo.
+          {hiddenLands > 0 && ` ${formatCount(hiddenLands)} lands that don’t link to anything aren’t shown.`}
         </p>
       </div>
+    </div>
+  );
+}
+
+function SelectionBar({
+  node,
+  combos,
+  colorOf,
+  missingCard,
+  inDeck,
+  onAdd,
+  onOpen,
+  onWalk,
+  onClose,
+}: {
+  node: GraphNode;
+  combos: Combo[];
+  colorOf: (comboId: string) => string;
+  missingCard?: CardDetails;
+  inDeck: (name: string) => boolean;
+  onAdd: (card: CardDetails) => void;
+  onOpen: (name: string) => void;
+  onWalk: (comboId: string) => void;
+  onClose: () => void;
+}) {
+  const small = "h-8 rounded-lg border border-zinc-300 px-3 text-xs font-medium hover:border-amber-500 dark:border-zinc-700";
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-800">
+      <span aria-hidden className={`size-2.5 rounded-full ${node.kind === "ghost" ? "border border-dashed" : ""}`} style={{ background: node.color }} />
+      <span className="font-medium">{node.label}</span>
+      {node.sublabel && <span className="text-xs text-zinc-500">{node.sublabel}</span>}
+      <span className="ml-auto flex flex-wrap items-center gap-2">
+        {combos.map((combo) => (
+          <button key={combo.id} type="button" className={small} onClick={() => onWalk(combo.id)}>
+            <span aria-hidden className="mr-1 inline-block size-2 rounded-full" style={{ background: colorOf(combo.id) }} />
+            Walk through {combo.results[0] ?? "combo"}
+          </button>
+        ))}
+        {node.kind === "ghost" && missingCard && (
+          <button
+            type="button"
+            disabled={inDeck(missingCard.name)}
+            onClick={() => onAdd(missingCard)}
+            className="h-8 rounded-lg bg-amber-500 px-3 text-xs font-medium text-zinc-950 hover:bg-amber-400 disabled:bg-transparent disabled:text-emerald-600"
+          >
+            {inDeck(missingCard.name) ? "In deck ✓" : `+ Add ${missingCard.name}`}
+          </button>
+        )}
+        {(node.kind === "card" || node.kind === "center") && node.id !== "__deck" && (
+          <button type="button" className={small} onClick={() => onOpen(node.id)}>
+            Open its network
+          </button>
+        )}
+        <button type="button" onClick={onClose} aria-label="Clear selection" className="rounded px-1.5 text-lg leading-none text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100">
+          ×
+        </button>
+      </span>
     </div>
   );
 }
