@@ -23,7 +23,7 @@ describe("compareSnapshots", () => {
     expect(trends).toMatchObject({ source: "scryfall", pricesFrom: "2026-10-18" });
     expect(trends.windows.day).toEqual({
       since: "2026-10-17",
-      cards: [{ name: "Spiking Card", setCode: "MH3", imageUrl: meta.get("a")!.imageUrl, fromUsd: 6, toUsd: 9, change: 0.5 }],
+      cards: [{ id: "a", name: "Spiking Card", setCode: "MH3", imageUrl: meta.get("a")!.imageUrl, fromUsd: 6, toUsd: 9, change: 0.5 }],
     });
     expect(trends.windows.week?.since).toBe("2026-10-11");
     expect(trends.windows.week?.cards.map((c) => c.name)).toEqual(["Spiking Card"]);

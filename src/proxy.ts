@@ -20,6 +20,8 @@ const LIMITS = {
   deckBeta: createRateLimiter({ limit: 60, windowMs: 60_000 }),
   // Picking deck themes on the front page (each looks up EDHREC and Scryfall).
   theme: createRateLimiter({ limit: 60, windowMs: 60_000 }),
+  // The price history explorer: each filter change reads saved prices from disk.
+  trends: createRateLimiter({ limit: 60, windowMs: 60_000 }),
 };
 
 function bucket({ pathname, searchParams }: URL): keyof typeof LIMITS | null {
@@ -30,6 +32,7 @@ function bucket({ pathname, searchParams }: URL): keyof typeof LIMITS | null {
   if (pathname === "/card") return "card";
   if (pathname.startsWith("/api/deck-beta/")) return "deckBeta";
   if (pathname === "/" && searchParams.has("theme")) return "theme";
+  if (pathname.startsWith("/api/trends/")) return "trends";
   return null;
 }
 
@@ -51,5 +54,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/", "/api/price", "/api/autocomplete", "/api/preview", "/api/cards/info", "/card", "/api/deck-beta/:path*"],
+  matcher: ["/", "/api/price", "/api/autocomplete", "/api/preview", "/api/cards/info", "/card", "/api/deck-beta/:path*", "/api/trends/:path*"],
 };

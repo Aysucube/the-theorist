@@ -5,6 +5,7 @@ import { formatDate, formatPercent, formatUsd } from "@/lib/format";
 import { checkPrices } from "@/lib/price-queue";
 import type { MarketTrends, TrendWindow } from "@/lib/trends/types";
 import { CardTile } from "./card-tile";
+import { Sparkline } from "./price-chart";
 import { PriceCheck } from "./price-check";
 
 const LABELS: Record<TrendWindow, string> = { day: "Past day", week: "Past week", month: "Past month" };
@@ -67,6 +68,11 @@ export function TrendTabs({ trends }: { trends: MarketTrends }) {
                   {formatUsd(card.fromUsd)} → {formatUsd(card.toUsd)}
                 </span>
               </span>
+              {card.history && card.history.length > 1 && (
+                <span className="mt-1 block">
+                  <Sparkline points={card.history} width={110} height={26} />
+                </span>
+              )}
               <span className="mt-0.5 block">
                 <PriceCheck name={card.name} />
               </span>

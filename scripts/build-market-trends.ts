@@ -28,6 +28,8 @@ const WINDOW_NAMES = Object.keys(WINDOWS) as TrendWindow[];
 
 interface Candidate {
   uuid: string;
+  /** Its price history, for the card's chart. */
+  history: Record<string, number>;
   /** The latest date this printing has a price for. */
   last: string;
   fromUsd: number;
@@ -85,7 +87,7 @@ async function findSurges(source: string) {
       const since = dateOnOrBefore(dates, target, addDays(target, -slackDays));
       if (!since) continue;
       const change = surge(history[since], history[last]);
-      if (change !== null) candidates[window].push({ uuid, last, fromUsd: history[since], toUsd: history[last], change });
+      if (change !== null) candidates[window].push({ uuid, history, last, fromUsd: history[since], toUsd: history[last], change });
     }
   }
 
@@ -138,6 +140,11 @@ async function main() {
         fromUsd: c.fromUsd,
         toUsd: c.toUsd,
         change: c.change,
+        // The last 30 days, for the card's chart.
+        history: Object.entries(c.history)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .slice(-30)
+          .map(([date, usd]) => ({ date, usd })),
       });
     }
     if (shown.length > 0) windows[window] = { since: addDays(latest, -WINDOWS[window].days), cards: topSurges(shown) };

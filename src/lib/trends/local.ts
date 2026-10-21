@@ -1,8 +1,9 @@
 // This app's own price tracking: once a day it saves every card's market price
-// from Scryfall's daily file (about 25 MB) into .data/price-history, and
-// compares it with earlier days to find surges. History starts the first day
-// the app runs, so the first surges show from the second day.
-import { mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+// from Scryfall's daily file (about 25 MB) into .data/price-history (see
+// storage.ts), and compares it with earlier days to find surges. History
+// starts the first day the app runs, so the first surges show from the second
+// day; 90 days are kept for the price history explorer (history.ts).
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { createInterface } from "node:readline";
 import { Readable } from "node:stream";
@@ -10,46 +11,31 @@ import { createGunzip } from "node:zlib";
 import { reportSourceError, SourceError, USER_AGENT } from "@/lib/sources/http";
 import { getOracleCardsFile } from "@/lib/sources/scryfall";
 import { addDays, dateOnOrBefore, surge, topSurges, WINDOWS } from "./compute.ts";
+import { seriesFor } from "./history";
+import {
+  deleteSnapshot,
+  DIR,
+  compressOldSnapshots,
+  mergeCardMeta,
+  readCardMeta,
+  readSnapshot,
+  saveSnapshot,
+  savedDates,
+  writeJson,
+  type CardMeta,
+  type Prices,
+} from "./storage";
 import type { MarketTrends, TrendCard, TrendWindow, TrendWindowData } from "./types.ts";
 
-const DIR = path.join(process.cwd(), ".data", "price-history");
 const TRENDS_FILE = path.join(DIR, "trends.json");
 /** Local tracking covers a day and a week; the shared file adds a month. */
 const LOCAL_WINDOWS: TrendWindow[] = ["day", "week"];
-/** Days of snapshots kept: a week plus slack (each is about 1.5 MB). */
-const KEEP_DAYS = 12;
+/** Days of snapshots kept for the price history explorer (each is about 700 KB, so about 65 MB in all). */
+export const KEEP_DAYS = 90;
 /** Check Scryfall for a new daily file at most this often. */
 const CHECK_EVERY_MS = 3 * 60 * 60_000;
 /** The daily file is big; give a slow connection time to fetch it. */
 const DOWNLOAD_TIMEOUT_MS = 10 * 60_000;
-
-/** Prices in cents, keyed by Scryfall printing id: the same printing is compared day to day. */
-type Prices = Record<string, number>;
-interface CardMeta {
-  name: string;
-  imageUrl?: string;
-  setCode: string;
-}
-
-const snapshotFile = (date: string) => path.join(DIR, `${date}.json`);
-
-async function savedDates(): Promise<string[]> {
-  try {
-    return (await readdir(DIR))
-      .map((f) => f.match(/^(\d{4}-\d{2}-\d{2})\.json$/)?.[1])
-      .filter((d): d is string => Boolean(d))
-      .sort();
-  } catch {
-    return [];
-  }
-}
-
-async function writeJson(file: string, value: unknown) {
-  // Write then rename, so a crash never leaves half a file behind.
-  const temp = `${file}.tmp`;
-  await writeFile(temp, JSON.stringify(value));
-  await rename(temp, file);
-}
 
 interface RawCard {
   id: string;
@@ -116,7 +102,7 @@ export function compareSnapshots(
       const card = meta.get(id);
       if (!card || then[id] === undefined) continue;
       const change = surge(then[id] / 100, cents / 100);
-      if (change !== null) cards.push({ ...card, fromUsd: then[id] / 100, toUsd: cents / 100, change });
+      if (change !== null) cards.push({ ...card, id, fromUsd: then[id] / 100, toUsd: cents / 100, change });
     }
     windows[window] = { since, cards: topSurges(cards) } satisfies TrendWindowData;
   }
@@ -127,18 +113,35 @@ async function refresh() {
   const file = await getOracleCardsFile();
   const date = file.updatedAt.slice(0, 10);
   const dates = await savedDates();
-  if (dates.includes(date)) return;
+  // Done for today, unless the card names are missing (history saved by an older version of the app).
+  if (dates.includes(date) && (await readCardMeta()).size > 0) return;
 
-  const { prices, meta } = await downloadPrices(file.url);
-  await mkdir(DIR, { recursive: true });
-  await writeJson(snapshotFile(date), prices);
+  const downloaded = await downloadPrices(file.url);
+  await saveSnapshot(date, downloaded.prices);
+  const meta = await mergeCardMeta(downloaded.meta);
+  if (!dates.includes(date)) dates.push(date);
 
-  const earlier: Record<string, Prices> = {};
-  for (const d of dates) {
-    if (d >= addDays(date, -KEEP_DAYS)) earlier[d] = JSON.parse(await readFile(snapshotFile(d), "utf8")) as Prices;
-    else await rm(snapshotFile(d), { force: true });
+  // Old days beyond the kept history go; the trend windows need at most a week and a bit.
+  const kept: string[] = [];
+  for (const d of dates.filter((d) => d !== date)) {
+    if (d < addDays(date, -KEEP_DAYS)) await deleteSnapshot(d);
+    else kept.push(d);
   }
-  await writeJson(TRENDS_FILE, compareSnapshots(date, prices, meta, earlier));
+  await compressOldSnapshots(kept);
+  const earlier: Record<string, Prices> = {};
+  for (const d of kept.filter((d) => d >= addDays(date, -12))) {
+    const prices = await readSnapshot(d);
+    if (prices) earlier[d] = prices;
+  }
+  const trends = compareSnapshots(date, downloaded.prices, meta, earlier);
+
+  // Each shown card's price over the kept days, for its little chart.
+  const shown = new Set(Object.values(trends.windows).flatMap((w) => w!.cards.map((c) => c.id!)));
+  const series = await seriesFor(shown, [...kept, date]);
+  for (const window of Object.values(trends.windows)) {
+    for (const card of window!.cards) card.history = series.get(card.id!);
+  }
+  await writeJson(TRENDS_FILE, trends);
 }
 
 // One refresh at a time, and not more often than CHECK_EVERY_MS.
@@ -165,6 +168,8 @@ export function refreshLocalTrends(): Promise<void> {
 export interface LocalStatus {
   /** The first day this app saved prices, if any. */
   trackingSince?: string;
+  /** How many days of prices are saved. */
+  days: number;
   trends: MarketTrends | null;
 }
 
@@ -177,5 +182,5 @@ export async function readLocalTrends(): Promise<LocalStatus> {
   } catch {
     // Nothing tracked yet.
   }
-  return { trackingSince: dates[0], trends };
+  return { trackingSince: dates[0], days: dates.length, trends };
 }

@@ -2,7 +2,15 @@
 
 export type TrendWindow = "day" | "week" | "month";
 
+/** A card's price on one day. */
+export interface PricePoint {
+  date: string;
+  usd: number;
+}
+
 export interface TrendCard {
+  /** Scryfall printing id, when the app tracked it itself. */
+  id?: string;
   name: string;
   /** Scryfall image of the printing whose price moved. */
   imageUrl?: string;
@@ -11,8 +19,10 @@ export interface TrendCard {
   /** US dollars, TCGplayer market price. */
   fromUsd: number;
   toUsd: number;
-  /** 0.5 = up 50%. */
+  /** 0.5 = up 50%; negative for a fall. */
   change: number;
+  /** Its price on each day the history covers, oldest first, for a chart. */
+  history?: PricePoint[];
 }
 
 export interface TrendWindowData {
