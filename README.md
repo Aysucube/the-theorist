@@ -73,7 +73,44 @@ GitHub's ZIP. Nothing needs installing first.
 The app uses port 3000, or the next free port if another program has it. To
 remove everything, delete the folder.
 
-On macOS or Linux, install [Node.js](https://nodejs.org) 20.9 or newer, then run
+## Running it on a Mac (no setup)
+
+Anyone with macOS 11 (Big Sur) or newer and an internet connection can run the
+app. Nothing needs installing first, and it works on Apple silicon and Intel Macs.
+
+1. Get the ZIP (**The Theorist for Mac.zip**, or **Code → Download ZIP** on
+   the GitHub page) and double-click it in Finder to unzip it. Move the
+   unzipped folder somewhere permanent, such as Documents.
+2. Open the folder and double-click **Start The Theorist.command**. The first
+   time, macOS won't open it because it isn't from the App Store or an
+   identified developer:
+   - **macOS 15 (Sequoia) or newer**: click **Done**, open **System Settings →
+     Privacy & Security**, scroll down to the message about "Start The
+     Theorist.command" and click **Open Anyway**, then enter your password.
+   - **Older macOS**: right-click (or Control-click) the file, choose
+     **Open**, then click **Open**.
+
+   macOS remembers this, so later double-clicks just work. If it still won't
+   open, start it from Terminal instead: type `bash ` (with a space), drag the
+   file into the Terminal window, and press Return.
+3. The first start takes about 5 to 10 minutes. If the Mac has no Node.js, the
+   launcher downloads a private copy from nodejs.org into the folder (it checks
+   nodejs.org's published checksum first). Then it installs the app's packages
+   and builds it. Later starts take a few seconds.
+4. Your browser opens the app. Keep the Terminal window open while you use it,
+   and close it (or press Control-C) to stop the app. If macOS asks whether
+   "node" may accept incoming network connections, click **Deny**. Allow it
+   only if you want phones on the same Wi-Fi to use the app.
+
+The app uses port 3000, or the next free port if another program has it. To
+remove everything, move the folder to the Trash.
+
+To make the Mac ZIP from this repository, run
+`git -c core.autocrlf=false archive --format=zip --prefix="The Theorist/" -o "The Theorist for Mac.zip" HEAD`.
+It keeps the launcher's permission to run, which a ZIP made with Windows
+Explorer loses (macOS then refuses to start it).
+
+On Linux, install [Node.js](https://nodejs.org) 20.9 or newer, then run
 `npm ci`, `npm run build` and `npm start` in the folder.
 
 ## Running it locally (developers)
