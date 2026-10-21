@@ -320,8 +320,9 @@ export function useDeckAnalysis(commander: CardDetails | undefined, cards: strin
   return key ? (remote.get(key) as RemoteState<AnalysisResponse> | undefined) : undefined;
 }
 
+/** "" asks for the commander's cards across all its decks rather than one playstyle. */
 function playstyleUrl(commander: CardDetails, theme: string) {
-  return `/api/deck-beta/playstyle?${new URLSearchParams({ commander: commander.name, layout: commander.layout, theme })}`;
+  return `/api/deck-beta/playstyle?${new URLSearchParams({ commander: commander.name, layout: commander.layout, ...(theme ? { theme } : {}) })}`;
 }
 
 export function requestPlaystyle(commander: CardDetails, theme: string, force = false) {
@@ -329,12 +330,54 @@ export function requestPlaystyle(commander: CardDetails, theme: string, force = 
   loadRemote<PlaystyleResponse>(url, url, undefined, "EDHREC is busy", force);
 }
 
-/** The best cards for one of the commander's playstyles. */
+/** The best cards for one of the commander's playstyles ("" for all its decks; undefined for none yet). */
 export function usePlaystyle(commander: CardDetails | undefined, theme: string | undefined): RemoteState<PlaystyleResponse> | undefined {
   useSyncExternalStore(subscribePairings, () => pairingsVersion, () => 0);
-  const url = commander && theme ? playstyleUrl(commander, theme) : "";
+  const url = commander && theme !== undefined ? playstyleUrl(commander, theme) : "";
   useEffect(() => {
-    if (commander && theme) requestPlaystyle(commander, theme);
+    if (commander && theme !== undefined) requestPlaystyle(commander, theme);
   }, [commander, theme]);
   return url ? (remote.get(url) as RemoteState<PlaystyleResponse> | undefined) : undefined;
+}
+
+// --- Saved decks --------------------------------------------------------------------
+
+export interface SavedDeck {
+  id: string;
+  name: string;
+  commander?: string;
+  cards: DeckCard[];
+  savedAt: number;
+}
+
+function isSavedDeck(value: unknown): value is SavedDeck {
+  const d = value as SavedDeck;
+  return typeof d?.id === "string" && typeof d.name === "string" && Array.isArray(d.cards) && d.cards.every(isDeckCard);
+}
+
+// Decks saved in this browser for Deck Synergy, newest first.
+const libraryStore = createLocalStore<SavedDeck[]>(
+  "commander-ph:deck-beta-library",
+  [],
+  (v): v is SavedDeck[] => Array.isArray(v) && v.every(isSavedDeck),
+);
+
+/** Saved decks, and saving (a deck with the same name is replaced) and deleting them. */
+export function useDeckLibrary() {
+  const decks = libraryStore.useValue();
+  return {
+    decks,
+    save: (name: string, commander: string | undefined, cards: DeckCard[]) => {
+      const others = libraryStore.get().filter((d) => d.name.trim().toLowerCase() !== name.trim().toLowerCase());
+      const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
+      libraryStore.set([{ id, name: name.trim(), commander, cards, savedAt: Date.now() }, ...others]);
+    },
+    remove: (id: string) => libraryStore.set(libraryStore.get().filter((d) => d.id !== id)),
+  };
+}
+
+/** Swaps in a whole deck (from the library or a code), with its commander. */
+export function loadWholeDeck(cards: DeckCard[], commander: string | undefined) {
+  deckStore.set(importCards([], cards));
+  commanderStore.set(commander ?? "");
 }

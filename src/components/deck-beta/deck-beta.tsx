@@ -4,11 +4,13 @@ import { useId, useMemo, useRef, useState, type MouseEvent } from "react";
 import { parseDeckList, MAX_DECK_CARDS } from "@/lib/deck";
 import type { AnalysisResponse } from "@/lib/deck-beta/api";
 import { commanderOptions } from "@/lib/deck-beta/combos";
+import { decodeDeck, isDeckCode } from "@/lib/deck-beta/deck-code";
 import { deckHubs } from "@/lib/deck-beta/playstyle";
 import { cardKey } from "@/lib/deck-beta/recommend";
 import { analyzeDeck, parseTypeLine } from "@/lib/deck-beta/synergy";
 import {
   latestAnalysisFor,
+  loadWholeDeck,
   requestAnalysis,
   useBetaDeck,
   useBetaDetails,
@@ -22,10 +24,12 @@ import type { CardDetails } from "@/lib/types";
 import { ColorIdentity, ManaCost } from "../mana";
 import { ImageNote } from "../retrying-image";
 import { CombosPanel, type DeckForOdds } from "./combos-panel";
+import { DeckLibrary, SharedDeckBanner } from "./deck-library";
 import { DeckNetwork } from "./deck-network";
 import { InteractionsPopover } from "./interactions-popover";
 import { LazyCardImage } from "./lazy-card-image";
 import { PlaystylePanel } from "./playstyle-panel";
+import { RecommendationsPanel } from "./recommendations-panel";
 import { SynergyMap } from "./synergy-map";
 
 /** One line of the deck: the name as pasted, and Scryfall's details once loaded. */
@@ -54,9 +58,10 @@ function groupOf(card: CardDetails): string {
 /** Waits this long after a click for a second one, so a double-click doesn't flash the preview. */
 const DOUBLE_CLICK_MS = 250;
 
-type View = "network" | "combos" | "playstyle" | "cards";
+type View = "network" | "recommend" | "combos" | "playstyle" | "cards";
 const VIEWS: { id: View; label: string }[] = [
   { id: "network", label: "Network" },
+  { id: "recommend", label: "Recommendations" },
   { id: "combos", label: "Combos" },
   { id: "playstyle", label: "Playstyle" },
   { id: "cards", label: "Cards" },
@@ -66,7 +71,9 @@ const VIEWS: { id: View; label: string }[] = [
  * Deck Synergy (beta): paste a deck and pick its commander to see the deck as
  * an animated network of playstyles, synergies and combos, how consistently it
  * assembles those combos, and what to add to lean into one of the commander's
- * playstyles. Click a card for what it interacts with; double-click (or click
+ * playstyles, and recommendations built from what the deck has (Quadrant
+ * Theory, ramp, consistency, combos). Decks can be saved and shared as codes.
+ * Click a card for what it interacts with; double-click (or click
  * it in the network) for its own network. Kept apart from the rest of the app:
  * its deck and data are its own, and it never touches Shopping.
  */
@@ -107,6 +114,17 @@ export function DeckBeta() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [libraryKey],
   );
+  // Each card once with its copies, for counting jobs and lands.
+  const deckCards = useMemo(() => {
+    const counted = new Map<string, { card: CardDetails; qty: number }>();
+    for (const e of entries) {
+      if (!e.details) continue;
+      const seen = counted.get(e.details.name);
+      counted.set(e.details.name, { card: e.details, qty: (seen?.qty ?? 0) + e.qty });
+    }
+    return [...counted.values()];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [libraryKey]);
 
   if (!ready) return <p className="text-zinc-500">Loading your deck…</p>;
 
@@ -167,7 +185,11 @@ export function DeckBeta() {
         Commander Spellbook, so treat them as hints.
       </p>
 
+      <SharedDeckBanner />
+
       <ImportBox hasDeck={deck.length > 0} onReplace={replace} onAdd={addList} />
+
+      <DeckLibrary deck={deck} commander={commander?.name} />
 
       {deck.length > 0 && (
         <>
@@ -232,6 +254,25 @@ export function DeckBeta() {
               inDeck={inDeck}
               onAdd={add}
               onOpen={openCard}
+            />
+          )}
+
+          {view === "recommend" && (
+            <RecommendationsPanel
+              commander={commander}
+              deckCards={deckCards}
+              analysis={analysis}
+              colors={analysis.colors}
+              combos={result ? combos : remote?.state === "error" ? null : undefined}
+              odds={odds}
+              missing={result?.missing ?? {}}
+              inDeck={inDeck}
+              onAdd={add}
+              onOpen={openCard}
+              onWalk={(combo) => {
+                setWalkId(combo.id);
+                setView("network");
+              }}
             />
           )}
 
@@ -516,7 +557,20 @@ function ImportBox({
   const [text, setText] = useState("");
   const [message, setMessage] = useState("");
 
-  function submit(mode: "replace" | "add") {
+  async function submit(mode: "replace" | "add") {
+    if (isDeckCode(text)) {
+      const shared = await decodeDeck(text);
+      if (!shared) {
+        setMessage("That deck code looks damaged. Copy it again from where you got it.");
+        return;
+      }
+      if (mode === "replace") loadWholeDeck(shared.cards, shared.commander);
+      else onAdd(shared.cards);
+      const total = shared.cards.reduce((sum, c) => sum + c.qty, 0);
+      setMessage(`${mode === "replace" ? "Loaded" : "Added"} ${shared.name ? `“${shared.name}”, ` : ""}${formatCount(total)} ${total === 1 ? "card" : "cards"}.`);
+      setText("");
+      return;
+    }
     const cards = parseDeckList(text);
     if (cards.length === 0) {
       setMessage("No card names found. Put one card per line, like “1 Sol Ring”.");
@@ -535,12 +589,12 @@ function ImportBox({
         className="flex flex-col gap-3 px-4 pb-4"
         onSubmit={(e) => {
           e.preventDefault();
-          submit(hasDeck ? "add" : "replace");
+          void submit(hasDeck ? "add" : "replace");
         }}
       >
         <label htmlFor={id} className="text-sm text-zinc-600 dark:text-zinc-400">
           One card per line, as Moxfield, Archidekt or EDHREC export it (“1 Sol Ring”, “1x Sol Ring (CMM) 410”). Up
-          to {MAX_DECK_CARDS} different cards.
+          to {MAX_DECK_CARDS} different cards. Or paste a deck code (“TT1.…”) from The Theorist.
         </label>
         <textarea
           id={id}
@@ -558,7 +612,7 @@ function ImportBox({
               </button>
               <button
                 type="button"
-                onClick={() => submit("replace")}
+                onClick={() => void submit("replace")}
                 className="h-10 rounded-lg border border-zinc-300 px-4 text-sm font-medium hover:border-amber-500 dark:border-zinc-700"
               >
                 Replace deck

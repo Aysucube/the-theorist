@@ -25,6 +25,14 @@ printing of a card, whatever printing your list names.
   complete a combo (infinite ones first) sit outside as shaded nodes you can add. Click a combo
   to zoom onto it and walk through how it works, step by step, with each step's cards lit up.
   Select, drag and zoom (buttons or Ctrl + scroll) to explore.
+- **Recommendations**: built from what the deck already has. Its cards sorted into Quadrant
+  Theory's four stages of a game (Developing: ramp, card draw, tutors; Behind: removal, wipes,
+  lifegain, big creatures; Parity: one-sided wipes, anthems, evasion; Ahead: counterspells,
+  protection, finishers), with the cards that fit several quadrants picked out. Then meters for
+  lands, ramp, card draw, tutors, removal, wipes and protection against common deckbuilding
+  guides; upgrades from EDHREC's decks for the commander that fill the gaps (consistency, ramp
+  and each short quadrant, cards that fit more quadrants ranked up); combos a card away; and the
+  cards doing the least, as places to cut. Roles are read from rules text, so they're a guide.
 - **Combos**: the combos the deck has and the ones a card away (from
   [Commander Spellbook](https://commanderspellbook.com)), each with its steps, and how
   consistently the deck assembles one: the chance of holding every piece by turns 4 to 10,
@@ -34,6 +42,11 @@ printing of a card, whatever printing your list names.
 - **Cards**: a gallery. Click a card for what it interacts with; double-click it (or click it
   in the network) for its own animated network of synergies and combos with your commander,
   its rulings and recommendations.
+
+Under **Saved decks and sharing**, save decks in the browser and load them back, or copy the
+deck as a code (`TT1.…`, the whole deck and its commander in one line), a link, or a plain list
+for Moxfield and Archidekt. Paste a code into "Paste a deck list" on any copy of The Theorist to
+load it. Codes are made and read in the browser; no deck is sent to a server to share it.
 
 It keeps its own deck and never changes the Shopping list.
 
