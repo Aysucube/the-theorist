@@ -13,7 +13,7 @@ import { useHoverPreview } from "../card-link";
 import { BetaRulings } from "./beta-rulings";
 import { CardNetwork } from "./card-network";
 import { CombosList, type DeckForOdds } from "./combos-panel";
-import { formatLift, LinkRow, MiniGallery, pairingsMessage, TagName, type CardLookup } from "./bits";
+import { formatLift, HoverName, LinkRow, MiniGallery, pairingsMessage, TagName, type CardLookup } from "./bits";
 import { LazyCardImage } from "./lazy-card-image";
 
 /** Recommendations shown before "Show more". */
@@ -113,7 +113,7 @@ export function SynergyMap({
             </button>
           )}
           <h2 className="min-w-0 flex-1 truncate text-lg font-semibold">
-            Synergy map: {focus.name}
+            Synergy map: <HoverName name={focus.name} />
           </h2>
           <button
             type="button"
@@ -254,7 +254,9 @@ export function SynergyMap({
           >
             {/* Phones show one section per tab; wide screens show both. */}
             <section className={`mb-6 ${tab === "rulings" ? "" : "hidden lg:block"}`}>
-              <h3 className="mb-2 font-semibold">Rulings: {focus.name}</h3>
+              <h3 className="mb-2 font-semibold">
+                Rulings: <HoverName name={focus.name} />
+              </h3>
               <BetaRulings key={focus.name} card={focus} />
             </section>
 

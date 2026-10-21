@@ -3,6 +3,7 @@
 import { useEffect, useId, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { layoutNetwork, type Point } from "@/lib/deck-beta/force-layout";
 import { scryfallImageAs } from "@/lib/scryfall-images";
+import { useCardHover } from "../card-link";
 
 export interface GraphNode {
   id: string;
@@ -60,6 +61,7 @@ const dotRadius = (n: GraphNode) =>
  * select it (and light up its links), double-click to open it, drag nodes to
  * move them, drag the background to pan, and zoom with the buttons or
  * Ctrl + scroll. Give `focus` some node ids to glide the view onto them.
+ * With `previewOf`, resting the mouse on a card shows its hover preview.
  */
 export function NetworkGraph({
   nodes,
@@ -74,6 +76,7 @@ export function NetworkGraph({
   selected,
   onSelect,
   onOpen,
+  previewOf,
 }: {
   nodes: GraphNode[];
   links: GraphLink[];
@@ -90,10 +93,13 @@ export function NetworkGraph({
   selected?: string | null;
   onSelect?: (id: string | null) => void;
   onOpen?: (id: string) => void;
+  /** The card to show a hover preview of for a node, if it's a card. */
+  previewOf?: (node: GraphNode) => string | undefined;
 }) {
   const prefix = useId().replace(/[^a-zA-Z0-9]/g, "");
   const svg = useRef<SVGSVGElement>(null);
   const [hover, setHover] = useState<string | null>(null);
+  const cardHover = useCardHover();
   const [moved, setMoved] = useState<Record<string, Point>>({});
   const full: View = useMemo(() => ({ x: 0, y: 0, w: width, h: height }), [width, height]);
   const [view, setView] = useState<View>(full);
@@ -332,6 +338,7 @@ export function NetworkGraph({
             const image = n.imageUrl ? (scryfallImageAs(n.imageUrl, "art_crop") ?? n.imageUrl) : undefined;
             const showLabel = n.kind === "center" || n.kind === "hub" || n.kind === "result" || big || showAllLabels;
             const labelY = (big ? EXPANDED : r) + (n.kind === "hub" ? 12 : 13);
+            const card = previewOf?.(n);
             return (
               <g
                 key={n.id}
@@ -341,12 +348,32 @@ export function NetworkGraph({
                 <g
                   className="net-node"
                   style={{ animationDelay: `${Math.min(1, n.ring * 0.2 + (i % 15) * 0.025)}s`, cursor: "pointer" }}
-                  onPointerDown={(e) => onNodeDown(e, n.id)}
-                  onPointerEnter={() => setHover(n.id)}
-                  onPointerLeave={() => setHover(null)}
-                  onDoubleClick={() => onOpen?.(n.id)}
-                  onFocus={() => setHover(n.id)}
-                  onBlur={() => setHover(null)}
+                  onPointerDown={(e) => {
+                    cardHover.hide();
+                    onNodeDown(e, n.id);
+                  }}
+                  onPointerEnter={(e) => {
+                    setHover(n.id);
+                    if (card && e.pointerType === "mouse" && !drag.current) {
+                      cardHover.show(card, e.currentTarget, { left: e.clientX, right: e.clientX, top: e.clientY, bottom: e.clientY });
+                    }
+                  }}
+                  onPointerLeave={() => {
+                    setHover(null);
+                    cardHover.hide();
+                  }}
+                  onDoubleClick={() => {
+                    cardHover.hide();
+                    onOpen?.(n.id);
+                  }}
+                  onFocus={(e) => {
+                    setHover(n.id);
+                    if (card) cardHover.show(card, e.currentTarget, e.currentTarget.getBoundingClientRect());
+                  }}
+                  onBlur={() => {
+                    setHover(null);
+                    cardHover.hide();
+                  }}
                   onKeyDown={(e) => {
                     if (e.key !== "Enter") return;
                     if (selected === n.id) onOpen?.(n.id);
@@ -425,13 +452,15 @@ export function NetworkGraph({
                       {n.sublabel}
                     </text>
                   )}
-                  <title>{n.sublabel ? `${n.label} (${n.sublabel})` : n.label}</title>
+                  {/* The hover preview already names the card; a native tooltip would cover it. */}
+                  {!card && <title>{n.sublabel ? `${n.label} (${n.sublabel})` : n.label}</title>}
                 </g>
               </g>
             );
           })}
         </g>
       </svg>
+      {cardHover.preview}
 
       <div className="absolute top-2 right-2 flex flex-col gap-1.5">
         <button type="button" className={button} onClick={() => zoomBy(0.7)} aria-label="Zoom in" title="Zoom in (or Ctrl + scroll)">

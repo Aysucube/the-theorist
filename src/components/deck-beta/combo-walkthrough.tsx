@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { walkSteps, type WalkStep } from "@/lib/deck-beta/walkthrough";
 import type { Combo } from "@/lib/types";
+import { HoverName } from "./bits";
 
 /** Seconds per step when playing. */
 const STEP_SECONDS = 4.5;
@@ -76,6 +77,17 @@ export function WalkthroughPanel({
         {current.title} · {step + 1} of {steps.length}
       </p>
       <p className="mt-1 max-h-32 overflow-y-auto text-sm leading-6 whitespace-pre-line">{current.text}</p>
+      {current.cards.length > 0 && (
+        <p className="mt-2 flex flex-wrap gap-1.5" aria-label="Cards in this step">
+          {current.cards.map((name) => (
+            <HoverName
+              key={name}
+              name={name}
+              className="rounded-md border border-zinc-200 bg-white px-2 py-0.5 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+            />
+          ))}
+        </p>
+      )}
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <button type="button" className={control} onClick={() => setStep(step - 1)} disabled={step === 0}>

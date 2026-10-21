@@ -24,6 +24,19 @@ export function TagName({ tag }: { tag: Tag }) {
   );
 }
 
+/** A card's name that shows its hover preview while the mouse rests on it (or it has keyboard focus). */
+export function HoverName({ name, className }: { name: string; className?: string }) {
+  const { trigger, preview } = useHoverPreview(name);
+  return (
+    <>
+      <span {...trigger} tabIndex={0} className={className}>
+        {name}
+      </span>
+      {preview}
+    </>
+  );
+}
+
 /** Finds a deck card's details by name, for its artwork. */
 export type CardLookup = (name: string) => CardDetails | undefined;
 

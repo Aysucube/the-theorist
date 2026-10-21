@@ -132,7 +132,7 @@ export function InteractionsPopover({
             {links.uses.length > 0 ? (
               <ul className="flex flex-col gap-3">
                 {links.uses.map((link) => (
-                  <LinkRow key={link.tag} link={link} cardFor={cardFor} />
+                  <LinkRow key={link.tag} link={link} cardFor={cardFor} hoverPreview />
                 ))}
               </ul>
             ) : (
@@ -145,7 +145,7 @@ export function InteractionsPopover({
               <h3 className="mb-2 font-semibold">Cards in your deck that want it</h3>
               <ul className="flex flex-col gap-3">
                 {links.usedBy.map((link) => (
-                  <LinkRow key={link.tag} link={link} cardFor={cardFor} />
+                  <LinkRow key={link.tag} link={link} cardFor={cardFor} hoverPreview />
                 ))}
               </ul>
             </section>
@@ -167,6 +167,7 @@ export function InteractionsPopover({
                     label="Played with it on EDHREC"
                     items={edhrec.map((p) => ({ name: p.name, note: formatLift(p.lift) }))}
                     cardFor={cardFor}
+                    hoverPreview
                   />
                 )}
               </>

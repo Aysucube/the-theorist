@@ -8,6 +8,7 @@ import { interactionsOf, parseTypeLine, tagKind, tagLabel, type DeckAnalysis } f
 import { byImpact } from "@/lib/deck-beta/walkthrough";
 import { formatCount } from "@/lib/format";
 import type { CardDetails, Combo } from "@/lib/types";
+import { HoverName } from "./bits";
 import { useWalkthrough, WalkthroughPanel } from "./combo-walkthrough";
 import { NetworkGraph, type GraphLink, type GraphNode } from "./network-graph";
 
@@ -232,6 +233,7 @@ export function DeckNetwork({
           focus={walkCombo ? comboPieces.get(walkCombo.id) : undefined}
           selected={selected}
           onSelect={setSelected}
+          previewOf={(n) => (n.kind === "card" || n.kind === "ghost" || (n.kind === "center" && n.id !== "__deck") ? n.label : undefined)}
           onOpen={(id) => !id.startsWith("hub:") && !id.startsWith("ghost:") && id !== "__deck" && onOpen(id)}
         />
         {walkCombo && (
@@ -340,7 +342,11 @@ function SelectionBar({
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-xl border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-800">
       <span aria-hidden className={`size-2.5 rounded-full ${node.kind === "ghost" ? "border border-dashed" : ""}`} style={{ background: node.color }} />
-      <span className="font-medium">{node.label}</span>
+      {node.kind === "hub" || node.id === "__deck" ? (
+        <span className="font-medium">{node.label}</span>
+      ) : (
+        <HoverName name={node.label} className="font-medium" />
+      )}
       {node.sublabel && <span className="text-xs text-zinc-500">{node.sublabel}</span>}
       <span className="ml-auto flex flex-wrap items-center gap-2">
         {combos.map((combo) => (

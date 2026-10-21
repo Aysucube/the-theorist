@@ -90,29 +90,31 @@ export interface HoverTriggerProps {
   onClick: () => void;
 }
 
-/**
- * A card's hover preview (artwork, colors, rules text, cheapest PH price and
- * shop, how decks use it, similar cards), shown while the mouse rests on an
- * element or it has keyboard focus. Spread `trigger` on the element and render
- * `preview` next to it. Busy sources and slow images are waited out and
- * retried, so the preview fills in completely. Touch screens don't get one.
- */
-export function useHoverPreview(name: string): { trigger: HoverTriggerProps; preview: ReactNode } {
-  // Where the preview shows, and the element it's rendered into: inside a modal
-  // dialog (the deck beta's synergy map) it must live in the dialog, since modal
-  // dialogs sit above everything else on the page.
-  const [position, setPosition] = useState<{ left: number; top: number; container: Element } | null>(null);
+/** Where a hover preview is anchored: the pointer, or the focused element's box. */
+export interface HoverAnchor {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+}
+
+/** The hover card itself, for whichever card `show` was last given. */
+function useHoverCard() {
+  // The card, where its preview shows, and the element it's rendered into:
+  // inside a modal dialog (the deck beta's synergy map) it must live in the
+  // dialog, since modal dialogs sit above everything else on the page.
+  const [position, setPosition] = useState<{ name: string; left: number; top: number; container: Element } | null>(null);
   const [snapshot, setSnapshot] = useState<Snapshot>({ done: false });
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const unwatch = useRef<(() => void) | undefined>(undefined);
   const id = useId();
 
-  function show(element: Element, anchor: { left: number; right: number; top: number; bottom: number }) {
+  function show(name: string, element: Element, anchor: HoverAnchor) {
     clearTimeout(timer.current);
     const container = element.closest("dialog") ?? document.body;
     timer.current = setTimeout(() => {
       const place = placeHoverCard(anchor, { width: window.innerWidth, height: window.innerHeight }, CARD_SIZE);
-      setPosition({ ...place, container });
+      setPosition({ name, ...place, container });
       unwatch.current?.();
       unwatch.current = watchPreview(name, setSnapshot);
     }, HOVER_DELAY_MS);
@@ -148,21 +150,48 @@ export function useHoverPreview(name: string): { trigger: HoverTriggerProps; pre
   );
 
   return {
-    trigger: {
-      "aria-describedby": position ? id : undefined,
-      onPointerEnter: (e) => {
-        if (e.pointerType !== "mouse") return;
-        show(e.currentTarget, { left: e.clientX, right: e.clientX, top: e.clientY, bottom: e.clientY });
-      },
-      onPointerLeave: hide,
-      onFocus: (e) => show(e.currentTarget, e.currentTarget.getBoundingClientRect()),
-      onBlur: hide,
-      onClick: hide,
-    },
+    id,
+    open: position !== null,
+    show,
+    hide,
     preview: position
-      ? createPortal(<HoverCard id={id} name={name} snapshot={snapshot} position={position} />, position.container)
+      ? createPortal(<HoverCard id={id} name={position.name} snapshot={snapshot} position={position} />, position.container)
       : null,
   };
+}
+
+/**
+ * A card's hover preview (artwork, colors, rules text, cheapest PH price and
+ * shop, how decks use it, similar cards), shown while the mouse rests on an
+ * element or it has keyboard focus. Spread `trigger` on the element and render
+ * `preview` next to it. Busy sources and slow images are waited out and
+ * retried, so the preview fills in completely. Touch screens don't get one.
+ */
+export function useHoverPreview(name: string): { trigger: HoverTriggerProps; preview: ReactNode } {
+  const card = useHoverCard();
+  return {
+    trigger: {
+      "aria-describedby": card.open ? card.id : undefined,
+      onPointerEnter: (e) => {
+        if (e.pointerType !== "mouse") return;
+        card.show(name, e.currentTarget, { left: e.clientX, right: e.clientX, top: e.clientY, bottom: e.clientY });
+      },
+      onPointerLeave: card.hide,
+      onFocus: (e) => card.show(name, e.currentTarget, e.currentTarget.getBoundingClientRect()),
+      onBlur: card.hide,
+      onClick: card.hide,
+    },
+    preview: card.preview,
+  };
+}
+
+/**
+ * One hover preview shared by many cards drawn together, such as a network's
+ * nodes: call `show` with the card under the pointer and `hide` when it leaves.
+ */
+export function useCardHover(): { show: (name: string, element: Element, anchor: HoverAnchor) => void; hide: () => void; preview: ReactNode } {
+  const { show, hide, preview } = useHoverCard();
+  return { show, hide, preview };
 }
 
 /** A link to a card's page that shows the card's hover preview. */

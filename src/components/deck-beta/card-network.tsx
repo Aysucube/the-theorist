@@ -6,6 +6,7 @@ import { cardKey, pairingsInDeck } from "@/lib/deck-beta/recommend";
 import { interactionsOf, tagKind, tagLabel, type DeckAnalysis, type Tag } from "@/lib/deck-beta/synergy";
 import { byImpact } from "@/lib/deck-beta/walkthrough";
 import type { CardDetails, Combo, DeckCombos, EdhrecPairing } from "@/lib/types";
+import { HoverName } from "./bits";
 import { useWalkthrough, WalkthroughPanel } from "./combo-walkthrough";
 import { COMBO_COLORS } from "./deck-network";
 import { NetworkGraph, type GraphLink, type GraphNode } from "./network-graph";
@@ -234,6 +235,7 @@ export function CardNetwork({
               setSelected(null);
             } else setSelected(id);
           }}
+          previewOf={(n) => (n.kind === "result" ? undefined : n.label)}
           onOpen={(id) => {
             const combo = comboFor(id);
             if (combo) onWalk(combo.id);
@@ -256,7 +258,7 @@ export function CardNetwork({
       )}
       {selectedNode && selectedNode.kind !== "result" && (
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-800">
-          <span className="font-medium">{selectedNode.label}</span>
+          <HoverName name={selectedNode.label} className="font-medium" />
           {selectedNode.sublabel && <span className="text-xs text-zinc-500">{selectedNode.sublabel}</span>}
           <span className="ml-auto flex flex-wrap items-center gap-2">
             {drawn.all
