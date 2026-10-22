@@ -7,7 +7,7 @@ import { importCards, MAX_DECK_CARDS, removeCard, type DeckCard } from "@/lib/de
 import { createLocalStore, useHydrated } from "@/lib/local-store";
 import { fetchJsonWithRetry, sleep } from "@/lib/retry";
 import type { CardDetails } from "@/lib/types";
-import type { AnalysisResponse, CardsResponse, PairingsResponse, PlaystyleResponse, RulingsResponse } from "./api";
+import type { AnalysisResponse, CardsResponse, LandArtResponse, PairingsResponse, PlaystyleResponse, RulingsResponse } from "./api";
 
 function isDeckCard(value: unknown): value is DeckCard {
   const card = value as DeckCard;
@@ -338,6 +338,19 @@ export function usePlaystyle(commander: CardDetails | undefined, theme: string |
     if (commander && theme !== undefined) requestPlaystyle(commander, theme);
   }, [commander, theme]);
   return url ? (remote.get(url) as RemoteState<PlaystyleResponse> | undefined) : undefined;
+}
+
+// --- Land artwork for the network's background --------------------------------------
+
+/** A land's art in these colors (seed: the commander's name, which picks among options). */
+export function useLandArt(colors: string[], seed: string): LandArtResponse | undefined {
+  useSyncExternalStore(subscribePairings, () => pairingsVersion, () => 0);
+  const url = `/api/deck-beta/land-art?${new URLSearchParams({ colors: colors.join(""), seed })}`;
+  useEffect(() => {
+    loadRemote<LandArtResponse>(url, url, undefined, "Scryfall is busy");
+  }, [url]);
+  const state = remote.get(url) as RemoteState<LandArtResponse> | undefined;
+  return state?.state === "done" ? state.result : undefined;
 }
 
 // --- Saved decks --------------------------------------------------------------------

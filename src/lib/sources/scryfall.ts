@@ -33,6 +33,10 @@ interface RawCard extends RawFace {
   cmc?: number;
   /** On the Commander Game Changers list. */
   game_changer?: boolean;
+  artist?: string;
+  full_art?: boolean;
+  border_color?: string;
+  set_name?: string;
 }
 
 // Scryfall's hard limits (https://scryfall.com/docs/api/rate-limits): 2 requests
@@ -325,6 +329,30 @@ function toCardDetails(card: RawCard): CardDetails {
     toughness: front?.toughness ?? card.toughness,
     canBeCommander: toCard(card).canBeCommander,
   };
+}
+
+// --- Land artwork ---------------------------------------------------------------
+
+export interface LandArt {
+  artUrl: string;
+  artist?: string;
+  set?: string;
+  /** Printed as a full-art or borderless card, so the art covers the whole card. */
+  fullArt: boolean;
+}
+
+/** Every distinct artwork of a land (one search page is plenty), newest first. */
+export async function getLandArts(name: string): Promise<LandArt[]> {
+  "use cache: remote";
+  cacheLife("days");
+
+  const query = encodeURIComponent(`!"${name}" unique:art game:paper`);
+  const list = (await get(`/cards/search?q=${query}&order=released&dir=desc`)) as RawList<RawCard> | null;
+  return (list?.data ?? []).flatMap((card) => {
+    const artUrl = card.image_uris?.art_crop ?? card.card_faces?.[0]?.image_uris?.art_crop;
+    if (!artUrl) return [];
+    return [{ artUrl, artist: card.artist, set: card.set_name, fullArt: Boolean(card.full_art) || card.border_color === "borderless" }];
+  });
 }
 
 // --- Game Changers --------------------------------------------------------------

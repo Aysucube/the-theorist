@@ -91,3 +91,37 @@ body {
     display: none;
   }
 }
+
+/* Deck Synergy: the commander as a card turning on its own axis, seen from a
+   little above with no perspective (an axonometric view). */
+@keyframes theorist-spin {
+  from {
+    transform: rotateX(-16deg) rotateY(0deg);
+  }
+  to {
+    transform: rotateX(-16deg) rotateY(360deg);
+  }
+}
+.spin-card {
+  position: relative;
+  aspect-ratio: 488 / 680;
+  transform-style: preserve-3d;
+  animation: theorist-spin 16s linear infinite;
+}
+.spin-face {
+  position: absolute;
+  inset: 0;
+  border-radius: 4.75% / 3.4%;
+  background-size: cover;
+  background-position: center;
+  backface-visibility: hidden;
+}
+.spin-back {
+  transform: rotateY(180deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .spin-card {
+    animation: none;
+    transform: rotateX(-16deg) rotateY(-24deg);
+  }
+}

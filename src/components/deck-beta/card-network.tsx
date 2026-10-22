@@ -9,6 +9,7 @@ import type { CardDetails, Combo, DeckCombos, EdhrecPairing } from "@/lib/types"
 import { useGameChangers } from "@/lib/use-game-changers";
 import { HoverName } from "./bits";
 import { useWalkthrough, WalkthroughPanel } from "./combo-walkthrough";
+import { LandBackdrop } from "./land-backdrop";
 import { COMBO_COLORS } from "./deck-network";
 import { NetworkGraph, type GraphLink, type GraphNode } from "./network-graph";
 
@@ -219,7 +220,8 @@ export function CardNetwork({
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="relative overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950">
+      <div className="relative overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950">
+        <LandBackdrop colors={commander?.colorIdentity ?? focus.colorIdentity} seed={commander?.name ?? focus.name} />
         <NetworkGraph
           nodes={nodes}
           links={links}
@@ -239,6 +241,7 @@ export function CardNetwork({
           }}
           previewOf={(n) => (n.kind === "result" ? undefined : n.label)}
           flagOf={(n) => (n.kind !== "result" && gameChangers.has(n.label) ? "GC" : undefined)}
+          centerColors={focus.colorIdentity}
           onOpen={(id) => {
             const combo = comboFor(id);
             if (combo) onWalk(combo.id);

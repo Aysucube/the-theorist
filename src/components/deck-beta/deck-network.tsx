@@ -11,6 +11,8 @@ import type { CardDetails, Combo } from "@/lib/types";
 import { useGameChangers } from "@/lib/use-game-changers";
 import { HoverName } from "./bits";
 import { useWalkthrough, WalkthroughPanel } from "./combo-walkthrough";
+import { DysonSphere } from "./dyson-sphere";
+import { LandBackdrop } from "./land-backdrop";
 import { NetworkGraph, type GraphLink, type GraphNode } from "./network-graph";
 
 /** Playstyle hub colors, then combo colors. */
@@ -26,7 +28,8 @@ const MAX_GHOST_COMBOS = 8;
  * rewards. Cards that work with the commander link to it; combos run as
  * coloured chains through their pieces, and the cards that would complete
  * one-card-away combos (infinite ones first) sit outside as shaded nodes.
- * Pick a combo to zoom onto it and walk through how it works.
+ * Pick a combo to zoom onto it and walk through how it works. Drawn over a
+ * dimmed land in the commander's colors, as a flat map or a 3D Dyson sphere.
  */
 export function DeckNetwork({
   commander,
@@ -59,7 +62,9 @@ export function DeckNetwork({
 }) {
   const [shownCombo, setShownCombo] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
+  const [mode, setMode] = useState<"map" | "sphere">("map");
   const hubs = useMemo(() => deckHubs(analysis, 6), [analysis]);
+  const colors = commander?.colorIdentity ?? analysis.colors;
   const deckNames = useMemo(() => cards.map((c) => c.name), [cards]);
   const gameChangers = useGameChangers();
   const ghostCombos = useMemo(() => {
@@ -222,23 +227,62 @@ export function DeckNetwork({
 
   const selectedNode = nodes.find((n) => n.id === selected);
   const selectedCombos = selected ? allCombos.filter((c) => comboPieces.get(c.id)?.includes(selected)) : [];
+  const previewOf = (n: GraphNode) => (n.kind === "card" || n.kind === "ghost" || (n.kind === "center" && n.id !== "__deck") ? n.label : undefined);
+  const flagOf = (n: GraphNode) => (n.kind !== "hub" && n.kind !== "result" && n.id !== "__deck" && gameChangers.has(n.label) ? "GC" : undefined);
+  const open = (id: string) => {
+    if (!id.startsWith("hub:") && !id.startsWith("ghost:") && id !== "__deck") onOpen(id);
+  };
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="relative overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950">
-        <NetworkGraph
-          nodes={nodes}
-          links={links}
-          label="Your deck as a network of playstyles, synergies and combos"
-          highlight={walkCombo ? stepIds : shownCombo ? new Set(comboPieces.get(shownCombo)) : undefined}
-          activeLinks={walkCombo ? comboLinks.get(walkCombo.id) : undefined}
-          focus={walkCombo ? comboPieces.get(walkCombo.id) : undefined}
-          selected={selected}
-          onSelect={setSelected}
-          previewOf={(n) => (n.kind === "card" || n.kind === "ghost" || (n.kind === "center" && n.id !== "__deck") ? n.label : undefined)}
-          flagOf={(n) => (n.kind !== "hub" && n.kind !== "result" && n.id !== "__deck" && gameChangers.has(n.label) ? "GC" : undefined)}
-          onOpen={(id) => !id.startsWith("hub:") && !id.startsWith("ghost:") && id !== "__deck" && onOpen(id)}
-        />
+      <div className="relative overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950">
+        <LandBackdrop colors={colors} seed={commander?.name ?? ""} />
+        {mode === "map" ? (
+          <NetworkGraph
+            nodes={nodes}
+            links={links}
+            label="Your deck as a network of playstyles, synergies and combos"
+            highlight={walkCombo ? stepIds : shownCombo ? new Set(comboPieces.get(shownCombo)) : undefined}
+            activeLinks={walkCombo ? comboLinks.get(walkCombo.id) : undefined}
+            focus={walkCombo ? comboPieces.get(walkCombo.id) : undefined}
+            selected={selected}
+            onSelect={setSelected}
+            previewOf={previewOf}
+            flagOf={flagOf}
+            centerColors={colors}
+            onOpen={open}
+          />
+        ) : (
+          <DysonSphere
+            nodes={nodes}
+            links={links}
+            label="Your deck as a Dyson sphere: the commander a star at the center, playstyles and the cards that feed them on the shell, unlinked cards orbiting outside"
+            centerColors={colors}
+            belt={hiddenLands}
+            highlight={walkCombo ? stepIds : shownCombo ? new Set(comboPieces.get(shownCombo)) : undefined}
+            activeLinks={walkCombo ? comboLinks.get(walkCombo.id) : undefined}
+            focus={walkCombo ? comboPieces.get(walkCombo.id) : undefined}
+            selected={selected}
+            onSelect={setSelected}
+            previewOf={(n) => previewOf(n)}
+            flagOf={flagOf}
+            onOpen={open}
+          />
+        )}
+        <div role="radiogroup" aria-label="Network view" className="absolute top-2 left-2 flex gap-1 rounded-lg border border-zinc-700 bg-zinc-900/90 p-0.5 text-xs">
+          {(["map", "sphere"] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              role="radio"
+              aria-checked={mode === m}
+              onClick={() => setMode(m)}
+              className={`rounded-md px-2.5 py-1 font-medium ${mode === m ? "bg-amber-500 text-zinc-950" : "text-zinc-300 hover:text-white"}`}
+            >
+              {m === "map" ? "2D map" : "3D sphere"}
+            </button>
+          ))}
+        </div>
         {walkCombo && (
           <WalkthroughPanel
             combo={walkCombo}
@@ -309,12 +353,22 @@ export function DeckNetwork({
             })}
           </div>
         )}
-        <p className="text-xs text-zinc-500">
-          Click a combo to zoom in and walk through it step by step. Click a card to select it, double-click to open its
-          own network; drag cards or the background to move them, and zoom with the buttons or Ctrl + scroll. Shaded dashed
-          cards aren’t in your deck: each completes a combo.
-          {hiddenLands > 0 && ` ${formatCount(hiddenLands)} lands that don’t link to anything aren’t shown.`}
-        </p>
+        {mode === "map" ? (
+          <p className="text-xs text-zinc-500">
+            Click a combo to zoom in and walk through it step by step. Click a card to select it, double-click to open its
+            own network; drag cards or the background to move them, and zoom with the buttons or Ctrl + scroll. Shaded dashed
+            cards aren’t in your deck: each completes a combo.
+            {hiddenLands > 0 && ` ${formatCount(hiddenLands)} lands that don’t link to anything aren’t shown.`}
+          </p>
+        ) : (
+          <p className="text-xs text-zinc-500">
+            Your commander is the star, burning in its colors. Each playstyle is a station on the sphere’s shell, with the
+            cards that feed it gathered round it; cards that only work with your commander sit at the poles, and cards that
+            would complete a combo float just outside. Cards that link to nothing orbit further out like planets
+            {hiddenLands > 0 ? `, and ${formatCount(hiddenLands)} unlinked lands make up the asteroid belt` : ""}. Drag to
+            turn it, zoom with the buttons or Ctrl + scroll, click a card to select it and double-click to open its network.
+          </p>
+        )}
       </div>
     </div>
   );

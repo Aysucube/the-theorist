@@ -45,6 +45,18 @@ export interface PlaystyleCard {
   numDecks: number;
 }
 
+/** GET /api/deck-beta/land-art */
+export type LandArtResponse =
+  | { found: false }
+  | {
+      found: true;
+      /** The land, e.g. "Savannah". */
+      name: string;
+      artUrl: string;
+      artist?: string;
+      set?: string;
+    };
+
 /** GET /api/deck-beta/playstyle */
 export type PlaystyleResponse =
   | { found: false }

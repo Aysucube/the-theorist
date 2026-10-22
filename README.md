@@ -23,12 +23,19 @@ title it shows the deck's **Commander Bracket**, such as "Bracket 2 nearing 3": 
 Game Changers, mass land denial, extra turns and combos (rated by Commander Spellbook), following
 Wizards of the Coast's October 2025 bracket rules. Click it for the reasons.
 
-- **Network**: the deck as an animated network, with the commander in the middle, the deck's
+- **Network**: the deck as an animated network, with the commander in the middle as its card
+  turning in 3D, over a dimmed land in the commander's colors (a basic land for one color, the
+  original dual for two, such as Savannah for green-white, and one of its duals for three or more).
+  The deck's
   playstyles (Elves, Tokens, Aristocrats...) around it, every card linked to the playstyles it
   feeds or rewards, and combos running as coloured chains through their pieces. Cards that would
   complete a combo (infinite ones first) sit outside as shaded nodes you can add. Click a combo
   to zoom onto it and walk through how it works, step by step, with each step's cards lit up.
-  Select, drag and zoom (buttons or Ctrl + scroll) to explore.
+  Select, drag and zoom (buttons or Ctrl + scroll) to explore. **3D sphere** turns the map into a
+  Dyson sphere: the commander is a star at the center burning in its colors, each playstyle a
+  station on the shell with the cards that feed it gathered round it, cards that would complete a
+  combo just outside, and cards that link to nothing orbiting further out like planets (unlinked
+  lands make an asteroid belt). Drag to turn it.
 - **Recommendations**: built from what the deck already has and the bracket you want it in. Pick
   a bracket (1 to 5) and it says what to cut to get down to it (Game Changers over the limit, land
   denial, extra turns that could chain, combos to break) or how much room there is to grow, and
@@ -196,7 +203,8 @@ same pages their own websites use, so the app is built to stay a light, polite v
 - Commander Spellbook is asked twice per deck analysis (Deck Synergy: its combos and its bracket
   estimate), cached for a day.
 - The Game Changers list comes from one Scryfall search, cached for a day on the server and in
-  each browser.
+  each browser. The land art behind Deck Synergy's networks is one Scryfall search per land, cached
+  for a day, and its artist is credited on the page.
 - Every request names the app in its User-Agent and gives up after 10 seconds (45 for
   Commander Spellbook, which works through every combo in a deck).
 
