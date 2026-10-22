@@ -7,6 +7,7 @@ import { usePairings, useRulings } from "@/lib/deck-beta/store";
 import { interactionsOf, type DeckAnalysis } from "@/lib/deck-beta/synergy";
 import { placeHoverCard } from "@/lib/hover-card";
 import type { CardDetails } from "@/lib/types";
+import { GameChangerTag } from "../game-changer-tag";
 import { ColorIdentity, ManaCost } from "../mana";
 import { RetryingImage } from "../retrying-image";
 import { BetaRulings } from "./beta-rulings";
@@ -91,7 +92,10 @@ export function InteractionsPopover({
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
-            <p className="font-semibold">{card.name}</p>
+            <p className="font-semibold">
+              {card.name}
+              <GameChangerTag name={card.name} className="ml-1.5" />
+            </p>
             <button type="button" onClick={onClose} aria-label="Close" className="-mt-1 -mr-1 rounded px-1.5 text-lg leading-none text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100">
               ×
             </button>

@@ -30,6 +30,11 @@ export function CardOverview({ lookup }: { lookup: ScryfallLookup }) {
             {card.commanderLegal ? "Legal in Commander" : "Not legal in Commander"}
           </Badge>
           {card.canBeCommander && <Badge tone="accent">Can be your commander</Badge>}
+          {card.gameChanger && (
+            <Badge tone="gc">
+              <span title="Brackets 1 and 2 allow no Game Changers; Bracket 3 allows up to three.">Game Changer</span>
+            </Badge>
+          )}
           {card.edhrecRank && <Badge>EDHREC rank #{formatCount(card.edhrecRank)}</Badge>}
           {card.priceUsd !== undefined && (
             <Badge>{formatUsd(card.priceUsd)} on Scryfall (US market)</Badge>
@@ -72,7 +77,7 @@ function Badge({
   tone = "neutral",
   children,
 }: {
-  tone?: "neutral" | "good" | "bad" | "accent";
+  tone?: "neutral" | "good" | "bad" | "accent" | "gc";
   children: React.ReactNode;
 }) {
   // Always the dark-theme colors: the badges sit on the darkened artwork.
@@ -81,6 +86,7 @@ function Badge({
     good: "bg-emerald-950 text-emerald-300",
     bad: "bg-red-950 text-red-300",
     accent: "bg-amber-950 text-amber-300",
+    gc: "bg-rose-600 text-white",
   };
   return <li className={`rounded-full px-2.5 py-1 ${tones[tone]}`}>{children}</li>;
 }

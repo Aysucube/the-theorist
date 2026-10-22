@@ -7,6 +7,7 @@ import { interactionsOf, tagLabel, type DeckAnalysis, type TagLinks } from "@/li
 import { formatCount, formatPercent } from "@/lib/format";
 import { combosWith } from "@/lib/deck-beta/combos";
 import type { CardDetails, Combo, DeckCombos } from "@/lib/types";
+import { GameChangerTag } from "../game-changer-tag";
 import { ColorIdentity, ManaCost } from "../mana";
 import { RetryingImage } from "../retrying-image";
 import { useHoverPreview } from "../card-link";
@@ -340,6 +341,9 @@ function FocusCard({ card }: { card: CardDetails }) {
           {card.imageUrl && <RetryingImage url={card.imageUrl} alt={card.name} />}
         </div>
         <p className="mt-1.5 text-center text-xs font-semibold">{card.name}</p>
+        <p className="text-center">
+          <GameChangerTag name={card.name} />
+        </p>
       </div>
       {preview}
     </>
@@ -460,6 +464,7 @@ function RecommendationRow({ rec, added, onAdd }: { rec: Recommendation; added: 
         <div className="flex items-start gap-1.5">
           <p {...trigger} className="min-w-0 flex-1 text-sm leading-tight font-medium">
             {card.name}
+            <GameChangerTag name={card.name} className="ml-1.5" />
           </p>
           {card.manaCost && <ManaCost cost={card.manaCost.split(" // ")[0]} />}
         </div>

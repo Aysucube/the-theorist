@@ -5,6 +5,7 @@ import { tagKind, tagLabel, type Tag, type TagLinks } from "@/lib/deck-beta/syne
 import type { PairingsState } from "@/lib/deck-beta/store";
 import type { CardDetails } from "@/lib/types";
 import { useHoverPreview } from "../card-link";
+import { GameChangerTag } from "../game-changer-tag";
 import { LazyCardImage } from "./lazy-card-image";
 
 const KIND_LABEL = { type: "Card type", subtype: "Subtype", theme: "Theme" } as const;
@@ -119,8 +120,9 @@ function GalleryItem({
   const trigger = hoverPreview ? hover.trigger : undefined;
   const body = (
     <>
-      <div className="aspect-[488/680] overflow-hidden rounded-[4.75%] bg-zinc-200 transition-opacity group-hover:opacity-85 dark:bg-zinc-800">
+      <div className="relative aspect-[488/680] overflow-hidden rounded-[4.75%] bg-zinc-200 transition-opacity group-hover:opacity-85 dark:bg-zinc-800">
         <LazyCardImage url={imageUrl} alt={name} />
+        <GameChangerTag name={name} compact className="absolute top-1 left-1 shadow" />
       </div>
       <p className="mt-1 truncate text-[11px] leading-tight font-medium group-hover:underline">{name}</p>
       {note && <p className="text-[11px] leading-tight text-zinc-500 tabular-nums">{note}</p>}

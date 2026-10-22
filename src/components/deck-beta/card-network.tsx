@@ -6,6 +6,7 @@ import { cardKey, pairingsInDeck } from "@/lib/deck-beta/recommend";
 import { interactionsOf, tagKind, tagLabel, type DeckAnalysis, type Tag } from "@/lib/deck-beta/synergy";
 import { byImpact } from "@/lib/deck-beta/walkthrough";
 import type { CardDetails, Combo, DeckCombos, EdhrecPairing } from "@/lib/types";
+import { useGameChangers } from "@/lib/use-game-changers";
 import { HoverName } from "./bits";
 import { useWalkthrough, WalkthroughPanel } from "./combo-walkthrough";
 import { COMBO_COLORS } from "./deck-network";
@@ -74,6 +75,7 @@ export function CardNetwork({
   onOpen: (name: string) => void;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
+  const gameChangers = useGameChangers();
   const drawn = useMemo(() => cardCombos(focus, deckNames, combos, walkId), [focus, deckNames, combos, walkId]);
 
   const { nodes, links, comboNodes, comboLinks } = useMemo(() => {
@@ -236,6 +238,7 @@ export function CardNetwork({
             } else setSelected(id);
           }}
           previewOf={(n) => (n.kind === "result" ? undefined : n.label)}
+          flagOf={(n) => (n.kind !== "result" && gameChangers.has(n.label) ? "GC" : undefined)}
           onOpen={(id) => {
             const combo = comboFor(id);
             if (combo) onWalk(combo.id);

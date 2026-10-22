@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { bracketPath, comboBracket, type Bracket, type BracketReport } from "@/lib/deck-beta/bracket";
 import { planUpgrades, type Candidate, type Pick } from "@/lib/deck-beta/doctor";
 import { looseCards } from "@/lib/deck-beta/playstyle";
 import { cardKey } from "@/lib/deck-beta/recommend";
@@ -17,12 +18,15 @@ import {
   type Quadrant,
   type Role,
 } from "@/lib/deck-beta/roles";
-import { requestPlaystyle, usePlaystyle } from "@/lib/deck-beta/store";
+import { requestPlaystyle, usePlaystyle, useTargetBracket } from "@/lib/deck-beta/store";
 import { parseTypeLine, type DeckAnalysis } from "@/lib/deck-beta/synergy";
 import { formatCount, formatPercent } from "@/lib/format";
 import type { CardDetails, Combo, DeckCombos } from "@/lib/types";
+import { useGameChangers } from "@/lib/use-game-changers";
 import { useHoverPreview } from "../card-link";
+import { GameChangerTag } from "../game-changer-tag";
 import { ManaCost } from "../mana";
+import { BracketSection } from "./bracket-panel";
 import { CombosList, type DeckForOdds } from "./combos-panel";
 import { LazyCardImage } from "./lazy-card-image";
 
@@ -41,14 +45,19 @@ const COMBOS_SHOWN = 5;
 const isLand = (card: CardDetails) => parseTypeLine(card.typeLine).types.has("Land");
 
 /**
- * Recommendations built from the deck as it is: where its cards sit in
- * Quadrant Theory, how many of each job it has (ramp, card draw, removal...),
- * upgrades from EDHREC's decks for the commander that fill the gaps, combos a
- * card away, and the cards doing the least.
+ * Recommendations built from the deck as it is and the bracket it should be
+ * in: its bracket and what it takes to reach the chosen one, where its cards
+ * sit in Quadrant Theory, how many of each job it has (ramp, card draw,
+ * removal...), upgrades from EDHREC's decks for the commander that fill the
+ * gaps without going past the bracket (flexible cards first, stronger cards
+ * ranked up for higher brackets), combos a card away, and the cards doing the least.
  */
 export function RecommendationsPanel({
   commander,
   deckCards,
+  profile,
+  report,
+  checking,
   analysis,
   colors,
   combos,
@@ -62,6 +71,10 @@ export function RecommendationsPanel({
   commander?: CardDetails;
   /** Every card in the deck once, with its copies. */
   deckCards: { card: CardDetails; qty: number }[];
+  profile: DeckProfile;
+  report: BracketReport;
+  /** Commander Spellbook hasn't answered yet. */
+  checking: boolean;
   analysis: DeckAnalysis;
   colors: string[];
   /** undefined while loading; null when Commander Spellbook couldn't be reached. */
@@ -73,8 +86,11 @@ export function RecommendationsPanel({
   onOpen: (name: string) => void;
   onWalk: (combo: Combo) => void;
 }) {
-  const profile = useMemo(() => deckProfile(deckCards, colors), [deckCards, colors]);
   const state = usePlaystyle(commander, "");
+  const gameChangers = useGameChangers();
+  const [chosen, setChosen] = useTargetBracket();
+  const target = (chosen || report.bracket) as Bracket;
+  const path = bracketPath(report, target, commander?.name);
   const found = state?.state === "done" && state.result.found ? state.result : null;
 
   // Cards added from these picks stay listed (as "In deck"), so the plan is made
@@ -93,10 +109,29 @@ export function RecommendationsPanel({
     const candidates: Candidate[] = found.cards.flatMap((c) =>
       found.details[c.name] ? [{ card: found.details[c.name], synergy: c.synergy, inclusion: c.inclusion }] : [],
     );
-    return planUpgrades(baseProfile, roleGaps(baseProfile), quadrantGaps(baseProfile), candidates, (n) => names.has(cardKey(n)));
+    // Game Changers in the commander's colors that EDHREC's list didn't include, for higher brackets.
+    const identity = new Set(commander?.colorIdentity ?? colors);
+    const listed = new Set(candidates.map((c) => cardKey(c.card.name)));
+    for (const card of gameChangers.cards) {
+      if (!listed.has(cardKey(card.name)) && card.colorIdentity.every((c) => identity.has(c))) candidates.push({ card });
+    }
+    // Cards that would complete a combo, by the bracket of the strongest one.
+    const completes = new Map<string, Bracket>();
+    for (const combo of combos?.almostIncluded ?? []) {
+      const level = comboBracket(combo);
+      for (const piece of combo.cards.filter((n) => !names.has(cardKey(n)))) {
+        completes.set(cardKey(piece), Math.max(level, completes.get(cardKey(piece)) ?? 1) as Bracket);
+      }
+    }
+    return planUpgrades(baseProfile, roleGaps(baseProfile), quadrantGaps(baseProfile), candidates, (n) => names.has(cardKey(n)), {
+      bracket: target,
+      isGameChanger: gameChangers.has,
+      gameChangersInDeck: base.filter((c) => gameChangers.has(c.card.name)).length,
+      completes: (n) => completes.get(cardKey(n)),
+    });
     // The base key captures the deck the plan is made from.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [found, baseKey, colors]);
+  }, [found, baseKey, colors, target, gameChangers, combos, commander]);
 
   const cuts = useMemo(() => {
     const loose = new Set(looseCards(analysis));
@@ -115,10 +150,16 @@ export function RecommendationsPanel({
       .sort((a, b) => b.reasons.length - a.reasons.length || a.name.localeCompare(b.name));
   }, [analysis, found, profile, deckCards, commander]);
 
-  const almost = combos?.almostIncluded.filter((c) => c.cards.some((n) => missing[n])).slice(0, COMBOS_SHOWN) ?? [];
+  // One-card-away combos the chosen bracket allows.
+  const comboLimit = target <= 2 ? 2 : target === 3 ? 3 : 5;
+  const addable = combos?.almostIncluded.filter((c) => c.cards.some((n) => missing[n])) ?? [];
+  const almost = addable.filter((c) => comboBracket(c) <= comboLimit).slice(0, COMBOS_SHOWN);
+  const tooStrong = addable.filter((c) => comboBracket(c) > comboLimit).length;
 
   return (
     <div className="flex flex-col gap-8">
+      <BracketSection report={report} checking={checking} target={target} onTarget={(b) => setChosen(b === report.bracket ? 0 : b)} path={path} onOpen={onOpen} />
+
       <section>
         <h3 className="font-semibold">Quadrant Theory</h3>
         <p className="mb-3 text-xs text-zinc-500">
@@ -155,10 +196,12 @@ export function RecommendationsPanel({
 
       <section className="flex flex-col gap-5">
         <div>
-          <h3 className="font-semibold">Upgrades</h3>
+          <h3 className="font-semibold">Upgrades for Bracket {target}</h3>
           <p className="text-xs text-zinc-500">
             Cards from EDHREC’s {commander?.name ?? "commander’s"} decks that fill what your deck is short on, most
-            played and highest synergy first, with cards that fit more quadrants ranked up.
+            played and highest synergy first, with cards that fit more quadrants ranked up
+            {target >= 4 ? " and stronger cards (Game Changers, tutors, fast mana, free spells) ranked higher still" : ""}.
+            Nothing here would take the deck past Bracket {target}.
             {found && (
               <>
                 {" "}
@@ -188,6 +231,13 @@ export function RecommendationsPanel({
         ) : (
           <>
             <UpgradeGroup
+              title="Flexible picks"
+              note="Cards that fit two or more quadrants, most first: they're good in more of your games, so they make the best upgrades."
+              picks={plan.flexible}
+              inDeck={inDeck}
+              onAdd={add}
+            />
+            <UpgradeGroup
               title="Consistency: card draw and tutors"
               note={`You have ${formatCount(profile.roles.draw.length)} card draw and ${formatCount(profile.roles.tutor.length)} tutors. Drawing more and finding the card you need make every game play more like your best one, and tutors find combo pieces.`}
               picks={plan.consistency}
@@ -212,19 +262,49 @@ export function RecommendationsPanel({
                 onAdd={add}
               />
             ))}
+            <UpgradeGroup
+              title={target >= 4 ? "Stronger cards" : `Game Changers you have room for (${formatCount(path.gameChangerRoom)} of 3 left)`}
+              note={
+                target >= 4
+                  ? `Game Changers and the cards that make Bracket ${target} decks fast: tutors, fast mana and free spells.`
+                  : "Bracket 3 allows up to 3 Game Changers: these are the best fits for your deck."
+              }
+              picks={plan.power}
+              inDeck={inDeck}
+              onAdd={add}
+            />
+            {plan.leftOut.length > 0 && (
+              <details className="text-sm">
+                <summary className="cursor-pointer font-medium">
+                  Left out for Bracket {target} ({formatCount(plan.leftOut.length)})
+                </summary>
+                <p className="mt-1 mb-2 text-xs text-zinc-500">Good fits for your deck that would take it past Bracket {target}.</p>
+                <ul className="flex flex-col gap-1.5">
+                  {plan.leftOut.map(({ pick, why }) => (
+                    <li key={pick.card.name} className="flex flex-wrap items-center gap-2">
+                      <CutName name={pick.card.name} onOpen={onOpen} />
+                      <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">{why}</span>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
           </>
         )}
       </section>
 
       <section>
         <h3 className="font-semibold">Complete a combo</h3>
-        <p className="mb-2 text-xs text-zinc-500">Combos you could have with one more card, most played first.</p>
+        <p className="mb-2 text-xs text-zinc-500">
+          Combos you could have with one more card that fit Bracket {target}, most played first.
+          {tooStrong > 0 && ` ${formatCount(tooStrong)} more ${tooStrong === 1 ? "is" : "are"} hidden for being above Bracket ${target}.`}
+        </p>
         {combos === undefined ? (
           <p className="text-sm text-zinc-500">{commander ? "Loading combos…" : "Pick a commander to see combos."}</p>
         ) : combos === null ? (
           <p className="text-sm text-zinc-500">Couldn’t reach Commander Spellbook. Use “Try again” beside the commander.</p>
         ) : almost.length === 0 ? (
-          <p className="text-sm text-zinc-500">No combo is one card away.</p>
+          <p className="text-sm text-zinc-500">No combo in Bracket {target} is one card away.</p>
         ) : (
           <CombosList combos={almost} deck={odds} missing={missing} inDeck={inDeck} onAdd={onAdd} onOpen={onOpen} onWalk={onWalk} />
         )}
@@ -328,6 +408,7 @@ function CardChip({ name, quadrants, onOpen }: { name: string; quadrants: Quadra
         className="inline-flex items-center gap-1.5 rounded-md border border-zinc-200 bg-white px-2 py-0.5 text-xs hover:border-amber-500 dark:border-zinc-700 dark:bg-zinc-900"
       >
         {name}
+        <GameChangerTag name={name} compact />
         <span aria-hidden className="flex gap-0.5">
           {quadrants.map((q) => (
             <span key={q} className="size-1.5 rounded-full" style={{ background: QUADRANT_COLORS[q] }} />
@@ -354,6 +435,7 @@ function CutName({ name, onOpen }: { name: string; onOpen: (name: string) => voi
       >
         {name}
       </button>
+      <GameChangerTag name={name} />
       {preview}
     </>
   );
@@ -483,10 +565,19 @@ function UpgradeRow({ pick, added, onAdd }: { pick: Pick; added: boolean; onAdd:
         <div className="flex items-start gap-1.5">
           <p {...trigger} className="min-w-0 flex-1 text-sm leading-tight font-medium">
             {card.name}
+            <GameChangerTag name={card.name} className="ml-1.5" />
           </p>
           {card.manaCost && <ManaCost cost={card.manaCost.split(" // ")[0]} />}
         </div>
         <p className="flex flex-wrap gap-1">
+          {pick.completes && pick.completes >= 3 && (
+            <span className="rounded-full bg-violet-100 px-1.5 text-[11px] leading-4 text-violet-900 dark:bg-violet-950 dark:text-violet-300">
+              Completes a Bracket {pick.completes} combo
+            </span>
+          )}
+          {pick.extraTurn && (
+            <span className="rounded-full bg-zinc-100 px-1.5 text-[11px] leading-4 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">Extra turn</span>
+          )}
           {pick.roles.map((r) => (
             <span
               key={r}

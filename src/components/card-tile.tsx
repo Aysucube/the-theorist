@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { CardLink } from "./card-link";
+import { GameChangerTag } from "./game-changer-tag";
 import { ImageNote, RetryingImage } from "./retrying-image";
 
 /**
@@ -9,9 +10,10 @@ import { ImageNote, RetryingImage } from "./retrying-image";
 export function CardTile({ name, imageUrl, children }: { name: string; imageUrl?: string; children?: ReactNode }) {
   return (
     <div className="min-w-0">
-      <CardLink name={name} className="group block">
-        <div className="aspect-[488/680] overflow-hidden rounded-[4.75%] bg-zinc-200 transition-opacity group-hover:opacity-90 dark:bg-zinc-800">
+      <CardLink name={name} className="group block" tag={false}>
+        <div className="relative aspect-[488/680] overflow-hidden rounded-[4.75%] bg-zinc-200 transition-opacity group-hover:opacity-90 dark:bg-zinc-800">
           {imageUrl ? <RetryingImage url={imageUrl} alt={name} /> : <ImageNote text="No image available" />}
+          <GameChangerTag name={name} className="absolute top-[7%] left-[6%] shadow" />
         </div>
         <p className="mt-1.5 truncate text-xs font-medium group-hover:underline" title={name}>
           {name}

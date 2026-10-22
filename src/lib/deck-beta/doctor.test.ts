@@ -49,23 +49,87 @@ describe("scoreCandidate", () => {
   });
 });
 
+const everything = (plan: ReturnType<typeof planUpgrades>) =>
+  [...plan.flexible, ...plan.consistency, ...plan.ramp, ...plan.quadrants.flatMap((g) => g.picks), ...plan.power].map((p) => p.card.name);
+
 describe("planUpgrades", () => {
   const plan = planUpgrades(deck, roles, quadrants, candidates, (n) => n === "Sol Ring");
 
-  it("offers card draw and tutors for consistency, and ramp", () => {
+  it("offers flexible cards first, then card draw and tutors for consistency, and ramp", () => {
+    // The Archdruid ramps and pumps Elves: Developing and Parity.
+    expect(plan.flexible.map((p) => p.card.name)).toEqual(["Elvish Archdruid"]);
     expect(plan.consistency.map((p) => p.card.name)).toEqual(["Harmonize", "Worldly Tutor"]);
-    // The Archdruid outranks the Signet: more synergy, and it fits two quadrants.
-    expect(plan.ramp.map((p) => p.card.name)).toEqual(["Elvish Archdruid", "Arcane Signet"]);
+    expect(plan.ramp.map((p) => p.card.name)).toEqual(["Arcane Signet"]);
   });
 
   it("fills the quadrants the deck is short in, and skips lands, cards it has, and cards with no job", () => {
     const offered = plan.quadrants.flatMap((g) => g.picks.map((p) => p.card.name));
     expect(offered).toEqual(expect.arrayContaining(["Beast Within", "Heroic Intervention"]));
-    const everything = [...plan.consistency, ...plan.ramp, ...plan.quadrants.flatMap((g) => g.picks)].map((p) => p.card.name);
-    expect(everything).not.toContain("Gaea's Cradle");
-    expect(everything).not.toContain("Sol Ring");
-    expect(everything).not.toContain("Doubling Season");
+    expect(everything(plan)).not.toContain("Gaea's Cradle");
+    expect(everything(plan)).not.toContain("Sol Ring");
+    expect(everything(plan)).not.toContain("Doubling Season");
     // Each card is offered once.
-    expect(new Set(everything).size).toBe(everything.length);
+    expect(new Set(everything(plan)).size).toBe(everything(plan).length);
+  });
+});
+
+describe("planUpgrades for a bracket", () => {
+  const gameChangers = new Set(["Smothering Tithe", "Demonic Tutor", "Rhystic Study"]);
+  const strong = [
+    ...candidates,
+    { card: card("Smothering Tithe", "Enchantment", "Whenever an opponent draws a card, that player may pay {2}. If the player doesn't, you create a Treasure token."), inclusion: 0.6 },
+    { card: card("Demonic Tutor", "Sorcery", "Search your library for a card, put that card into your hand, then shuffle.", { cmc: 2 }), inclusion: 0.4 },
+    { card: card("Rhystic Study", "Enchantment", "Whenever an opponent casts a spell, you may draw a card unless that player pays {1}."), inclusion: 0.5 },
+    { card: card("Jokulhaups", "Sorcery", "Destroy all artifacts, creatures, and lands. They can't be regenerated."), inclusion: 0.2 },
+    { card: card("Staff of Domination", "Artifact", "{3}, {T}: Untap target creature.\n{5}, {T}: Draw a card."), inclusion: 0.3 },
+  ];
+  const plan = (bracket: 1 | 2 | 3 | 4 | 5, inDeckGameChangers = 0) =>
+    planUpgrades(deck, roles, quadrants, strong, (n) => n === "Sol Ring", {
+      bracket,
+      isGameChanger: (n) => gameChangers.has(n),
+      gameChangersInDeck: inDeckGameChangers,
+      completes: (n) => (n === "Staff of Domination" ? 3 : undefined),
+    });
+
+  it("leaves out Game Changers, land denial and stronger combos for Bracket 2", () => {
+    const p = plan(2);
+    expect(everything(p)).not.toEqual(expect.arrayContaining(["Smothering Tithe"]));
+    expect(everything(p).some((n) => gameChangers.has(n) || n === "Jokulhaups" || n === "Staff of Domination")).toBe(false);
+    const why = Object.fromEntries(p.leftOut.map((l) => [l.pick.card.name, l.why]));
+    expect(why["Smothering Tithe"]).toMatch(/Game Changer/);
+    expect(why["Jokulhaups"]).toMatch(/land denial/);
+    expect(why["Staff of Domination"]).toMatch(/Bracket 3 combo/);
+  });
+
+  it("offers only as many Game Changers as Bracket 3 has room for", () => {
+    const p = plan(3, 2);
+    expect(p.power.filter((x) => x.gameChanger)).toHaveLength(1);
+    expect(everything(p).filter((n) => gameChangers.has(n))).toHaveLength(1);
+    expect(p.leftOut.filter((l) => l.pick.gameChanger)).toHaveLength(2);
+    // Staff completes a Bracket 3 combo, which Bracket 3 allows.
+    expect(everything(p)).toContain("Staff of Domination");
+  });
+
+  it("ranks strong cards up for Bracket 4 and leaves nothing out", () => {
+    const p = plan(4);
+    expect(p.leftOut).toEqual([]);
+    expect(everything(p)).toEqual(expect.arrayContaining(["Smothering Tithe", "Demonic Tutor", "Rhystic Study", "Jokulhaups"]));
+    const four = scoreCandidate(strong.find((c) => c.card.name === "Demonic Tutor")!, roles, { bracket: 4, isGameChanger: (n) => gameChangers.has(n) });
+    const two = scoreCandidate(strong.find((c) => c.card.name === "Demonic Tutor")!, roles, { bracket: 2, isGameChanger: (n) => gameChangers.has(n) });
+    expect(four.score).toBeGreaterThan(two.score);
+  });
+
+  it("ranks cards EDHREC has never seen with the commander lower", () => {
+    const tithe = strong.find((c) => c.card.name === "Smothering Tithe")!;
+    const seen = scoreCandidate({ ...tithe, inclusion: 0 }, roles, { bracket: 4 });
+    const unseen = scoreCandidate({ card: tithe.card }, roles, { bracket: 4 });
+    expect(unseen.score).toBeLessThan(seen.score);
+  });
+
+  it("weighs flexibility more in lower brackets", () => {
+    const archdruid = candidates[4];
+    const plain = { ...archdruid, card: card("Llanowar Elves", "Creature — Elf Druid", "{T}: Add {G}.") };
+    const gap = (b: 1 | 4) => scoreCandidate(archdruid, roles, { bracket: b }).score - scoreCandidate(plain, roles, { bracket: b }).score;
+    expect(gap(1)).toBeGreaterThan(gap(4));
   });
 });

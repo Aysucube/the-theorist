@@ -7,7 +7,8 @@ A Magic: The Gathering Commander tool for Filipino players. Search a card and se
 - **TCGph**: what it costs right now at Philippine game stores, in pesos
 
 Each card page also shows its **official rulings** and lists **every printing** with the cheapest PH copy of each,
-and hovering any card link shows a quick preview (artwork, cheapest price, shop).
+and hovering any card link shows a quick preview (artwork, cheapest price, shop). Cards on the Commander
+**Game Changers** list carry a small red "Game Changer" label everywhere in the app.
 
 On the front page, **browse by deck theme** (Tokens, Aristocrats, Landfall and 400 more):
 see the commanders most often built around a theme on EDHREC, and the cards those decks play.
@@ -17,7 +18,10 @@ them all, and get a **shopping list** that uses the fewest stores possible,
 with a ready-to-send order message for each store. Prices always use the cheapest
 printing of a card, whatever printing your list names.
 
-**Deck Synergy (beta)** is a separate, early test. Paste a deck and pick its commander:
+**Deck Synergy (beta)** is a separate, early test. Paste a deck and pick its commander. Beside the
+title it shows the deck's **Commander Bracket**, such as "Bracket 2 nearing 3": worked out from its
+Game Changers, mass land denial, extra turns and combos (rated by Commander Spellbook), following
+Wizards of the Coast's October 2025 bracket rules. Click it for the reasons.
 
 - **Network**: the deck as an animated network, with the commander in the middle, the deck's
   playstyles (Elves, Tokens, Aristocrats...) around it, every card linked to the playstyles it
@@ -25,14 +29,20 @@ printing of a card, whatever printing your list names.
   complete a combo (infinite ones first) sit outside as shaded nodes you can add. Click a combo
   to zoom onto it and walk through how it works, step by step, with each step's cards lit up.
   Select, drag and zoom (buttons or Ctrl + scroll) to explore.
-- **Recommendations**: built from what the deck already has. Its cards sorted into Quadrant
+- **Recommendations**: built from what the deck already has and the bracket you want it in. Pick
+  a bracket (1 to 5) and it says what to cut to get down to it (Game Changers over the limit, land
+  denial, extra turns that could chain, combos to break) or how much room there is to grow, and
+  every upgrade below fits that bracket: lower brackets favour synergy and flexible cards, higher
+  ones Game Changers, tutors, fast mana and free spells. Cards left out for being too strong are
+  listed with the reason. Its cards are also sorted into Quadrant
   Theory's four stages of a game (Developing: ramp, card draw, tutors; Behind: removal, wipes,
   lifegain, big creatures; Parity: one-sided wipes, anthems, evasion; Ahead: counterspells,
   protection, finishers), with the cards that fit several quadrants picked out. Then meters for
   lands, ramp, card draw, tutors, removal, wipes and protection against common deckbuilding
-  guides; upgrades from EDHREC's decks for the commander that fill the gaps (consistency, ramp
-  and each short quadrant, cards that fit more quadrants ranked up); combos a card away; and the
-  cards doing the least, as places to cut. Roles are read from rules text, so they're a guide.
+  guides; upgrades from EDHREC's decks for the commander that fill the gaps (flexible picks that
+  fit two or more quadrants first, then consistency, ramp, each short quadrant, and Game
+  Changers there's room for); combos a card away that fit the bracket; and the cards doing the
+  least, as places to cut. Roles are read from rules text, so they're a guide.
 - **Combos**: the combos the deck has and the ones a card away (from
   [Commander Spellbook](https://commanderspellbook.com)), each with its steps, and how
   consistently the deck assembles one: the chance of holding every piece by turns 4 to 10,
@@ -48,7 +58,9 @@ deck as a code (`TT1.…`, the whole deck and its commander in one line), a link
 for Moxfield and Archidekt. Paste a code into "Paste a deck list" on any copy of The Theorist to
 load it. Codes are made and read in the browser; no deck is sent to a server to share it.
 
-It keeps its own deck and never changes the Shopping list.
+It keeps its own deck. **Add to Shopping** copies the deck as it is into the Shopping list (basic
+lands left out unless you ask) so you can price it in Philippine stores; nothing else changes the
+Shopping list.
 
 ## Running it on a Windows computer (no setup)
 
@@ -181,7 +193,10 @@ same pages their own websites use, so the app is built to stay a light, polite v
   HTTP 429 the app stops calling Scryfall for 30 seconds.
 - Each visitor is rate limited (`src/proxy.ts`): 60 card pages per minute,
   120 search suggestions per minute, 350 price checks per 10 minutes.
-- Commander Spellbook is asked once per deck analysis (Deck Synergy), cached for a day.
+- Commander Spellbook is asked twice per deck analysis (Deck Synergy: its combos and its bracket
+  estimate), cached for a day.
+- The Game Changers list comes from one Scryfall search, cached for a day on the server and in
+  each browser.
 - Every request names the app in its User-Agent and gives up after 10 seconds (45 for
   Commander Spellbook, which works through every combo in a deck).
 

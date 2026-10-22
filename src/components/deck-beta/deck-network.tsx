@@ -8,6 +8,7 @@ import { interactionsOf, parseTypeLine, tagKind, tagLabel, type DeckAnalysis } f
 import { byImpact } from "@/lib/deck-beta/walkthrough";
 import { formatCount } from "@/lib/format";
 import type { CardDetails, Combo } from "@/lib/types";
+import { useGameChangers } from "@/lib/use-game-changers";
 import { HoverName } from "./bits";
 import { useWalkthrough, WalkthroughPanel } from "./combo-walkthrough";
 import { NetworkGraph, type GraphLink, type GraphNode } from "./network-graph";
@@ -60,6 +61,7 @@ export function DeckNetwork({
   const [selected, setSelected] = useState<string | null>(null);
   const hubs = useMemo(() => deckHubs(analysis, 6), [analysis]);
   const deckNames = useMemo(() => cards.map((c) => c.name), [cards]);
+  const gameChangers = useGameChangers();
   const ghostCombos = useMemo(() => {
     const top = [...almost].sort(byImpact).filter((c) => missingPiece(c, deckNames)).slice(0, MAX_GHOST_COMBOS);
     const walked = almost.find((c) => c.id === walkId && !top.includes(c));
@@ -234,6 +236,7 @@ export function DeckNetwork({
           selected={selected}
           onSelect={setSelected}
           previewOf={(n) => (n.kind === "card" || n.kind === "ghost" || (n.kind === "center" && n.id !== "__deck") ? n.label : undefined)}
+          flagOf={(n) => (n.kind !== "hub" && n.kind !== "result" && n.id !== "__deck" && gameChangers.has(n.label) ? "GC" : undefined)}
           onOpen={(id) => !id.startsWith("hub:") && !id.startsWith("ghost:") && id !== "__deck" && onOpen(id)}
         />
         {walkCombo && (

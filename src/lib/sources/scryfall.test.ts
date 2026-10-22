@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fakeFetch, fixture } from "./__fixtures__/load";
-import { AUTOCOMPLETE_LIMIT, getCardInfo, getPrintings, getRulings, rankSuggestions, suggestCardNames } from "./scryfall";
+import { AUTOCOMPLETE_LIMIT, getCardInfo, getGameChangers, getPrintings, getRulings, rankSuggestions, suggestCardNames } from "./scryfall";
 
 vi.mock("next/cache", () => ({ cacheLife: () => {} }));
 
@@ -98,6 +98,23 @@ describe("getPrintings", () => {
       expect(p.collectorNumber).not.toBe("");
       expect(p.releasedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     }
+  });
+});
+
+describe("getGameChangers", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("reads the Game Changers list with each card's details", async () => {
+    const url = `https://api.scryfall.com/cards/search?q=${encodeURIComponent("is:gamechanger")}&unique=cards&order=name`;
+    vi.stubGlobal("fetch", fakeFetch({ [url]: fixture("scryfall/search-game-changers.json") }).fetch);
+    const cards = await getGameChangers();
+    expect(cards.length).toBeGreaterThan(40);
+    const rhystic = cards.find((c) => c.name === "Rhystic Study")!;
+    expect(rhystic.typeLine).toBe("Enchantment");
+    expect(rhystic.colorIdentity).toEqual(["U"]);
+    expect(rhystic.oracleText).toMatch(/draw a card/);
+    // Double-faced cards keep both faces' names.
+    expect(cards.some((c) => c.name.includes(" // "))).toBe(true);
   });
 });
 

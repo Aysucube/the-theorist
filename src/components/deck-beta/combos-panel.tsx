@@ -6,6 +6,7 @@ import { cardKey } from "@/lib/deck-beta/recommend";
 import { formatCount, formatPercent } from "@/lib/format";
 import type { CardDetails, Combo, DeckCombos } from "@/lib/types";
 import { useHoverPreview } from "../card-link";
+import { GameChangerTag } from "../game-changer-tag";
 import { COMBO_COLORS } from "./deck-network";
 
 /** Turns the consistency chart shows. */
@@ -233,10 +234,12 @@ function PieceChip({ name, lacking, onOpen }: { name: string; lacking: boolean; 
           className={className}
         >
           {name}
+          <GameChangerTag name={name} compact className="ml-1" />
         </button>
       ) : (
         <span {...trigger} className={className}>
           {name}
+          <GameChangerTag name={name} compact className="ml-1" />
           {lacking && <span className="ml-1 text-[10px] uppercase">missing</span>}
         </span>
       )}

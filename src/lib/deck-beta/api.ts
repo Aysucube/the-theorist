@@ -1,5 +1,5 @@
 // What the deck beta's API routes return.
-import type { CardDetails, DeckCombos, EdhrecPairing, EdhrecTheme, Ruling } from "@/lib/types";
+import type { CardDetails, DeckCombos, EdhrecPairing, EdhrecTheme, Ruling, SpellbookBracket } from "@/lib/types";
 
 /** POST /api/deck-beta/cards */
 export interface CardsResponse {
@@ -27,6 +27,8 @@ export type RulingsResponse = { found: false } | { found: true; name: string; sc
 export interface AnalysisResponse {
   /** Null when Commander Spellbook couldn't be reached. */
   combos: DeckCombos | null;
+  /** Commander Spellbook's bracket estimate; null when it couldn't be reached. */
+  bracket: SpellbookBracket | null;
   /** The commander's playstyles on EDHREC, most decks first. */
   themes: EdhrecTheme[];
   commanderUrl?: string;

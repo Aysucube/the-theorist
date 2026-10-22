@@ -21,6 +21,8 @@ export interface ScryfallCard {
   edhrecRank?: number;
   priceUsd?: number;
   commanderLegal: boolean;
+  /** On the Commander Game Changers list (limited in Brackets 1–3). */
+  gameChanger?: boolean;
   /**
    * Can lead a deck: a legendary card with power/toughness on its front face
    * (creatures, and since 2025 Vehicles and Spacecraft), or text that says so.
@@ -57,6 +59,12 @@ export interface CardDetails extends CardInfo {
   canBeCommander?: boolean;
 }
 
+/**
+ * Commander Spellbook's bracket tag for a combo or deck: E Exhibition, C Core,
+ * O Oddball, P Powerful, S Spicy, R Ruthless, B Banned.
+ */
+export type SpellbookTag = "E" | "C" | "O" | "P" | "S" | "R" | "B";
+
 /** A combo from Commander Spellbook. */
 export interface Combo {
   id: string;
@@ -73,7 +81,24 @@ export interface Combo {
   manaNeeded?: string;
   /** How many decks play it, per Commander Spellbook. */
   popularity?: number;
+  /** Which bracket Commander Spellbook thinks it belongs in. */
+  bracketTag?: SpellbookTag;
+  /** Total mana value of its pieces. */
+  manaValueNeeded?: number;
   url: string;
+}
+
+/** Commander Spellbook's bracket estimate for a deck. */
+export interface SpellbookBracket {
+  tag?: SpellbookTag;
+  /** Deck cards it flags, by name. */
+  gameChangers: string[];
+  massLandDenial: string[];
+  extraTurns: string[];
+  /** Ids of the deck's combos it counts as two-card combos. */
+  twoCard: string[];
+  /** Ids of combos that lock opponents out, skip their turns or chain extra turns. */
+  locks: string[];
 }
 
 export interface DeckCombos {

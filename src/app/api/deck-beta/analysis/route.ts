@@ -4,14 +4,14 @@ import { MAX_DECK_CARDS } from "@/lib/deck";
 import { getCommanderStats } from "@/lib/sources/edhrec";
 import { reportSourceError } from "@/lib/sources/http";
 import { getCardDetails } from "@/lib/sources/scryfall";
-import { findCombos } from "@/lib/sources/spellbook";
+import { estimateBracket, findCombos } from "@/lib/sources/spellbook";
 import { edhrecSlug } from "@/lib/slugs";
 import type { EdhrecCommanderStats } from "@/lib/types";
 
 const isName = (n: unknown): n is string => typeof n === "string" && n.trim().length > 0 && n.length <= 150;
 
 // POST /api/deck-beta/analysis { commander: "Lathril, Blade of the Elves", layout: "normal", cards: ["Elvish Archdruid", ...] }
-// Deck Synergy: the deck's combos (Commander Spellbook) and its commander's playstyles (EDHREC).
+// Deck Synergy: the deck's combos and bracket estimate (Commander Spellbook) and its commander's playstyles (EDHREC).
 export async function POST(request: Request) {
   let body: { commander?: unknown; layout?: unknown; cards?: unknown } = {};
   try {
@@ -26,8 +26,12 @@ export async function POST(request: Request) {
 
   // Sorted, so the same deck hits the cache whatever order it was pasted in.
   const main = [...new Set(cards.filter((c) => cardKey(c) !== cardKey(commander)))].sort();
-  const [combos, stats] = await Promise.all([
+  const [combos, bracket, stats] = await Promise.all([
     findCombos([commander], main).catch((error) => {
+      reportSourceError("api/deck-beta/analysis", error);
+      return null;
+    }),
+    estimateBracket([commander], main).catch((error) => {
       reportSourceError("api/deck-beta/analysis", error);
       return null;
     }),
@@ -48,6 +52,7 @@ export async function POST(request: Request) {
 
   const response: AnalysisResponse = {
     combos,
+    bracket,
     themes: stats?.themes?.slice(0, 16) ?? [],
     commanderUrl: stats?.url,
     missing,

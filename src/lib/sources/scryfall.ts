@@ -31,6 +31,8 @@ interface RawCard extends RawFace {
   card_faces?: RawFace[];
   keywords?: string[];
   cmc?: number;
+  /** On the Commander Game Changers list. */
+  game_changer?: boolean;
 }
 
 // Scryfall's hard limits (https://scryfall.com/docs/api/rate-limits): 2 requests
@@ -84,6 +86,7 @@ function toCard(raw: RawCard): ScryfallCard {
     edhrecRank: raw.edhrec_rank,
     priceUsd: usd ? Number(usd) : undefined,
     commanderLegal: raw.legalities.commander === "legal",
+    gameChanger: raw.game_changer || undefined,
     canBeCommander: canBeCommander({
       typeLine: frontType,
       power: front?.power ?? raw.power,
@@ -307,19 +310,46 @@ export async function getCardDetails(names: string[]): Promise<Record<string, Ca
   "use cache: remote";
   cacheLife("days");
 
-  return mapValues(await collectCards(names), (card) => {
-    const front = card.card_faces?.[0];
-    return {
-      ...toCardInfo(card),
-      layout: card.layout,
-      oracleText: toCard(card).oracleText ?? "",
-      keywords: card.keywords ?? [],
-      cmc: card.cmc ?? 0,
-      power: front?.power ?? card.power,
-      toughness: front?.toughness ?? card.toughness,
-      canBeCommander: toCard(card).canBeCommander,
-    };
-  });
+  return mapValues(await collectCards(names), toCardDetails);
+}
+
+function toCardDetails(card: RawCard): CardDetails {
+  const front = card.card_faces?.[0];
+  return {
+    ...toCardInfo(card),
+    layout: card.layout,
+    oracleText: toCard(card).oracleText ?? "",
+    keywords: card.keywords ?? [],
+    cmc: card.cmc ?? 0,
+    power: front?.power ?? card.power,
+    toughness: front?.toughness ?? card.toughness,
+    canBeCommander: toCard(card).canBeCommander,
+  };
+}
+
+// --- Game Changers --------------------------------------------------------------
+
+/** The list is about 50 cards: one page of search results, with room to grow. */
+const MAX_GAME_CHANGER_PAGES = 3;
+
+/**
+ * The cards on Wizards of the Coast's Commander Game Changers list, which the
+ * brackets limit (none in Brackets 1–2, up to three in Bracket 3), as Scryfall
+ * marks them. It changes a few times a year, so a day's cache is plenty.
+ */
+export async function getGameChangers(): Promise<CardDetails[]> {
+  "use cache: remote";
+  cacheLife("days");
+
+  const cards: CardDetails[] = [];
+  let path: string | null = `/cards/search?q=${encodeURIComponent("is:gamechanger")}&unique=cards&order=name`;
+  for (let page = 0; path && page < MAX_GAME_CHANGER_PAGES; page++) {
+    const list = (await get(path)) as RawList<RawCard> | null;
+    if (!list) break;
+    cards.push(...list.data.map(toCardDetails));
+    path = list.has_more && list.next_page?.startsWith(API) ? list.next_page.slice(API.length) : null;
+  }
+  return cards;
 }
 
 function mapValues<A, B>(record: Record<string, A>, fn: (value: A) => B): Record<string, B> {

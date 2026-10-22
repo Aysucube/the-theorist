@@ -4,6 +4,7 @@ import Form from "next/form";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useState } from "react";
 import { moveHighlight, splitMatch } from "@/lib/combobox";
+import { GameChangerTag } from "./game-changer-tag";
 
 // Matches AUTOCOMPLETE_MIN_LENGTH in lib/sources/scryfall.ts (a server-only module).
 const MIN_LENGTH = 2;
@@ -136,6 +137,7 @@ export function CardSearch({ defaultValue = "" }: { defaultValue?: string }) {
                 ) : (
                   name
                 )}
+                <GameChangerTag name={name} className="ml-2" />
               </li>
             );
           })}

@@ -16,6 +16,7 @@ import { cardHref, formatCount, formatPercent, formatPhp } from "@/lib/format";
 import { placeHoverCard } from "@/lib/hover-card";
 import { fetchJsonWithRetry, RETRY_WAITS_MS, sleep } from "@/lib/retry";
 import type { CardPreview } from "@/lib/types";
+import { GameChangerTag } from "./game-changer-tag";
 import { ColorIdentity, ManaCost } from "./mana";
 import { ImageNote, RetryingImage } from "./retrying-image";
 
@@ -194,8 +195,19 @@ export function useCardHover(): { show: (name: string, element: Element, anchor:
   return { show, hide, preview };
 }
 
-/** A link to a card's page that shows the card's hover preview. */
-export function CardLink({ name, className, children }: { name: string; className?: string; children?: ReactNode }) {
+/** A link to a card's page that shows the card's hover preview, and a "Game Changer" label after it when it is one. */
+export function CardLink({
+  name,
+  className,
+  children,
+  tag = true,
+}: {
+  name: string;
+  className?: string;
+  children?: ReactNode;
+  /** false leaves the Game Changer label to the caller (e.g. over a tile's artwork). */
+  tag?: boolean;
+}) {
   const { trigger, preview } = useHoverPreview(name);
   return (
     <>
@@ -208,6 +220,7 @@ export function CardLink({ name, className, children }: { name: string; classNam
       >
         {children ?? name}
       </Link>
+      {tag && <GameChangerTag name={name} className="ml-1.5" />}
       {preview}
     </>
   );
@@ -257,7 +270,10 @@ function HoverCard({
 
       <div className="flex min-w-0 flex-col gap-2 text-sm leading-relaxed">
         <div className="flex items-start justify-between gap-2">
-          <p className="text-lg leading-tight font-semibold">{loaded?.name ?? name}</p>
+          <p className="text-lg leading-tight font-semibold">
+            {loaded?.name ?? name}
+            <GameChangerTag name={loaded?.name ?? name} className="ml-2" />
+          </p>
           {loaded?.manaCost && <ManaCost cost={loaded.manaCost} />}
         </div>
 

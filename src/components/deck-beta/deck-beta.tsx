@@ -3,10 +3,12 @@
 import { useId, useMemo, useRef, useState, type MouseEvent } from "react";
 import { parseDeckList, MAX_DECK_CARDS } from "@/lib/deck";
 import type { AnalysisResponse } from "@/lib/deck-beta/api";
+import { estimateDeckBracket } from "@/lib/deck-beta/bracket";
 import { commanderOptions } from "@/lib/deck-beta/combos";
 import { decodeDeck, isDeckCode } from "@/lib/deck-beta/deck-code";
 import { deckHubs } from "@/lib/deck-beta/playstyle";
 import { cardKey } from "@/lib/deck-beta/recommend";
+import { deckProfile } from "@/lib/deck-beta/roles";
 import { analyzeDeck, parseTypeLine } from "@/lib/deck-beta/synergy";
 import {
   latestAnalysisFor,
@@ -20,9 +22,13 @@ import {
   type RemoteState,
 } from "@/lib/deck-beta/store";
 import { formatCount } from "@/lib/format";
+import { useGameChangers } from "@/lib/use-game-changers";
 import type { CardDetails } from "@/lib/types";
+import { GameChangerTag } from "../game-changer-tag";
 import { ColorIdentity, ManaCost } from "../mana";
 import { ImageNote } from "../retrying-image";
+import { AddToShopping } from "./add-to-shopping";
+import { BracketBadge } from "./bracket-badge";
 import { CombosPanel, type DeckForOdds } from "./combos-panel";
 import { DeckLibrary, SharedDeckBanner } from "./deck-library";
 import { DeckNetwork } from "./deck-network";
@@ -72,10 +78,12 @@ const VIEWS: { id: View; label: string }[] = [
  * an animated network of playstyles, synergies and combos, how consistently it
  * assembles those combos, and what to add to lean into one of the commander's
  * playstyles, and recommendations built from what the deck has (Quadrant
- * Theory, ramp, consistency, combos). Decks can be saved and shared as codes.
+ * Theory, ramp, consistency, combos, the bracket to build toward), with the
+ * deck's own bracket by its title. Decks can be saved and shared as codes, and
+ * copied into Shopping.
  * Click a card for what it interacts with; double-click (or click
  * it in the network) for its own network. Kept apart from the rest of the app:
- * its deck and data are its own, and it never touches Shopping.
+ * its deck and data are its own, and it only touches Shopping when asked to.
  */
 export function DeckBeta() {
   const { deck, ready, replace, addList, add, remove, clear } = useBetaDeck();
@@ -114,17 +122,36 @@ export function DeckBeta() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [libraryKey],
   );
-  // Each card once with its copies, for counting jobs and lands.
-  const deckCards = useMemo(() => {
+  // Each card once with its copies, for counting jobs and lands, and what jobs they do.
+  const { deckCards, profile } = useMemo(() => {
     const counted = new Map<string, { card: CardDetails; qty: number }>();
     for (const e of entries) {
       if (!e.details) continue;
       const seen = counted.get(e.details.name);
       counted.set(e.details.name, { card: e.details, qty: (seen?.qty ?? 0) + e.qty });
     }
-    return [...counted.values()];
+    const cards = [...counted.values()];
+    return { deckCards: cards, profile: deckProfile(cards, analysis.colors) };
+    // The library key captures the deck's cards and copies (and so its colors).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [libraryKey]);
+  const gameChangers = useGameChangers();
+  // undefined while Commander Spellbook hasn't answered; null if it couldn't be reached.
+  const deckCombos = result ? result.combos : remote?.state === "error" ? null : undefined;
+  const report = useMemo(
+    () =>
+      estimateDeckBracket({
+        cards: loaded,
+        isGameChanger: gameChangers.has,
+        combos: deckCombos,
+        spellbook: result?.bracket,
+        tutors: profile.roles.tutor.length,
+      }),
+    // The loaded key captures the deck's cards.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [loadedKey, commander, gameChangers, deckCombos, result, profile],
+  );
+  const checking = Boolean(commander) && deckCombos === undefined;
 
   if (!ready) return <p className="text-zinc-500">Loading your deck…</p>;
 
@@ -159,12 +186,15 @@ export function DeckBeta() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="flex items-center gap-2 text-3xl font-semibold tracking-tight">
-            Deck Synergy
-            <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-semibold tracking-normal text-violet-900 uppercase dark:bg-violet-950 dark:text-violet-300">
-              Beta
-            </span>
-          </h1>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <h1 className="flex items-center gap-2 text-3xl font-semibold tracking-tight">
+              Deck Synergy
+              <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-semibold tracking-normal text-violet-900 uppercase dark:bg-violet-950 dark:text-violet-300">
+                Beta
+              </span>
+            </h1>
+            {loaded.length > 0 && <BracketBadge report={report} checking={checking} onClick={() => setView("recommend")} />}
+          </div>
           <p className="mt-1 flex flex-wrap items-center gap-x-2 text-sm text-zinc-500">
             <span>
               {formatCount(totalCards)} {totalCards === 1 ? "card" : "cards"} · saved in this browser only
@@ -176,12 +206,17 @@ export function DeckBeta() {
             )}
           </p>
         </div>
-        {deck.length > 0 && <ClearButton onClear={clear} />}
+        {deck.length > 0 && (
+          <div className="flex items-center gap-2">
+            <AddToShopping deck={deck} detailsFor={detailsFor} />
+            <ClearButton onClear={clear} />
+          </div>
+        )}
       </div>
 
       <p className="rounded-lg border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-950 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-200">
         An early test, kept separate from the rest of the app: this deck isn’t your Shopping list, and nothing here
-        changes it. Synergies are read from each card’s types and rules text plus EDHREC’s data, combos come from
+        changes it unless you click Add to Shopping. Synergies are read from each card’s types and rules text plus EDHREC’s data, combos come from
         Commander Spellbook, so treat them as hints.
       </p>
 
@@ -261,9 +296,12 @@ export function DeckBeta() {
             <RecommendationsPanel
               commander={commander}
               deckCards={deckCards}
+              profile={profile}
+              report={report}
+              checking={checking}
               analysis={analysis}
               colors={analysis.colors}
-              combos={result ? combos : remote?.state === "error" ? null : undefined}
+              combos={deckCombos}
               odds={odds}
               missing={result?.missing ?? {}}
               inDeck={inDeck}
@@ -516,6 +554,7 @@ function Tile({
         }`}
       >
         {card ? <LazyCardImage url={card.imageUrl} alt={name} /> : <ImageNote text="Loading card details…" spinner />}
+        <GameChangerTag name={name} className="absolute top-1.5 left-1.5 shadow" />
         {entry.qty > 1 && (
           <span className="absolute top-1.5 right-1.5 rounded-full bg-zinc-950/80 px-1.5 text-xs font-semibold text-white tabular-nums">
             ×{entry.qty}

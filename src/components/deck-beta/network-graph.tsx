@@ -61,7 +61,8 @@ const dotRadius = (n: GraphNode) =>
  * select it (and light up its links), double-click to open it, drag nodes to
  * move them, drag the background to pan, and zoom with the buttons or
  * Ctrl + scroll. Give `focus` some node ids to glide the view onto them.
- * With `previewOf`, resting the mouse on a card shows its hover preview.
+ * With `previewOf`, resting the mouse on a card shows its hover preview;
+ * `flagOf` puts a small label on a node, such as "GC" for a Game Changer.
  */
 export function NetworkGraph({
   nodes,
@@ -77,6 +78,7 @@ export function NetworkGraph({
   onSelect,
   onOpen,
   previewOf,
+  flagOf,
 }: {
   nodes: GraphNode[];
   links: GraphLink[];
@@ -95,6 +97,8 @@ export function NetworkGraph({
   onOpen?: (id: string) => void;
   /** The card to show a hover preview of for a node, if it's a card. */
   previewOf?: (node: GraphNode) => string | undefined;
+  /** A short label to pin on a node, if any. */
+  flagOf?: (node: GraphNode) => string | undefined;
 }) {
   const prefix = useId().replace(/[^a-zA-Z0-9]/g, "");
   const svg = useRef<SVGSVGElement>(null);
@@ -339,6 +343,8 @@ export function NetworkGraph({
             const showLabel = n.kind === "center" || n.kind === "hub" || n.kind === "result" || big || showAllLabels;
             const labelY = (big ? EXPANDED : r) + (n.kind === "hub" ? 12 : 13);
             const card = previewOf?.(n);
+            const flag = flagOf?.(n);
+            const edge = big ? EXPANDED : r;
             return (
               <g
                 key={n.id}
@@ -428,6 +434,15 @@ export function NetworkGraph({
                           opacity={n.kind === "ghost" ? 0.5 : 1}
                         />
                       )}
+                    </g>
+                  )}
+
+                  {flag && (
+                    <g transform={`translate(${edge * 0.8} ${-edge * 0.9})`} pointerEvents="none">
+                      <rect x={-8.5} y={-5.5} width={17} height={11} rx={3} fill="#e11d48" />
+                      <text textAnchor="middle" dy="0.35em" fontSize={7} fontWeight={700} fill="#fff">
+                        {flag}
+                      </text>
                     </g>
                   )}
 

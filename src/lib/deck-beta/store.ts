@@ -381,3 +381,17 @@ export function loadWholeDeck(cards: DeckCard[], commander: string | undefined) 
   deckStore.set(importCards([], cards));
   commanderStore.set(commander ?? "");
 }
+
+// --- Bracket to build toward ----------------------------------------------------------
+
+// 0 = whatever bracket the deck is in now.
+const bracketStore = createLocalStore<number>(
+  "commander-ph:deck-beta-bracket",
+  0,
+  (v): v is number => Number.isInteger(v) && (v as number) >= 0 && (v as number) <= 5,
+);
+
+/** The bracket Recommendations build toward (0 = the deck's own). */
+export function useTargetBracket(): [number, (bracket: number) => void] {
+  return [bracketStore.useValue(), bracketStore.set];
+}

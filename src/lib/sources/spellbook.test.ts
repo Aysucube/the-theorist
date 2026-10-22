@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fakeFetch, fixture } from "./__fixtures__/load";
-import { findCombos, parseFindMyCombos, type RawFindMyCombos } from "./spellbook";
+import { findCombos, parseEstimate, parseFindMyCombos, type RawEstimate, type RawFindMyCombos } from "./spellbook";
 
 vi.mock("next/cache", () => ({ cacheLife: () => {} }));
 
@@ -27,6 +27,34 @@ describe("parseFindMyCombos", () => {
 
   it("copes with an empty answer", () => {
     expect(parseFindMyCombos({})).toEqual({ included: [], almostIncluded: [] });
+  });
+
+  it("keeps each combo's bracket tag and total mana value", () => {
+    const { included } = parseFindMyCombos(atraxa());
+    expect(included.every((c) => c.bracketTag && "ECOPSRB".includes(c.bracketTag))).toBe(true);
+    expect(included.some((c) => typeof c.manaValueNeeded === "number")).toBe(true);
+  });
+});
+
+describe("parseEstimate", () => {
+  const estimate = () => parseEstimate(JSON.parse(fixture("spellbook/estimate-bracket-lathril.json")) as RawEstimate);
+
+  it("reads the deck's tag and the Game Changers, land denial and extra turns it flags", () => {
+    const e = estimate();
+    expect(e.tag).toBe("R");
+    expect(e.gameChangers).toEqual(expect.arrayContaining(["Rhystic Study", "Demonic Tutor", "Thassa's Oracle"]));
+    expect(e.massLandDenial).toEqual(["Armageddon"]);
+    expect(e.extraTurns).toEqual(["Time Warp"]);
+  });
+
+  it("lists the combos it counts as two-card combos", () => {
+    const e = estimate();
+    // Thassa's Oracle + Demonic Consultation, and the Elf combos with Staff and Mantle.
+    expect(e.twoCard.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("copes with an empty answer", () => {
+    expect(parseEstimate({})).toEqual({ tag: undefined, gameChangers: [], massLandDenial: [], extraTurns: [], twoCard: [], locks: [] });
   });
 });
 

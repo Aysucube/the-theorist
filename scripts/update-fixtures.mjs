@@ -57,6 +57,22 @@ const FIXTURES = [
       main: ["Sol Ring", "Walking Ballista", "Heliod, Sun-Crowned", "Basalt Monolith", "Rings of Brighthearth", "Devoted Druid", "Vizier of Remedies"].map((card) => ({ card })),
     },
   ],
+  // Commander Spellbook's bracket estimate for a deck with Game Changers, land denial, an extra turn and combos.
+  [
+    "spellbook/estimate-bracket-lathril.json",
+    "https://backend.commanderspellbook.com/estimate-bracket",
+    "application/json",
+    {
+      commanders: [{ card: "Lathril, Blade of the Elves" }],
+      main: ["Elvish Archdruid", "Priest of Titania", "Staff of Domination", "Umbral Mantle", "Rhystic Study", "Demonic Tutor", "Thassa's Oracle", "Demonic Consultation", "Armageddon", "Time Warp", "Sol Ring"].map((card) => ({ card })),
+    },
+  ],
+  // The Commander Game Changers list, as Scryfall marks it.
+  [
+    "scryfall/search-game-changers.json",
+    "https://api.scryfall.com/cards/search?q=is%3Agamechanger&unique=cards&order=name",
+    "application/json",
+  ],
   // Scryfall's suggestions for a partial name, including loose matches like "Heat Ray".
   [
     "scryfall/autocomplete-atra.json",

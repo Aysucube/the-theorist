@@ -1,5 +1,5 @@
 import { cacheLife } from "next/cache";
-import type { Combo, DeckCombos } from "@/lib/types";
+import type { Combo, DeckCombos, SpellbookBracket, SpellbookTag } from "@/lib/types";
 import { SourceError, sourceFetch } from "./http";
 
 // Commander Spellbook (https://commanderspellbook.com) is the community
@@ -24,7 +24,12 @@ interface RawVariant {
   notablePrerequisites?: string;
   manaNeeded?: string;
   popularity?: number | null;
+  bracketTag?: string;
+  manaValueNeeded?: number;
 }
+
+const TAGS = new Set<string>(["E", "C", "O", "P", "S", "R", "B"]);
+const asTag = (tag: unknown): SpellbookTag | undefined => (typeof tag === "string" && TAGS.has(tag) ? (tag as SpellbookTag) : undefined);
 
 export interface RawFindMyCombos {
   results?: { included?: RawVariant[]; almostIncluded?: RawVariant[] };
@@ -42,6 +47,8 @@ function toCombo(raw: RawVariant): Combo {
     prerequisites: [raw.easyPrerequisites, raw.notablePrerequisites].filter(Boolean).join("\n").trim(),
     manaNeeded: raw.manaNeeded || undefined,
     popularity: raw.popularity ?? undefined,
+    bracketTag: asTag(raw.bracketTag),
+    manaValueNeeded: typeof raw.manaValueNeeded === "number" ? raw.manaValueNeeded : undefined,
     url: `${SITE}/combo/${encodeURIComponent(raw.id)}/`,
   };
 }
@@ -72,4 +79,56 @@ export async function findCombos(commanders: string[], main: string[]): Promise<
   );
   if (!res.ok) throw new SourceError("Commander Spellbook", `HTTP ${res.status}`);
   return parseFindMyCombos((await res.json()) as RawFindMyCombos);
+}
+
+// --- Bracket estimate --------------------------------------------------------------
+
+export interface RawEstimate {
+  bracketTag?: string;
+  cards?: { card?: { name?: string }; gameChanger?: boolean; massLandDenial?: boolean; extraTurn?: boolean }[];
+  combos?: {
+    combo?: { id?: string };
+    definitelyTwoCard?: boolean;
+    arguablyTwoCard?: boolean;
+    lock?: boolean;
+    extraTurn?: boolean;
+    skipTurns?: boolean;
+  }[];
+}
+
+export function parseEstimate(body: RawEstimate): SpellbookBracket {
+  const cards = body.cards ?? [];
+  const named = (flag: "gameChanger" | "massLandDenial" | "extraTurn") =>
+    cards.filter((c) => c[flag] && c.card?.name).map((c) => c.card!.name!);
+  const combos = body.combos ?? [];
+  const ids = (keep: (c: (typeof combos)[number]) => boolean | undefined) =>
+    combos.filter((c) => keep(c) && c.combo?.id).map((c) => c.combo!.id!);
+  return {
+    tag: asTag(body.bracketTag),
+    gameChangers: named("gameChanger"),
+    massLandDenial: named("massLandDenial"),
+    extraTurns: named("extraTurn"),
+    twoCard: ids((c) => c.definitelyTwoCard || c.arguablyTwoCard),
+    locks: ids((c) => c.lock || c.extraTurn || c.skipTurns),
+  };
+}
+
+/**
+ * Commander Spellbook's bracket estimate for a deck: which of its cards are
+ * Game Changers, mass land denial or extra turns, and which combos count as
+ * two-card combos or locks. Cached for a day.
+ */
+export async function estimateBracket(commanders: string[], main: string[]): Promise<SpellbookBracket> {
+  "use cache: remote";
+  cacheLife("days");
+
+  const res = await sourceFetch(
+    "Commander Spellbook",
+    `${API}/estimate-bracket`,
+    "application/json",
+    { commanders: commanders.map((card) => ({ card })), main: main.map((card) => ({ card })) },
+    TIMEOUT_MS,
+  );
+  if (!res.ok) throw new SourceError("Commander Spellbook", `HTTP ${res.status}`);
+  return parseEstimate((await res.json()) as RawEstimate);
 }

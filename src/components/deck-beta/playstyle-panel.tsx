@@ -9,6 +9,7 @@ import { parseTypeLine, tagLabel, type DeckAnalysis } from "@/lib/deck-beta/syne
 import { formatCount, formatPercent } from "@/lib/format";
 import type { CardDetails, EdhrecTheme } from "@/lib/types";
 import { useHoverPreview } from "../card-link";
+import { GameChangerTag } from "../game-changer-tag";
 import { ManaCost } from "../mana";
 import { HUB_COLORS } from "./deck-network";
 import { LazyCardImage } from "./lazy-card-image";
@@ -207,6 +208,7 @@ function PickRow({ pick, card, added, onAdd }: { pick: PlaystyleCard; card: Card
         <div className="flex items-start gap-1.5">
           <p {...trigger} className="min-w-0 flex-1 text-sm leading-tight font-medium">
             {card.name}
+            <GameChangerTag name={card.name} className="ml-1.5" />
           </p>
           {card.manaCost && <ManaCost cost={card.manaCost.split(" // ")[0]} />}
         </div>
