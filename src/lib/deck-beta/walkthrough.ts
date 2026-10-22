@@ -44,8 +44,12 @@ export function walkSteps(combo: Combo): WalkStep[] {
   ];
 }
 
-/** Combos that matter most first: infinite ones and outright wins, then the most played. */
+/**
+ * Combos that matter most first: infinite ones and outright wins, then the
+ * ones EDHREC lists for the commander (in its order), then the most played.
+ */
 export function byImpact(a: Combo, b: Combo): number {
   const impact = (c: Combo) => (c.results.some((r) => /infinite|win the game|each opponent loses/i.test(r)) ? 1 : 0);
-  return impact(b) - impact(a) || (b.popularity ?? 0) - (a.popularity ?? 0);
+  const listed = (c: Combo) => c.edhrecOrder ?? Infinity;
+  return impact(b) - impact(a) || (listed(a) === listed(b) ? 0 : listed(a) < listed(b) ? -1 : 1) || (b.popularity ?? 0) - (a.popularity ?? 0);
 }

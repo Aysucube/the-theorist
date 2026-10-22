@@ -191,7 +191,7 @@ export function SynergyMap({
                     <p className="text-sm text-zinc-500">Loading combos from Commander Spellbook…</p>
                   ) : combos === null ? (
                     <p className="text-sm text-zinc-500">Couldn’t reach Commander Spellbook for combos.</p>
-                  ) : combosWith(combos.included, focus.name).length + combosWith(combos.almostIncluded, focus.name).length === 0 ? (
+                  ) : combosWith(combos.included, focus.name).length + combosWith([...combos.almostIncluded, ...(combos.wider ?? [])], focus.name).length === 0 ? (
                     <p className="text-sm text-zinc-500">
                       No known combo uses {focus.name} with {commander ? `${commander.name} and ` : ""}your deck.
                     </p>
@@ -199,7 +199,7 @@ export function SynergyMap({
                     <div className="flex flex-col gap-2">
                       <CombosList combos={combosWith(combos.included, focus.name)} deck={odds} onOpen={goTo} onWalk={walkThrough} />
                       <CombosList
-                        combos={combosWith(combos.almostIncluded, focus.name)}
+                        combos={combosWith([...combos.almostIncluded, ...(combos.wider ?? [])], focus.name)}
                         deck={odds}
                         missing={missing}
                         inDeck={(name) => inDeck.has(cardKey(name))}

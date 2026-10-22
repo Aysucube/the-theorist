@@ -120,6 +120,9 @@ const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 const piecesOf = (combo: Combo, commander?: string) => combo.cards.filter((c) => c !== commander);
 const describe = (combo: Combo) => `${combo.cards.join(" + ")} (${combo.results[0] ?? "combo"})`;
 
+/** One-card-away combos that count toward "nearing" (EDHREC's for the commander first, then the most played). */
+const NEARBY_COMBOS = 30;
+
 /** Tutors that make a deck play like the next bracket up. */
 const MANY_TUTORS: Partial<Record<Bracket, number>> = { 2: 4, 3: 6, 4: 8 };
 
@@ -173,6 +176,7 @@ export function estimateDeckBracket({ cards, isGameChanger, combos, spellbook, t
 
   // One card away from a combo above this bracket.
   const almost = (combos?.almostIncluded ?? [])
+    .slice(0, NEARBY_COMBOS)
     .map((combo) => ({ combo, bracket: comboBracket(combo), twoCard: isTwoCard(combo), missing: combo.cards.find((n) => !inDeck.has(n)) ?? "" }))
     .filter((a) => a.missing && a.bracket > bracket)
     .sort((a, b) => b.bracket - a.bracket);

@@ -7,6 +7,7 @@ import {
   getTheme,
   parseCardPairings,
   parseCardStats,
+  parseCommanderCombos,
   parseCommanderStats,
   parseThemeList,
   parseThemePage,
@@ -208,5 +209,18 @@ describe("commander playstyles", () => {
     expect(await getCommanderTheme("atraxa-praetors-voice", "../../cards/sol-ring")).toBeNull();
     expect(calls).toHaveLength(0);
     vi.unstubAllGlobals();
+  });
+});
+
+describe("commander combos", () => {
+  it("reads the combos on a commander's EDHREC combo page, in EDHREC's order", () => {
+    const combos = parseCommanderCombos(JSON.parse(fixture("edhrec/combos-lathril-blade-of-the-elves.json")) as RawPage);
+    expect(combos.length).toBeGreaterThan(50);
+    expect(combos[0]).toMatchObject({ cards: expect.arrayContaining(["Staff of Domination"]), url: expect.stringMatching(/^https:\/\/edhrec\.com\/combos\//) });
+    expect(combos[0].id).toMatch(/^\d+(-\d+)+$/);
+    expect(combos[0].decks).toBeGreaterThan(0);
+    expect(combos[0].results.length).toBeGreaterThan(0);
+    // Some need three or more cards.
+    expect(combos.some((c) => c.cards.length >= 3)).toBe(true);
   });
 });

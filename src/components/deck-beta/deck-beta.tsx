@@ -152,6 +152,8 @@ export function DeckBeta() {
     [loadedKey, commander, gameChangers, deckCombos, result, profile],
   );
   const checking = Boolean(commander) && deckCombos === undefined;
+  // Combos a card away, then the wider ones EDHREC lists for the commander.
+  const nearCombos = useMemo(() => [...(deckCombos?.almostIncluded ?? []), ...(deckCombos?.wider ?? [])], [deckCombos]);
 
   if (!ready) return <p className="text-zinc-500">Loading your deck…</p>;
 
@@ -217,7 +219,7 @@ export function DeckBeta() {
       <p className="rounded-lg border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-950 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-200">
         An early test, kept separate from the rest of the app: this deck isn’t your Shopping list, and nothing here
         changes it unless you click Add to Shopping. Synergies are read from each card’s types and rules text plus EDHREC’s data, combos come from
-        Commander Spellbook, so treat them as hints.
+        Commander Spellbook and EDHREC, so treat them as hints.
       </p>
 
       <SharedDeckBanner />
@@ -282,7 +284,7 @@ export function DeckBeta() {
               cards={loaded}
               analysis={analysis}
               combos={combos?.included ?? []}
-              almost={combos?.almostIncluded ?? []}
+              almost={nearCombos}
               missing={result?.missing ?? {}}
               walkId={walkId}
               onWalk={setWalkId}
@@ -426,7 +428,9 @@ function AnalysisStatus({
     return (
       <span className="text-xs text-zinc-500">
         {combos
-          ? `${formatCount(combos.included.length)} combos found, ${formatCount(combos.almostIncluded.length)} a card away.`
+          ? `${formatCount(combos.included.length)} combos found, ${formatCount(combos.almostIncluded.length)} a card away${
+              combos.wider?.length ? `, ${formatCount(combos.wider.length)} more on EDHREC` : ""
+            }.`
           : "Couldn’t reach Commander Spellbook for combos."}{" "}
         {(!combos || state.result.themes.length === 0) && (
           <button type="button" onClick={() => requestAnalysis(commander, cards, true)} className="text-amber-700 underline dark:text-amber-400">

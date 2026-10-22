@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
-import { cardsSeenByTurn, chanceAllSeen, missingPiece, piecesInDeck, simulateConsistency, tutorTarget } from "@/lib/deck-beta/combos";
+import { useMemo, useState } from "react";
+import { cardsSeenByTurn, chanceAllSeen, missingPieces, piecesInDeck, simulateConsistency, tutorTarget } from "@/lib/deck-beta/combos";
 import { cardKey } from "@/lib/deck-beta/recommend";
 import { formatCount, formatPercent } from "@/lib/format";
 import type { CardDetails, Combo, DeckCombos } from "@/lib/types";
@@ -11,6 +11,8 @@ import { COMBO_COLORS } from "./deck-network";
 
 /** Turns the consistency chart shows. */
 const TURNS = [4, 6, 8, 10];
+/** One-card-away combos shown before "Show all". */
+const FIRST_ALMOST = 15;
 /** The turn used for each combo's own odds. */
 const ODDS_TURN = 8;
 
@@ -40,6 +42,7 @@ export function CombosPanel({
   /** Zoom the network onto a combo and walk through it. */
   onWalk?: (combo: Combo) => void;
 }) {
+  const [showAll, setShowAll] = useState(false);
   const tutors = useMemo(() => {
     const found = new Map<string, string[]>();
     for (const name of new Set(deck.library)) {
@@ -62,7 +65,7 @@ export function CombosPanel({
     <div className="flex flex-col gap-6">
       <div className="grid gap-3 sm:grid-cols-3">
         <Stat label="Combos in your deck" value={formatCount(combos.included.length)} />
-        <Stat label="One card away" value={formatCount(combos.almostIncluded.length)} />
+        <Stat label="One card away" value={formatCount(combos.almostIncluded.length)} title={combos.wider?.length ? `Plus ${combos.wider.length} more EDHREC lists for your commander, two or more cards away` : undefined} />
         <Stat label="Tutors to find pieces" value={formatCount(tutors.size)} title={[...tutors.keys()].join(", ")} />
       </div>
 
@@ -99,8 +102,33 @@ export function CombosPanel({
       {combos.almostIncluded.length > 0 && (
         <section>
           <h3 className="font-semibold">One card away</h3>
-          <p className="mb-2 text-xs text-zinc-500">Combos you could add with one more card, most played first.</p>
-          <CombosList combos={combos.almostIncluded} deck={deck} missing={missing} inDeck={inDeck} onAdd={onAdd} onOpen={onOpen} onWalk={onWalk} />
+          <p className="mb-2 text-xs text-zinc-500">
+            Combos you could add with one more card: the ones EDHREC lists for your commander first, then the most played.
+          </p>
+          <CombosList
+            combos={showAll ? combos.almostIncluded : combos.almostIncluded.slice(0, FIRST_ALMOST)}
+            deck={deck}
+            missing={missing}
+            inDeck={inDeck}
+            onAdd={onAdd}
+            onOpen={onOpen}
+            onWalk={onWalk}
+          />
+          {!showAll && combos.almostIncluded.length > FIRST_ALMOST && (
+            <button type="button" onClick={() => setShowAll(true)} className="mt-2 text-sm text-amber-700 hover:underline dark:text-amber-400">
+              Show all {formatCount(combos.almostIncluded.length)}
+            </button>
+          )}
+        </section>
+      )}
+
+      {(combos.wider?.length ?? 0) > 0 && (
+        <section>
+          <h3 className="font-semibold">On EDHREC for {deck.commander ?? "your commander"}</h3>
+          <p className="mb-2 text-xs text-zinc-500">
+            Combos EDHREC lists for your commander that need two or more cards you don’t have yet, in EDHREC’s order.
+          </p>
+          <CombosList combos={combos.wider!} deck={deck} missing={missing} inDeck={inDeck} onAdd={onAdd} onOpen={onOpen} onWalk={onWalk} />
         </section>
       )}
     </div>
@@ -142,8 +170,8 @@ export function CombosList({
     <ul className="flex flex-col gap-2">
       {combos.map((combo, i) => {
         const pieces = piecesInDeck(combo, names);
-        const lacking = missingPiece(combo, names);
-        const missingCard = lacking ? missing?.[lacking] : undefined;
+        const lackingAll = missingPieces(combo, names);
+        const lacking = lackingAll[0];
         const inLibrary = pieces.filter((n) => n && cardKey(n) !== cardKey(deck.commander ?? "")).length;
         const odds = lacking ? undefined : chanceAllSeen(inLibrary, librarySize, cardsSeenByTurn(ODDS_TURN));
         return (
@@ -165,6 +193,17 @@ export function CombosList({
                   {formatPercent(odds)} by turn {ODDS_TURN}
                 </span>
               )}
+              {combo.edhrecDecks !== undefined && (
+                <a
+                  href={combo.edhrecUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-zinc-500 tabular-nums hover:text-amber-700 hover:underline dark:hover:text-amber-400"
+                  title="EDHREC lists this combo for your commander"
+                >
+                  EDHREC: {formatCount(combo.edhrecDecks)} decks ↗
+                </a>
+              )}
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
               {combo.cards.map((name, pi) => (
@@ -175,15 +214,24 @@ export function CombosList({
                   any {t}
                 </span>
               ))}
-              {lacking && missingCard && onAdd && inDeck && (
-                <button
-                  type="button"
-                  disabled={inDeck(missingCard.name)}
-                  onClick={() => onAdd(missingCard)}
-                  className="ml-auto h-7 rounded-lg bg-amber-500 px-2.5 text-xs font-medium text-zinc-950 hover:bg-amber-400 disabled:border disabled:border-emerald-600 disabled:bg-transparent disabled:text-emerald-700 dark:disabled:text-emerald-400"
-                >
-                  {inDeck(missingCard.name) ? "In deck ✓" : `+ Add ${lacking}`}
-                </button>
+              {onAdd && inDeck && lackingAll.length > 0 && (
+                <span className="ml-auto flex flex-wrap gap-1.5">
+                {lackingAll.map((name) => {
+                  const card = missing?.[name];
+                  if (!card) return null;
+                  return (
+                    <button
+                      key={name}
+                      type="button"
+                      disabled={inDeck(card.name)}
+                      onClick={() => onAdd(card)}
+                      className="h-7 rounded-lg bg-amber-500 px-2.5 text-xs font-medium text-zinc-950 hover:bg-amber-400 disabled:border disabled:border-emerald-600 disabled:bg-transparent disabled:text-emerald-700 dark:disabled:text-emerald-400"
+                    >
+                      {inDeck(card.name) ? `${name} in deck ✓` : `+ Add ${name}`}
+                    </button>
+                  );
+                })}
+                </span>
               )}
             </div>
             <details className="mt-2 text-sm">

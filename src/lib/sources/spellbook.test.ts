@@ -20,7 +20,7 @@ describe("parseFindMyCombos", () => {
   it("keeps the most played one-card-away combos, most played first", () => {
     const { almostIncluded } = parseFindMyCombos(atraxa());
     expect(almostIncluded.length).toBeGreaterThan(0);
-    expect(almostIncluded.length).toBeLessThanOrEqual(30);
+    expect(almostIncluded.length).toBeLessThanOrEqual(100);
     const popularity = almostIncluded.map((c) => c.popularity ?? 0);
     expect(popularity).toEqual([...popularity].sort((a, b) => b - a));
   });

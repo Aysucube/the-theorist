@@ -33,6 +33,8 @@ const FIXTURES = [
     "https://json.edhrec.com/pages/commanders/atraxa-praetors-voice/infect.json",
     "application/json",
   ],
+  // The combos EDHREC lists for a commander (its page's Combos tab).
+  ["edhrec/combos-lathril-blade-of-the-elves.json", "https://json.edhrec.com/pages/combos/lathril-blade-of-the-elves.json", "application/json"],
   // Every deck theme, and one theme's commanders and cards.
   ["edhrec/tags.json", "https://json.edhrec.com/pages/tags.json", "application/json"],
   ["edhrec/tags-tokens.json", "https://json.edhrec.com/pages/tags/tokens.json", "application/json"],

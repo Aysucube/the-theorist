@@ -83,6 +83,11 @@ export interface Combo {
   popularity?: number;
   /** Which bracket Commander Spellbook thinks it belongs in. */
   bracketTag?: SpellbookTag;
+  /** Its place in EDHREC's combo list for the commander (0 = first), when EDHREC lists it. */
+  edhrecOrder?: number;
+  /** How many decks on EDHREC run it. */
+  edhrecDecks?: number;
+  edhrecUrl?: string;
   /** Total mana value of its pieces. */
   manaValueNeeded?: number;
   url: string;
@@ -106,6 +111,19 @@ export interface DeckCombos {
   included: Combo[];
   /** Combos one card away, most popular first. */
   almostIncluded: Combo[];
+  /** Combos two or more cards away that EDHREC lists for the commander, in EDHREC's order. */
+  wider?: Combo[];
+}
+
+/** A combo on EDHREC's combo page for a commander. */
+export interface EdhrecCombo {
+  /** Commander Spellbook's id for it, e.g. "2645-3151". */
+  id: string;
+  cards: string[];
+  results: string[];
+  /** How many decks on EDHREC run it. */
+  decks: number;
+  url: string;
 }
 
 /** One paper printing of a card, from Scryfall. */

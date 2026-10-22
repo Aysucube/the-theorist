@@ -42,8 +42,8 @@ interface Hit {
 }
 
 /**
- * The deck network in 3D, as a Dyson sphere: the commander a star at the
- * center glowing in its colors, playstyles as stations on the shell with
+ * The deck network in 3D, as a Dyson sphere: the commander's card turning at
+ * the center like a star, the shell tinted in its colors, playstyles as stations on the shell with
  * their cards clustered round them, combo cards just outside, and cards that
  * link to nothing orbiting further out like planets. Lands that link to
  * nothing make an asteroid belt. Drag to turn it, Ctrl + scroll to zoom, rest
@@ -68,7 +68,7 @@ export function DysonSphere({
   nodes: GraphNode[];
   links: GraphLink[];
   label: string;
-  /** The commander's colors, which the star burns in. */
+  /** The commander's colors, which tint the shell. */
   centerColors: string[];
   /** How many asteroids (lands that link to nothing) to draw. */
   belt: number;
@@ -310,32 +310,7 @@ export function DysonSphere({
         if (!(p.z < 0 && Math.hypot(p.x - cx, p.y - cy) < starR * 0.9)) nextHits.push({ id: n.node.id, x: p.x, y: p.y, r });
       }
 
-      // The star, between the back half of the sphere and the front.
-      b.globalAlpha = 1;
-      const corona = b.createRadialGradient(cx, cy, 0, cx, cy, starR * 2.6);
-      corona.addColorStop(0, "rgba(255, 251, 235, 0.95)");
-      glow.forEach((c, i) => corona.addColorStop(0.12 + (i / glow.length) * 0.35, rgba(c, 0.6)));
-      corona.addColorStop(1, "rgba(0, 0, 0, 0)");
-      b.fillStyle = corona;
-      b.beginPath();
-      b.arc(cx, cy, starR * 2.6, 0, Math.PI * 2);
-      b.fill();
-      // Soft flares turning slowly, one in each of the commander's colors (and white between).
-      const flares = Math.max(4, glow.length * 2);
-      for (let i = 0; i < flares; i++) {
-        b.save();
-        b.translate(cx, cy);
-        b.rotate(time * 0.12 + (i / flares) * Math.PI);
-        b.scale(1, 0.09);
-        const flare = b.createRadialGradient(0, 0, 0, 0, 0, starR * 2.6);
-        flare.addColorStop(0, i % 2 === 0 ? rgba(glow[(i / 2) % glow.length], 0.55) : "rgba(255, 255, 255, 0.35)");
-        flare.addColorStop(1, "rgba(0, 0, 0, 0)");
-        b.fillStyle = flare;
-        b.beginPath();
-        b.arc(0, 0, starR * 2.6, 0, Math.PI * 2);
-        b.fill();
-        b.restore();
-      }
+      // The commander's card (drawn over the back canvas) sits between the back half of the sphere and the front.
       const commander = scene.nodes.find((n) => n.place === "star");
       if (commander) {
         nextHits.push({ id: commander.node.id, x: cx, y: cy, r: starR * 0.75 });
@@ -395,7 +370,7 @@ export function DysonSphere({
       <canvas ref={backCanvas} aria-hidden className="absolute inset-0 h-full w-full" />
       {commander?.imageUrl && starWidth > 0 && (
         <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" style={{ width: starWidth }}>
-          <SpinningCard imageUrl={commander.imageUrl} colors={centerColors} />
+          <SpinningCard imageUrl={commander.imageUrl} />
         </div>
       )}
       <canvas

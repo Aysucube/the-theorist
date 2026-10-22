@@ -16,16 +16,17 @@ import { NetworkGraph, type GraphLink, type GraphNode } from "./network-graph";
 /** Synergy partners drawn around the card. */
 const MAX_PARTNERS = 14;
 const MAX_COMBOS = 5;
-const MAX_ALMOST = 3;
+const MAX_ALMOST = 5;
 const COMMANDER_COLOR = "#f59e0b";
 const KIND_COLOR = { type: "#a1a1aa", subtype: "#38bdf8", theme: "#a78bfa" } as const;
 
 /** The combos drawn in a card's network, in the order (and colours) they're drawn. */
 export function cardCombos(focus: CardDetails, deckNames: string[], combos?: DeckCombos | null, walkId?: string | null) {
   const included = combos ? combosWith(combos.included, focus.name).sort(byImpact).slice(0, MAX_COMBOS) : [];
-  // One card away, missing a card other than this one.
+  // A card or more away (missing a card other than this one), EDHREC's combos for the commander first.
+  const near = combos ? [...combos.almostIncluded, ...(combos.wider ?? [])] : [];
   const almost = combos
-    ? combosWith(combos.almostIncluded, focus.name)
+    ? combosWith(near, focus.name)
         .filter((c) => !piecesInDeck(c, deckNames).every(Boolean))
         .sort(byImpact)
         .slice(0, MAX_ALMOST)
@@ -33,7 +34,7 @@ export function cardCombos(focus: CardDetails, deckNames: string[], combos?: Dec
   // A combo being walked through is drawn even if it isn't among the first few.
   const walked = combos?.included.find((c) => c.id === walkId && !included.includes(c));
   if (walked) included.push(walked);
-  const walkedAlmost = combos?.almostIncluded.find((c) => c.id === walkId && !almost.includes(c));
+  const walkedAlmost = near.find((c) => c.id === walkId && !almost.includes(c));
   if (walkedAlmost) almost.push(walkedAlmost);
   return { included, almost, all: [...included, ...almost] };
 }
@@ -241,7 +242,6 @@ export function CardNetwork({
           }}
           previewOf={(n) => (n.kind === "result" ? undefined : n.label)}
           flagOf={(n) => (n.kind !== "result" && gameChangers.has(n.label) ? "GC" : undefined)}
-          centerColors={focus.colorIdentity}
           onOpen={(id) => {
             const combo = comboFor(id);
             if (combo) onWalk(combo.id);

@@ -5,7 +5,9 @@ import {
   chanceAllSeen,
   combosWith,
   commanderOptions,
+  mergeEdhrecCombos,
   missingPiece,
+  missingPieces,
   simulateConsistency,
   tutorFinds,
   tutorTarget,
@@ -109,5 +111,49 @@ describe("combos in a deck", () => {
     expect(missingPiece(combo, ["Basalt Monolith", "Rings of Brighthearth"])).toBeUndefined();
     expect(combosWith([combo], "rings of brighthearth")).toEqual([combo]);
     expect(combosWith([combo], "Sol Ring")).toEqual([]);
+  });
+});
+
+describe("mergeEdhrecCombos", () => {
+  const make = (id: string, cards: string[], extra: Partial<Combo> = {}): Combo => ({
+    id,
+    cards,
+    templates: [],
+    results: ["Infinite green mana"],
+    steps: "Step one.",
+    prerequisites: "",
+    url: "",
+    ...extra,
+  });
+  const deck = ["Lathril, Blade of the Elves", "Elvish Archdruid", "Priest of Titania", "Llanowar Elves"];
+  const edhrec = [
+    { id: "staff-druid", cards: ["Staff of Domination", "Elvish Archdruid"], results: ["Infinite card draw"], decks: 33866, url: "https://edhrec.com/combos/a" },
+    { id: "staff-marwyn", cards: ["Staff of Domination", "Marwyn, the Nurturer"], results: ["Infinite card draw"], decks: 32531, url: "https://edhrec.com/combos/b" },
+    { id: "mantle-priest", cards: ["Umbral Mantle", "Priest of Titania"], results: ["Infinite green mana"], decks: 22234, url: "https://edhrec.com/combos/c" },
+  ];
+  const spellbook = {
+    included: [],
+    almostIncluded: [make("mantle-priest", ["Umbral Mantle", "Priest of Titania"], { popularity: 10 }), make("other", ["Sword of the Paruns", "Llanowar Elves"], { popularity: 500 })],
+  };
+
+  it("tags Spellbook's combos with EDHREC's order and deck count, and lists EDHREC's first", () => {
+    const merged = mergeEdhrecCombos(spellbook, edhrec, deck, {});
+    expect(merged.almostIncluded.map((c) => c.id)).toEqual(["staff-druid", "mantle-priest", "other"]);
+    expect(merged.almostIncluded[1]).toMatchObject({ edhrecOrder: 2, edhrecDecks: 22234, steps: "Step one." });
+  });
+
+  it("adds EDHREC's combos Spellbook didn't return, two cards away as wider combos, with Spellbook's steps when known", () => {
+    const merged = mergeEdhrecCombos(spellbook, edhrec, deck, { "staff-marwyn": make("staff-marwyn", ["Staff of Domination", "Marwyn, the Nurturer"], { steps: "Untap Marwyn." }) });
+    expect(merged.wider?.map((c) => c.id)).toEqual(["staff-marwyn"]);
+    expect(merged.wider?.[0]).toMatchObject({ steps: "Untap Marwyn.", edhrecDecks: 32531, edhrecUrl: "https://edhrec.com/combos/b" });
+    // Without Spellbook's copy, EDHREC's pieces and results are enough to draw it.
+    const bare = mergeEdhrecCombos(spellbook, edhrec, deck, {}).almostIncluded.find((c) => c.id === "staff-druid")!;
+    expect(bare).toMatchObject({ cards: ["Staff of Domination", "Elvish Archdruid"], results: ["Infinite card draw"], steps: "" });
+  });
+
+  it("still lists EDHREC's combos when Commander Spellbook couldn't be reached", () => {
+    const merged = mergeEdhrecCombos(null, edhrec, deck, {});
+    expect(merged.almostIncluded.map((c) => c.id)).toEqual(["staff-druid", "mantle-priest"]);
+    expect(missingPieces(merged.wider![0], deck)).toEqual(["Staff of Domination", "Marwyn, the Nurturer"]);
   });
 });

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { missingPiece } from "@/lib/deck-beta/combos";
+import { missingPieces } from "@/lib/deck-beta/combos";
 import { cardKey } from "@/lib/deck-beta/recommend";
 import { deckHubs } from "@/lib/deck-beta/playstyle";
 import { interactionsOf, parseTypeLine, tagKind, tagLabel, type DeckAnalysis } from "@/lib/deck-beta/synergy";
@@ -19,8 +19,8 @@ import { NetworkGraph, type GraphLink, type GraphNode } from "./network-graph";
 export const HUB_COLORS = ["#8b5cf6", "#0ea5e9", "#f43f5e", "#14b8a6", "#eab308", "#f97316"];
 export const COMBO_COLORS = ["#22c55e", "#ec4899", "#06b6d4", "#facc15", "#a855f7", "#fb7185", "#4ade80", "#38bdf8"];
 const COMMANDER_COLOR = "#f59e0b";
-/** One-card-away combos drawn with their missing card as a shaded node. */
-const MAX_GHOST_COMBOS = 8;
+/** Combos a card or more away drawn with their missing cards as shaded nodes. */
+const MAX_GHOST_COMBOS = 12;
 
 /**
  * The whole deck as a network: the commander in the middle, the deck's
@@ -28,8 +28,8 @@ const MAX_GHOST_COMBOS = 8;
  * rewards. Cards that work with the commander link to it; combos run as
  * coloured chains through their pieces, and the cards that would complete
  * one-card-away combos (infinite ones first) sit outside as shaded nodes.
- * Pick a combo to zoom onto it and walk through how it works. Drawn over a
- * dimmed land in the commander's colors, as a flat map or a 3D Dyson sphere.
+ * Pick a combo to zoom onto it and walk through how it works. Drawn as a flat
+ * map over a dimmed land in the commander's colors, or as a 3D Dyson sphere.
  */
 export function DeckNetwork({
   commander,
@@ -68,7 +68,7 @@ export function DeckNetwork({
   const deckNames = useMemo(() => cards.map((c) => c.name), [cards]);
   const gameChangers = useGameChangers();
   const ghostCombos = useMemo(() => {
-    const top = [...almost].sort(byImpact).filter((c) => missingPiece(c, deckNames)).slice(0, MAX_GHOST_COMBOS);
+    const top = [...almost].sort(byImpact).filter((c) => missingPieces(c, deckNames).length > 0).slice(0, MAX_GHOST_COMBOS);
     const walked = almost.find((c) => c.id === walkId && !top.includes(c));
     return walked ? [...top, walked] : top;
   }, [almost, deckNames, walkId]);
@@ -186,29 +186,40 @@ export function DeckNetwork({
     // Combos a card away: the missing card as a shaded node, joined to the pieces the deck has.
     ghostCombos.forEach((combo, gi) => {
       const color = COMBO_COLORS[(combos.length + gi) % COMBO_COLORS.length];
-      const lacking = missingPiece(combo, deckNames)!;
-      const ghostId = `ghost:${cardKey(lacking)}`;
+      const lacking = missingPieces(combo, deckNames);
+      const ghostIds = lacking.map((name) => `ghost:${cardKey(name)}`);
       const have = combo.cards.map(idFor).filter((n): n is string => Boolean(n));
-      if (!nodes.some((n) => n.id === ghostId)) {
-        const angles = have.map((id) => angleOf.get(id)).filter((a): a is number => a !== undefined);
+      // A combo with none of its pieces in the deck (one EDHREC lists for the commander) hangs off the commander.
+      const anchors = have.length > 0 ? have : [centerId];
+      const angles = have.map((id) => angleOf.get(id)).filter((a): a is number => a !== undefined);
+      const angle = angles.length > 0 ? angles.reduce((a, b) => a + b, 0) / angles.length : undefined;
+      lacking.forEach((name, li) => {
+        if (nodes.some((n) => n.id === ghostIds[li])) return;
         nodes.push({
-          id: ghostId,
-          label: lacking,
+          id: ghostIds[li],
+          label: name,
           sublabel: "Not in your deck",
           kind: "ghost",
-          ring: 3,
+          ring: 3 + li * 0.35,
           radius: 12,
-          angle: angles.length > 0 ? angles.reduce((a, b) => a + b, 0) / angles.length : undefined,
-          imageUrl: missing[lacking]?.imageUrl,
+          angle: angle === undefined ? undefined : angle + li * 0.1,
+          imageUrl: missing[name]?.imageUrl,
           color,
         });
-      }
-      comboPieces.set(combo.id, [...have, ghostId]);
+      });
+      comboPieces.set(combo.id, [...have, ...ghostIds]);
       comboLinks.set(combo.id, new Set());
-      have.forEach((piece, pi) => {
+      const title = `Add ${lacking.join(" + ")} for: ${combo.results.slice(0, 2).join(", ")}`;
+      anchors.forEach((piece, pi) => {
         const id = `almost:${combo.id}:${pi}`;
         comboLinks.get(combo.id)!.add(id);
-        links.push({ id, source: piece, target: ghostId, color, width: 1.6, dashed: true, strength: 0.5, title: `Add ${lacking} for: ${combo.results.slice(0, 2).join(", ")}` });
+        links.push({ id, source: piece, target: ghostIds[0], color, width: 1.6, dashed: true, strength: 0.5, title });
+      });
+      // Missing cards chained to each other, in the combo's order.
+      ghostIds.slice(1).forEach((ghost, gi2) => {
+        const id = `almost:${combo.id}:g${gi2}`;
+        comboLinks.get(combo.id)!.add(id);
+        links.push({ id, source: ghostIds[gi2], target: ghost, color, width: 1.6, dashed: true, strength: 0.6, title });
       });
     });
     return { nodes, links, comboPieces, comboLinks, hiddenLands, centerId };
@@ -236,7 +247,7 @@ export function DeckNetwork({
   return (
     <div className="flex flex-col gap-3">
       <div className="relative overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950">
-        <LandBackdrop colors={colors} seed={commander?.name ?? ""} />
+        {mode === "map" && <LandBackdrop colors={colors} seed={commander?.name ?? ""} />}
         {mode === "map" ? (
           <NetworkGraph
             nodes={nodes}
@@ -249,7 +260,6 @@ export function DeckNetwork({
             onSelect={setSelected}
             previewOf={previewOf}
             flagOf={flagOf}
-            centerColors={colors}
             onOpen={open}
           />
         ) : (
@@ -347,7 +357,11 @@ export function DeckNetwork({
                 >
                   <span aria-hidden className="size-2 rounded-full" style={{ background: colorOf(combo.id) }} />
                   {combo.results[0] ?? "Combo"}
-                  {ghost && <span className="text-xs text-zinc-500">+1 card</span>}
+                  {ghost && (
+                    <span className="text-xs text-zinc-500">
+                      +{missingPieces(combo, deckNames).length} {missingPieces(combo, deckNames).length === 1 ? "card" : "cards"}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -362,7 +376,7 @@ export function DeckNetwork({
           </p>
         ) : (
           <p className="text-xs text-zinc-500">
-            Your commander is the star, burning in its colors. Each playstyle is a station on the sphere’s shell, with the
+            Your commander is the star at the center. Each playstyle is a station on the sphere’s shell, with the
             cards that feed it gathered round it; cards that only work with your commander sit at the poles, and cards that
             would complete a combo float just outside. Cards that link to nothing orbit further out like planets
             {hiddenLands > 0 ? `, and ${formatCount(hiddenLands)} unlinked lands make up the asteroid belt` : ""}. Drag to

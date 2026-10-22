@@ -12,7 +12,7 @@ const SITE = "https://commanderspellbook.com";
 /** The API works through every combo in a 100-card deck, which can take a while. */
 const TIMEOUT_MS = 45_000;
 /** "One card away" lists run to hundreds for big decks; keep the most played. */
-const MAX_ALMOST = 30;
+const MAX_ALMOST = 100;
 
 interface RawVariant {
   id: string;
@@ -79,6 +79,17 @@ export async function findCombos(commanders: string[], main: string[]): Promise<
   );
   if (!res.ok) throw new SourceError("Commander Spellbook", `HTTP ${res.status}`);
   return parseFindMyCombos((await res.json()) as RawFindMyCombos);
+}
+
+/** One combo by its id, with its steps; null if Commander Spellbook doesn't have it. Cached for a week. */
+export async function getCombo(id: string): Promise<Combo | null> {
+  "use cache: remote";
+  cacheLife("weeks");
+
+  const res = await sourceFetch("Commander Spellbook", `${API}/variants/${encodeURIComponent(id)}/`, "application/json");
+  if (res.status === 404) return null;
+  if (!res.ok) throw new SourceError("Commander Spellbook", `HTTP ${res.status}`);
+  return toCombo((await res.json()) as RawVariant);
 }
 
 // --- Bracket estimate --------------------------------------------------------------

@@ -3,7 +3,7 @@
 // combo by a given turn, from the deck list alone (no mulligans, no extra
 // card draw, each tutor in hand finding one missing piece).
 import { canBeCommander } from "@/lib/commander-rules";
-import type { CardDetails, Combo } from "@/lib/types";
+import type { CardDetails, Combo, DeckCombos, EdhrecCombo } from "@/lib/types";
 import { cardKey } from "./recommend";
 
 /** Cards that could lead this deck, best fit first: covers the deck's colors, then most colors. */
@@ -151,6 +151,66 @@ export function missingPiece(combo: Combo, deckNames: string[]): string | undefi
   const pieces = piecesInDeck(combo, deckNames);
   const i = pieces.indexOf(null);
   return i >= 0 ? combo.cards[i] : undefined;
+}
+
+/** Every card a combo needs that the deck lacks. */
+export function missingPieces(combo: Combo, deckNames: string[]): string[] {
+  const pieces = piecesInDeck(combo, deckNames);
+  return combo.cards.filter((_, i) => !pieces[i]);
+}
+
+/** How many one-card-away and wider combos to keep. */
+const MAX_WIDER = 20;
+
+/**
+ * Adds EDHREC's combos for the commander to Commander Spellbook's: combos
+ * Spellbook already found get EDHREC's order and deck count; the rest are
+ * sorted by how many cards the deck lacks (none, one, or more: "wider"),
+ * using Spellbook's own copy of each (with its steps) where there is one.
+ * One-card-away combos EDHREC lists come first, in EDHREC's order.
+ */
+export function mergeEdhrecCombos(
+  spellbook: DeckCombos | null,
+  edhrec: EdhrecCombo[],
+  deckNames: string[],
+  details: Record<string, Combo>,
+): DeckCombos {
+  const listed = new Map(edhrec.map((c, i) => [c.id, { combo: c, order: i }]));
+  const withEdhrec = (combo: Combo): Combo => {
+    const hit = listed.get(combo.id);
+    return hit ? { ...combo, edhrecOrder: hit.order, edhrecDecks: hit.combo.decks, edhrecUrl: hit.combo.url } : combo;
+  };
+  const included = (spellbook?.included ?? []).map(withEdhrec);
+  const almost = (spellbook?.almostIncluded ?? []).map(withEdhrec);
+  const wider: Combo[] = [];
+  const known = new Set([...included, ...almost].map((c) => c.id));
+
+  edhrec.forEach((e, order) => {
+    if (known.has(e.id)) return;
+    const base: Combo = details[e.id] ?? {
+      id: e.id,
+      cards: e.cards,
+      templates: [],
+      results: e.results,
+      steps: "",
+      prerequisites: "",
+      url: `https://commanderspellbook.com/combo/${encodeURIComponent(e.id)}/`,
+    };
+    const combo: Combo = { ...base, edhrecOrder: order, edhrecDecks: e.decks, edhrecUrl: e.url };
+    const lacking = missingPieces(combo, deckNames).length;
+    if (lacking === 0) included.push(combo);
+    else if (lacking === 1) almost.push(combo);
+    else wider.push(combo);
+  });
+
+  // (Infinity - Infinity is NaN, which falls through to popularity.)
+  const listedFirst = (a: Combo, b: Combo) =>
+    (a.edhrecOrder ?? Infinity) - (b.edhrecOrder ?? Infinity) || (b.popularity ?? 0) - (a.popularity ?? 0);
+  return {
+    included,
+    almostIncluded: almost.sort(listedFirst),
+    wider: wider.slice(0, MAX_WIDER),
+  };
 }
 
 /** Combos that use a given card. */

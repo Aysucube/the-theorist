@@ -26,13 +26,13 @@ Wizards of the Coast's October 2025 bracket rules. Click it for the reasons.
 - **Network**: the deck as an animated network, with the commander in the middle as its card
   turning in 3D, over a dimmed land in the commander's colors (a basic land for one color, the
   original dual for two, such as Savannah for green-white, and one of its duals for three or more).
-  The deck's
-  playstyles (Elves, Tokens, Aristocrats...) around it, every card linked to the playstyles it
+  The deck's playstyles (Elves, Tokens, Aristocrats...) sit around it, every card linked to the playstyles it
   feeds or rewards, and combos running as coloured chains through their pieces. Cards that would
-  complete a combo (infinite ones first) sit outside as shaded nodes you can add. Click a combo
+  complete a combo (infinite ones and the ones EDHREC lists for the commander first, even two or
+  three cards away) sit outside as shaded nodes you can add. Click a combo
   to zoom onto it and walk through how it works, step by step, with each step's cards lit up.
   Select, drag and zoom (buttons or Ctrl + scroll) to explore. **3D sphere** turns the map into a
-  Dyson sphere: the commander is a star at the center burning in its colors, each playstyle a
+  Dyson sphere in plain space: the commander's card is the star at the center, each playstyle a
   station on the shell with the cards that feed it gathered round it, cards that would complete a
   combo just outside, and cards that link to nothing orbiting further out like planets (unlinked
   lands make an asteroid belt). Drag to turn it.
@@ -51,7 +51,9 @@ Wizards of the Coast's October 2025 bracket rules. Click it for the reasons.
   Changers there's room for); combos a card away that fit the bracket; and the cards doing the
   least, as places to cut. Roles are read from rules text, so they're a guide.
 - **Combos**: the combos the deck has and the ones a card away (from
-  [Commander Spellbook](https://commanderspellbook.com)), each with its steps, and how
+  [Commander Spellbook](https://commanderspellbook.com)), plus the combos EDHREC lists for the
+  commander that need two or more cards, each with its steps and an add button for every missing
+  card, and how
   consistently the deck assembles one: the chance of holding every piece by turns 4 to 10,
   with tutors counted, from shuffling the deck 4,000 times.
 - **Playstyle**: what the deck is built around now, and, for any of the commander's playstyles
@@ -201,7 +203,8 @@ same pages their own websites use, so the app is built to stay a light, polite v
 - Each visitor is rate limited (`src/proxy.ts`): 60 card pages per minute,
   120 search suggestions per minute, 350 price checks per 10 minutes.
 - Commander Spellbook is asked twice per deck analysis (Deck Synergy: its combos and its bracket
-  estimate), cached for a day.
+  estimate), cached for a day, plus once per combo EDHREC lists for the commander that Spellbook's
+  search didn't return (up to 20, for their steps), cached for a week.
 - The Game Changers list comes from one Scryfall search, cached for a day on the server and in
   each browser. The land art behind Deck Synergy's networks is one Scryfall search per land, cached
   for a day, and its artist is credited on the page.

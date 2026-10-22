@@ -3,7 +3,6 @@
 import { useEffect, useId, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { layoutNetwork, type Point } from "@/lib/deck-beta/force-layout";
 import { scryfallImageAs } from "@/lib/scryfall-images";
-import { manaHexes } from "@/lib/deck-beta/colors";
 import { useCardHover } from "../card-link";
 import { SpinningCard } from "./spinning-card";
 
@@ -65,8 +64,8 @@ const dotRadius = (n: GraphNode) =>
  * Ctrl + scroll. Give `focus` some node ids to glide the view onto them.
  * With `previewOf`, resting the mouse on a card shows its hover preview;
  * `flagOf` puts a small label on a node, such as "GC" for a Game Changer.
- * A center node with a picture is drawn as its card turning in 3D, glowing in
- * `centerColors`. Drawn for a dark background (see LandBackdrop).
+ * A center node with a picture is drawn as its card turning in 3D. Drawn for
+ * a dark background (see LandBackdrop).
  */
 export function NetworkGraph({
   nodes,
@@ -83,7 +82,6 @@ export function NetworkGraph({
   onOpen,
   previewOf,
   flagOf,
-  centerColors = [],
 }: {
   nodes: GraphNode[];
   links: GraphLink[];
@@ -104,8 +102,6 @@ export function NetworkGraph({
   previewOf?: (node: GraphNode) => string | undefined;
   /** A short label to pin on a node, if any. */
   flagOf?: (node: GraphNode) => string | undefined;
-  /** The colors the center card glows in (W, U, B, R, G). */
-  centerColors?: string[];
 }) {
   const prefix = useId().replace(/[^a-zA-Z0-9]/g, "");
   const svg = useRef<SVGSVGElement>(null);
@@ -274,7 +270,6 @@ export function NetworkGraph({
   const spinning = nodes.find((n) => n.kind === "center" && n.imageUrl);
   const spinAt = spinning ? pos(spinning.id) : undefined;
   const spinWidth = spinning ? dotRadius(spinning) * 3.4 : 0;
-  const glow = manaHexes(centerColors);
 
   const zoomed = view.w < width - 1;
   const button =
@@ -294,12 +289,6 @@ export function NetworkGraph({
         onPointerCancel={() => (drag.current = null)}
       >
         <defs>
-          <radialGradient id={`${prefix}-center-glow`}>
-            {glow.map((c, i) => (
-              <stop key={c} offset={`${(i / glow.length) * 60}%`} stopColor={c} stopOpacity={0.55} />
-            ))}
-            <stop offset="100%" stopColor={glow[glow.length - 1]} stopOpacity={0} />
-          </radialGradient>
           {nodes.map((n, i) => (
             <clipPath key={n.id} id={`${prefix}-clip-${i}`}>
               <circle r={n.kind === "center" ? dotRadius(n) : EXPANDED} />
@@ -426,9 +415,7 @@ export function NetworkGraph({
                         +
                       </text>
                     </>
-                  ) : n.kind === "center" && n === spinning ? (
-                    <circle r={r * 2.4} fill={`url(#${prefix}-center-glow)`} className="net-glow" />
-                  ) : n.kind === "center" ? (
+                  ) : n.kind === "center" && n === spinning ? null : n.kind === "center" ? (
                     <>
                       <circle r={r + 3} fill="none" stroke={color} strokeWidth={1.5} opacity={0.6} />
                       {image ? (
@@ -509,7 +496,7 @@ export function NetworkGraph({
             transition: "opacity 200ms",
           }}
         >
-          <SpinningCard imageUrl={spinning.imageUrl!} colors={centerColors} />
+          <SpinningCard imageUrl={spinning.imageUrl!} />
         </div>
       )}
       {cardHover.preview}

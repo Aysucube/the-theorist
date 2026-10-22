@@ -5,6 +5,7 @@ import type {
   EdhrecCardList,
   EdhrecCardRef,
   EdhrecCardStats,
+  EdhrecCombo,
   EdhrecCommanderStats,
   EdhrecTheme,
   EdhrecThemePage,
@@ -45,7 +46,14 @@ export interface RawPage {
         rank?: number;
         salt?: number;
       };
-      cardlists?: { header: string; tag: string; cardviews: RawCardView[] }[];
+      cardlists?: {
+        header: string;
+        tag: string;
+        cardviews: RawCardView[];
+        /** On combo pages: the combo the list is about. */
+        href?: string;
+        combo?: { comboId?: string; count?: number; results?: string[] };
+      }[];
     };
   };
 }
@@ -207,6 +215,25 @@ async function getPage(
     return redirectsLeft > 0 ? getPage(page.redirect.replace(/^\//, ""), redirectsLeft - 1) : null;
   }
   return { page, path };
+}
+
+/** The combos on a commander's EDHREC combo page, in EDHREC's order. */
+export function parseCommanderCombos(page: RawPage): EdhrecCombo[] {
+  return (page.container?.json_dict?.cardlists ?? []).flatMap((list) => {
+    const id = list.combo?.comboId;
+    const cards = list.cardviews.map((c) => c.name).filter(Boolean);
+    if (!id || cards.length === 0) return [];
+    return [{ id, cards, results: list.combo?.results ?? [], decks: list.combo?.count ?? 0, url: `${SITE}${list.href ?? `/combos/${id}`}` }];
+  });
+}
+
+/** The combos EDHREC lists for a commander (the "Combos" tab of its page); null if it has no page. */
+export async function getCommanderCombos(slug: string): Promise<EdhrecCombo[] | null> {
+  "use cache: remote";
+  cacheLife("days");
+
+  const result = await getPage(`combos/${slug}`);
+  return result && parseCommanderCombos(result.page);
 }
 
 /** How often a card is played overall, and by which commanders. */
