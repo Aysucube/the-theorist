@@ -70,7 +70,7 @@ export function DeckView() {
   }
 
   if (!ready) {
-    return <p className="text-zinc-500">Loading your shopping list…</p>;
+    return <p className="text-muted">Loading your shopping list…</p>;
   }
 
   const prices = Object.fromEntries(
@@ -89,7 +89,7 @@ export function DeckView() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">Shopping</h1>
-          <p className="text-sm text-zinc-500">
+          <p className="text-sm text-muted">
             {formatCount(totalCards)} {totalCards === 1 ? "card" : "cards"} · saved in this browser only
           </p>
         </div>
@@ -99,23 +99,23 @@ export function DeckView() {
       <ImportBox open={deck.length === 0} onImport={importCards} />
 
       {deck.length === 0 ? (
-        <p className="text-zinc-600 dark:text-zinc-400">
+        <p className="text-muted">
           Your shopping list is empty. Paste a deck list above, or use the <strong>Add to shopping</strong> and{" "}
           <strong>+</strong> buttons when you{" "}
-          <Link href="/" className="text-amber-700 hover:underline dark:text-amber-400">
+          <Link href="/" className="link">
             look up cards
           </Link>
           .
         </p>
       ) : (
         <>
-          <section className="flex flex-col gap-4 rounded-xl border border-zinc-200 p-4 sm:p-6 dark:border-zinc-800">
+          <section className="flex flex-col gap-4 rounded-xl border border-line p-4 sm:p-6">
             <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
                 disabled={progress !== null}
                 onClick={() => priceCards(deck.map((c) => c.name))}
-                className="h-11 rounded-lg bg-amber-500 px-5 font-medium text-zinc-950 transition-colors hover:bg-amber-400 disabled:cursor-wait disabled:opacity-60"
+                className="h-11 rounded-lg bg-foreground px-5 font-medium text-background transition-colors hover:bg-foreground/85 disabled:cursor-wait disabled:opacity-60"
               >
                 {progress
                   ? `Pricing ${progress.done} of ${progress.total}…`
@@ -127,16 +127,16 @@ export function DeckView() {
                 <button
                   type="button"
                   onClick={() => priceCards(pricing.unpriced)}
-                  className="h-11 rounded-lg border border-zinc-300 px-4 text-sm font-medium hover:border-amber-500 dark:border-zinc-700"
+                  className="h-11 rounded-lg border border-line-strong px-4 text-sm font-medium hover:border-foreground/30"
                 >
                   Price {pricing.unpriced.length} unchecked
                 </button>
               )}
             </div>
             {progress && (
-              <p role="status" className="text-sm text-zinc-600 dark:text-zinc-400">
+              <p role="status" className="text-sm text-muted">
                 {progress.waiting ? (
-                  <span className="text-amber-700 dark:text-amber-400">
+                  <span className="text-accent">
                     Waiting {progress.waiting.seconds}s because {progress.waiting.reason}, then trying “
                     {progress.waiting.name}” again…
                   </span>
@@ -154,15 +154,15 @@ export function DeckView() {
                 aria-valuemin={0}
                 aria-valuemax={progress.total}
                 aria-valuenow={progress.done}
-                className="h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800"
+                className="h-1.5 overflow-hidden rounded-full bg-subtle"
               >
                 <div
-                  className="h-full bg-amber-500 transition-[width]"
+                  className="h-full bg-foreground transition-[width]"
                   style={{ width: `${(progress.done / Math.max(progress.total, 1)) * 100}%` }}
                 />
               </div>
             )}
-            <p className="text-xs text-zinc-500">
+            <p className="text-xs text-muted">
               Prices one card at a time so the price sites aren’t overloaded; a busy site is waited
               out and retried automatically. Prices are cached for an hour, so re-checking soon after
               is quick.
@@ -188,7 +188,7 @@ export function DeckView() {
               </dl>
             )}
             {anyPriced && (
-              <p className="text-xs text-zinc-500">
+              <p className="text-xs text-muted">
                 Totals count each store’s stock: when one listing hasn’t enough copies, the next cheapest
                 makes up the rest.
               </p>
@@ -219,7 +219,7 @@ function ImportBox({ open, onImport }: { open: boolean; onImport: (cards: DeckCa
   const [message, setMessage] = useState("");
 
   return (
-    <details open={open} className="rounded-xl border border-zinc-200 dark:border-zinc-800">
+    <details open={open} className="rounded-xl border border-line">
       <summary className="cursor-pointer px-4 py-3 font-medium">Paste a deck list</summary>
       <form
         className="flex flex-col gap-3 px-4 pb-4"
@@ -235,7 +235,7 @@ function ImportBox({ open, onImport }: { open: boolean; onImport: (cards: DeckCa
           setMessage(`Added ${cards.length} ${cards.length === 1 ? "card" : "cards"}.`);
         }}
       >
-        <label htmlFor="deck-list" className="text-sm text-zinc-600 dark:text-zinc-400">
+        <label htmlFor="deck-list" className="text-sm text-muted">
           One card per line. Exports from Moxfield, Archidekt and similar sites work as-is. Up to{" "}
           {MAX_DECK_CARDS} different cards.
         </label>
@@ -245,16 +245,16 @@ function ImportBox({ open, onImport }: { open: boolean; onImport: (cards: DeckCa
           onChange={(e) => setText(e.target.value)}
           rows={8}
           placeholder={"1 Atraxa, Praetors' Voice\n1 Sol Ring\n1 Arcane Signet\n10 Forest"}
-          className="w-full rounded-lg border border-zinc-300 bg-white p-3 font-mono text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30 dark:border-zinc-700 dark:bg-zinc-900"
+          className="w-full rounded-lg border border-line-strong bg-background p-3 font-mono text-sm outline-none focus:border-foreground/40 focus:ring-4 focus:ring-foreground/5"
         />
         <div className="flex flex-wrap items-center gap-3">
           <button
             type="submit"
-            className="h-10 rounded-lg bg-amber-500 px-4 text-sm font-medium text-zinc-950 hover:bg-amber-400"
+            className="h-10 rounded-lg bg-foreground px-4 text-sm font-medium text-background hover:bg-foreground/85"
           >
             Add to list
           </button>
-          <span role="status" className="text-sm text-zinc-600 dark:text-zinc-400">
+          <span role="status" className="text-sm text-muted">
             {message}
           </span>
         </div>
@@ -276,7 +276,7 @@ function ClearButton({ onClear }: { onClear: () => void }) {
       className={`h-9 rounded-lg border px-3 text-sm ${
         confirming
           ? "border-red-600 text-red-700 dark:text-red-400"
-          : "border-zinc-300 text-zinc-600 hover:border-red-500 dark:border-zinc-700 dark:text-zinc-400"
+          : "border-line-strong text-muted hover:border-red-500  "
       }`}
     >
       {confirming ? "Click again to clear" : "Clear list"}
@@ -286,15 +286,15 @@ function ClearButton({ onClear }: { onClear: () => void }) {
 
 function StoresTable({ stores, inStock }: { stores: StoreCoverage[]; inStock: number }) {
   return (
-    <details className="rounded-xl border border-zinc-200 p-4 sm:p-6 dark:border-zinc-800">
+    <details className="rounded-xl border border-line p-4 sm:p-6">
       <summary className="cursor-pointer text-xl font-semibold">Compare all stores</summary>
-      <p className="mt-1 text-sm text-zinc-500">
+      <p className="mt-1 text-sm text-muted">
         Stores with the most of your list first. A store has a card when it has enough copies;
         each total buys that store’s cheapest copies of the cards it has.
       </p>
       <table className="mt-4 w-full text-left text-sm">
-        <thead className="text-xs text-zinc-500">
-          <tr className="border-b border-zinc-200 dark:border-zinc-800">
+        <thead className="text-xs text-muted">
+          <tr className="border-b border-line">
             <th className="py-2 pr-3 font-medium">Store</th>
             <th className="py-2 pr-3 font-medium">Has</th>
             <th className="py-2 pr-3 text-right font-medium">Total</th>
@@ -303,7 +303,7 @@ function StoresTable({ stores, inStock }: { stores: StoreCoverage[]; inStock: nu
         </thead>
         <tbody>
           {stores.map((s) => (
-            <tr key={s.store} className="border-b border-zinc-100 align-top last:border-0 dark:border-zinc-900">
+            <tr key={s.store} className="border-b border-line align-top last:border-0">
               <td className="py-2 pr-3 font-medium">{s.store}</td>
               <td className="py-2 pr-3 whitespace-nowrap tabular-nums">
                 {s.cards === inStock ? (
@@ -313,7 +313,7 @@ function StoresTable({ stores, inStock }: { stores: StoreCoverage[]; inStock: nu
                 )}
               </td>
               <td className="py-2 pr-3 text-right whitespace-nowrap tabular-nums">{formatPhp(s.totalPhp)}</td>
-              <td className="py-2 text-zinc-600 dark:text-zinc-400">
+              <td className="py-2 text-muted">
                 {s.missing.length === 0 ? (
                   "—"
                 ) : (
@@ -352,7 +352,7 @@ function CardsTable({
   onRemove: (name: string) => void;
 }) {
   return (
-    <section className="rounded-xl border border-zinc-200 p-4 sm:p-6 dark:border-zinc-800">
+    <section className="rounded-xl border border-line p-4 sm:p-6">
       <h2 className="text-xl font-semibold">Cards</h2>
       <ul className="mt-3">
         {deck.map((card) => {
@@ -360,15 +360,15 @@ function CardsTable({
           return (
             <li
               key={card.name}
-              className="flex items-center gap-3 border-b border-zinc-100 py-2 text-sm last:border-0 dark:border-zinc-900"
+              className="flex items-center gap-3 border-b border-line py-2 text-sm last:border-0"
             >
-              <span className="w-8 shrink-0 text-right text-zinc-500 tabular-nums">{card.qty}×</span>
+              <span className="w-8 shrink-0 text-right text-muted tabular-nums">{card.qty}×</span>
               <div className="min-w-0 flex-1">
                 <div className="flex min-w-0 items-center gap-2">
                   <CardLink name={card.name} className="min-w-0 truncate hover:underline" />
                   {info?.manaCost && <ManaCost cost={info.manaCost} />}
                 </div>
-                {info?.typeLine && <p className="truncate text-xs text-zinc-500">{info.typeLine}</p>}
+                {info?.typeLine && <p className="truncate text-xs text-muted">{info.typeLine}</p>}
               </div>
               <span className="shrink-0 text-right text-xs">
                 <LinePrice qty={card.qty} lookup={lookups[card.name]} />
@@ -377,7 +377,7 @@ function CardsTable({
                 type="button"
                 onClick={() => onRemove(card.name)}
                 aria-label={`Remove ${card.name} from shopping list`}
-                className="flex size-6 shrink-0 items-center justify-center rounded-full text-zinc-500 hover:bg-red-100 hover:text-red-700 dark:hover:bg-red-950 dark:hover:text-red-400"
+                className="flex size-6 shrink-0 items-center justify-center rounded-full text-muted hover:bg-red-100 hover:text-red-700 dark:hover:bg-red-950 dark:hover:text-red-400"
               >
                 ×
               </button>
@@ -392,10 +392,10 @@ function CardsTable({
 function LinePrice({ qty, lookup }: { qty: number; lookup: Lookup | undefined }) {
   if (!lookup) return <span className="text-zinc-400">—</span>;
   if (lookup === "error") return <span className="text-red-600 dark:text-red-400">Failed</span>;
-  if (!lookup.found) return <span className="text-zinc-500">Not on TCGph</span>;
+  if (!lookup.found) return <span className="text-muted">Not on TCGph</span>;
   // The cheapest copies anywhere, which for several copies may span listings and stores.
   const purchase = buyAnywhere(lookup.byStore, qty);
-  if (purchase.qty === 0) return <span className="text-zinc-500">Out of stock</span>;
+  if (purchase.qty === 0) return <span className="text-muted">Out of stock</span>;
 
   const stores = [...new Set(purchase.parts.map((p) => p.offer.store))];
   const low = purchase.parts[0].offer.pricePhp;
@@ -405,16 +405,16 @@ function LinePrice({ qty, lookup }: { qty: number; lookup: Lookup | undefined })
       <span className="font-semibold text-emerald-700 tabular-nums dark:text-emerald-400">
         {formatPhp(purchase.totalPhp)}
       </span>{" "}
-      <span className="text-zinc-600 dark:text-zinc-400">
+      <span className="text-muted">
         {stores.length === 1 ? stores[0] : `${formatCount(stores.length)} stores`}
       </span>
       {qty > 1 && (
-        <span className="block text-zinc-500">
+        <span className="block text-muted">
           {low === high ? formatPhp(low) : `${formatPhp(low)}–${formatPhp(high)}`} each
         </span>
       )}
       {purchase.qty < qty && (
-        <span className="block text-amber-700 dark:text-amber-400">only {formatCount(purchase.qty)} in stock</span>
+        <span className="block text-accent">only {formatCount(purchase.qty)} in stock</span>
       )}
     </a>
   );
@@ -422,8 +422,8 @@ function LinePrice({ qty, lookup }: { qty: number; lookup: Lookup | undefined })
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg bg-zinc-100 px-3 py-2 dark:bg-zinc-900">
-      <dt className="text-xs text-zinc-500">{label}</dt>
+    <div className="rounded-lg bg-subtle px-3 py-2">
+      <dt className="text-xs text-muted">{label}</dt>
       <dd className="text-lg font-semibold tabular-nums">{value}</dd>
     </div>
   );
@@ -435,7 +435,7 @@ function NameList({ title, names }: { title: string; names: string[] }) {
       <p className="font-medium">
         {title} ({formatCount(names.length)})
       </p>
-      <p className="text-zinc-600 dark:text-zinc-400">{names.join(", ")}</p>
+      <p className="text-muted">{names.join(", ")}</p>
     </div>
   );
 }

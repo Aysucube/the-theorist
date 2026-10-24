@@ -263,14 +263,14 @@ export function CardNetwork({
         />
       )}
       {selectedNode && selectedNode.kind !== "result" && (
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-800">
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-line px-3 py-2 text-sm">
           <HoverName name={selectedNode.label} className="font-medium" />
-          {selectedNode.sublabel && <span className="text-xs text-zinc-500">{selectedNode.sublabel}</span>}
+          {selectedNode.sublabel && <span className="text-xs text-muted">{selectedNode.sublabel}</span>}
           <span className="ml-auto flex flex-wrap items-center gap-2">
             {drawn.all
               .filter((c) => comboNodes.get(c.id)?.includes(selectedNode.id))
               .map((c) => (
-                <button key={c.id} type="button" onClick={() => onWalk(c.id)} className="h-8 rounded-lg border border-zinc-300 px-3 text-xs font-medium hover:border-amber-500 dark:border-zinc-700">
+                <button key={c.id} type="button" onClick={() => onWalk(c.id)} className="h-8 rounded-lg border border-line-strong px-3 text-xs font-medium hover:border-foreground/30">
                   Walk through {c.results[0] ?? "combo"}
                 </button>
               ))}
@@ -279,17 +279,17 @@ export function CardNetwork({
                 type="button"
                 disabled={inDeck(ghostCard.name)}
                 onClick={() => onAdd(ghostCard)}
-                className="h-8 rounded-lg bg-amber-500 px-3 text-xs font-medium text-zinc-950 hover:bg-amber-400 disabled:bg-transparent disabled:text-emerald-600"
+                className="h-8 rounded-lg bg-foreground px-3 text-xs font-medium text-background hover:bg-foreground/85 disabled:bg-transparent disabled:text-emerald-600"
               >
                 {inDeck(ghostCard.name) ? "In deck ✓" : `+ Add ${ghostCard.name}`}
               </button>
             )}
             {selectedNode.kind === "card" && (
-              <button type="button" onClick={() => onOpen(selectedNode.id)} className="h-8 rounded-lg border border-zinc-300 px-3 text-xs font-medium hover:border-amber-500 dark:border-zinc-700">
+              <button type="button" onClick={() => onOpen(selectedNode.id)} className="h-8 rounded-lg border border-line-strong px-3 text-xs font-medium hover:border-foreground/30">
                 Open its network
               </button>
             )}
-            <button type="button" onClick={() => setSelected(null)} aria-label="Clear selection" className="rounded px-1.5 text-lg leading-none text-zinc-500">
+            <button type="button" onClick={() => setSelected(null)} aria-label="Clear selection" className="rounded px-1.5 text-lg leading-none text-muted">
               ×
             </button>
           </span>

@@ -72,15 +72,15 @@ export function CombosPanel({
       {combos.included.length > 0 && (
         <section>
           <h3 className="font-semibold">Consistency</h3>
-          <p className="mb-3 text-xs text-zinc-500">
+          <p className="mb-3 text-xs text-muted">
             The chance of holding every piece of at least one combo by each turn (on the play, no mulligans), if each
             tutor you draw fetches one missing piece. Worked out by shuffling your deck 4,000 times.
           </p>
           <ul className="flex flex-col gap-1.5">
             {TURNS.map((turn) => (
               <li key={turn} className="grid grid-cols-[5rem_1fr_3.5rem] items-center gap-3 text-sm">
-                <span className="text-zinc-600 dark:text-zinc-400">Turn {turn}</span>
-                <span className="h-3 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+                <span className="text-muted">Turn {turn}</span>
+                <span className="h-3 overflow-hidden rounded-full bg-subtle">
                   <span className="block h-full rounded-full bg-emerald-500" style={{ width: `${Math.max(1, odds[turn] * 100)}%` }} />
                 </span>
                 <span className="text-right font-semibold tabular-nums">{formatPercent(odds[turn])}</span>
@@ -93,7 +93,7 @@ export function CombosPanel({
       <section>
         <h3 className="mb-2 font-semibold">Combos in your deck</h3>
         {combos.included.length === 0 ? (
-          <p className="text-sm text-zinc-500">Commander Spellbook knows no combo this deck has every piece of.</p>
+          <p className="text-sm text-muted">Commander Spellbook knows no combo this deck has every piece of.</p>
         ) : (
           <CombosList combos={combos.included} deck={deck} onOpen={onOpen} onWalk={onWalk} />
         )}
@@ -102,7 +102,7 @@ export function CombosPanel({
       {combos.almostIncluded.length > 0 && (
         <section>
           <h3 className="font-semibold">One card away</h3>
-          <p className="mb-2 text-xs text-zinc-500">
+          <p className="mb-2 text-xs text-muted">
             Combos you could add with one more card: the ones EDHREC lists for your commander first, then the most played.
           </p>
           <CombosList
@@ -115,7 +115,7 @@ export function CombosPanel({
             onWalk={onWalk}
           />
           {!showAll && combos.almostIncluded.length > FIRST_ALMOST && (
-            <button type="button" onClick={() => setShowAll(true)} className="mt-2 text-sm text-amber-700 hover:underline dark:text-amber-400">
+            <button type="button" onClick={() => setShowAll(true)} className="mt-2 text-sm link">
               Show all {formatCount(combos.almostIncluded.length)}
             </button>
           )}
@@ -125,7 +125,7 @@ export function CombosPanel({
       {(combos.wider?.length ?? 0) > 0 && (
         <section>
           <h3 className="font-semibold">On EDHREC for {deck.commander ?? "your commander"}</h3>
-          <p className="mb-2 text-xs text-zinc-500">
+          <p className="mb-2 text-xs text-muted">
             Combos EDHREC lists for your commander that need two or more cards you don’t have yet, in EDHREC’s order.
           </p>
           <CombosList combos={combos.wider!} deck={deck} missing={missing} inDeck={inDeck} onAdd={onAdd} onOpen={onOpen} onWalk={onWalk} />
@@ -137,8 +137,8 @@ export function CombosPanel({
 
 function Stat({ label, value, title }: { label: string; value: string; title?: string }) {
   return (
-    <div className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-800" title={title}>
-      <p className="text-xs text-zinc-500">{label}</p>
+    <div className="rounded-lg border border-line p-3" title={title}>
+      <p className="text-xs text-muted">{label}</p>
       <p className="text-2xl font-semibold tabular-nums">{value}</p>
     </div>
   );
@@ -175,7 +175,7 @@ export function CombosList({
         const inLibrary = pieces.filter((n) => n && cardKey(n) !== cardKey(deck.commander ?? "")).length;
         const odds = lacking ? undefined : chanceAllSeen(inLibrary, librarySize, cardsSeenByTurn(ODDS_TURN));
         return (
-          <li key={combo.id} className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
+          <li key={combo.id} className="rounded-lg border border-line p-3">
             <div className="flex flex-wrap items-start gap-2">
               <span aria-hidden className="mt-1.5 size-2.5 shrink-0 rounded-full" style={{ background: COMBO_COLORS[(i + colorOffset) % COMBO_COLORS.length] }} />
               <p className="min-w-0 flex-1 font-medium">{combo.results.slice(0, 3).join(" · ") || "Combo"}</p>
@@ -183,13 +183,13 @@ export function CombosList({
                 <button
                   type="button"
                   onClick={() => onWalk(combo)}
-                  className="h-7 rounded-lg border border-zinc-300 px-2.5 text-xs font-medium hover:border-amber-500 dark:border-zinc-700"
+                  className="h-7 rounded-lg border border-line-strong px-2.5 text-xs font-medium hover:border-foreground/30"
                 >
                   ▶ Walk through
                 </button>
               )}
               {odds !== undefined && (
-                <span className="text-xs text-zinc-500 tabular-nums" title={`Chance to draw every piece by turn ${ODDS_TURN}, without tutors`}>
+                <span className="text-xs text-muted tabular-nums" title={`Chance to draw every piece by turn ${ODDS_TURN}, without tutors`}>
                   {formatPercent(odds)} by turn {ODDS_TURN}
                 </span>
               )}
@@ -198,7 +198,7 @@ export function CombosList({
                   href={combo.edhrecUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-xs text-zinc-500 tabular-nums hover:text-amber-700 hover:underline dark:hover:text-amber-400"
+                  className="text-xs text-muted tabular-nums hover:underline"
                   title="EDHREC lists this combo for your commander"
                 >
                   EDHREC: {formatCount(combo.edhrecDecks)} decks ↗
@@ -210,7 +210,7 @@ export function CombosList({
                 <PieceChip key={name} name={pieces[pi] ?? name} lacking={!pieces[pi]} onOpen={pieces[pi] ? onOpen : undefined} />
               ))}
               {combo.templates.map((t) => (
-                <span key={t} className="rounded-md border border-dashed border-zinc-300 px-2 py-0.5 text-xs text-zinc-500 dark:border-zinc-700">
+                <span key={t} className="rounded-md border border-dashed border-line-strong px-2 py-0.5 text-xs text-muted">
                   any {t}
                 </span>
               ))}
@@ -225,7 +225,7 @@ export function CombosList({
                       type="button"
                       disabled={inDeck(card.name)}
                       onClick={() => onAdd(card)}
-                      className="h-7 rounded-lg bg-amber-500 px-2.5 text-xs font-medium text-zinc-950 hover:bg-amber-400 disabled:border disabled:border-emerald-600 disabled:bg-transparent disabled:text-emerald-700 dark:disabled:text-emerald-400"
+                      className="h-7 rounded-lg bg-foreground px-2.5 text-xs font-medium text-background hover:bg-foreground/85 disabled:border disabled:border-emerald-600 disabled:bg-transparent disabled:text-emerald-700 dark:disabled:text-emerald-400"
                     >
                       {inDeck(card.name) ? `${name} in deck ✓` : `+ Add ${name}`}
                     </button>
@@ -235,9 +235,9 @@ export function CombosList({
               )}
             </div>
             <details className="mt-2 text-sm">
-              <summary className="cursor-pointer text-xs text-amber-700 dark:text-amber-400">How it works</summary>
+              <summary className="cursor-pointer text-xs text-accent">How it works</summary>
               {combo.prerequisites && (
-                <p className="mt-2 text-xs whitespace-pre-line text-zinc-600 dark:text-zinc-400">
+                <p className="mt-2 text-xs whitespace-pre-line text-muted">
                   <span className="font-semibold">First: </span>
                   {combo.prerequisites}
                 </p>
@@ -250,8 +250,8 @@ export function CombosList({
                     <li key={si}>{step}</li>
                   ))}
               </ol>
-              {combo.manaNeeded && <p className="mt-2 text-xs text-zinc-500">Mana needed: {combo.manaNeeded}</p>}
-              <a href={combo.url} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block text-xs text-amber-700 hover:underline dark:text-amber-400">
+              {combo.manaNeeded && <p className="mt-2 text-xs text-muted">Mana needed: {combo.manaNeeded}</p>}
+              <a href={combo.url} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block text-xs link">
                 View on Commander Spellbook ↗
               </a>
             </details>
@@ -266,8 +266,8 @@ function PieceChip({ name, lacking, onOpen }: { name: string; lacking: boolean; 
   const { trigger, preview } = useHoverPreview(name);
   const className = `inline-flex items-center rounded-md border px-2 py-0.5 text-xs ${
     lacking
-      ? "border-dashed border-amber-500 text-amber-800 dark:text-amber-300"
-      : "border-zinc-200 bg-white hover:border-amber-500 dark:border-zinc-700 dark:bg-zinc-900"
+      ? "border-dashed border-accent text-accent"
+      : "border-line bg-background hover:border-foreground/30  "
   }`;
   return (
     <>

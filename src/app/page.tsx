@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Suspense } from "react";
 import { CardSearch } from "@/components/card-search";
 import { MarketTrendsSection } from "@/components/market-trends";
@@ -25,55 +26,63 @@ const sources = [
 
 export default function Home(props: PageProps<"/">) {
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-16 px-4 py-16 sm:px-6">
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-12">
+    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-24 px-4 pt-20 pb-24 sm:px-6">
+      <div className="flex w-full max-w-2xl flex-col gap-10">
         <div className="flex flex-col gap-4">
-          <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
+          <p className="eyebrow">Commander, priced in pesos</p>
+          <h1 className="text-[2.5rem] leading-[1.05] font-semibold tracking-[-0.035em] sm:text-[3.25rem]">
             Build your Commander deck at local prices.
           </h1>
-          <p className="max-w-xl text-lg text-zinc-600 dark:text-zinc-400">
-            Search any card once. We check Scryfall, EDHREC and TCGph and put the results
-            on one page.
+          <p className="max-w-lg text-[1.0625rem] leading-relaxed text-muted">
+            Search any card once. We check Scryfall, EDHREC and TCGph and put the results on one page.
           </p>
         </div>
 
         <CardSearch />
 
-        <ul className="grid gap-4 sm:grid-cols-3">
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <Link href="/decks/new" className="btn btn-primary">
+            Create a Commander deck
+          </Link>
+          <Link href="/binder" className="btn btn-secondary">
+            Open your binder
+          </Link>
+        </div>
+
+        <dl className="grid gap-6 border-t border-line pt-8 sm:grid-cols-3">
           {sources.map((source) => (
-            <li
-              key={source.title}
-              className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800"
-            >
-              <h2 className="font-medium">{source.title}</h2>
-              <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{source.body}</p>
-            </li>
+            <div key={source.title}>
+              <dt className="text-sm font-medium">{source.title}</dt>
+              <dd className="mt-1 text-sm leading-relaxed text-muted">{source.body}</dd>
+            </div>
           ))}
-        </ul>
+        </dl>
       </div>
 
-      <section id="trends" className="flex scroll-mt-6 flex-col gap-6">
+      <section id="trends" className="flex scroll-mt-20 flex-col gap-6">
         <div>
-          <h2 className="text-2xl font-semibold tracking-tight">Price trends</h2>
-          <p className="mt-1 text-zinc-600 dark:text-zinc-400">
+          <p className="eyebrow">Market</p>
+          <h2 className="mt-1 text-2xl font-semibold">Price trends</h2>
+          <p className="mt-1 max-w-2xl text-muted">
             Cards whose market price jumped the most lately, and what the cheapest copy costs in Philippine stores
             right now.
           </p>
         </div>
-        <Suspense fallback={<p className="text-sm text-zinc-500">Loading price trends…</p>}>
+        <Suspense fallback={<p className="text-sm text-muted">Loading price trends…</p>}>
           <MarketTrendsSection />
         </Suspense>
       </section>
 
-      <section id="theme" className="flex scroll-mt-6 flex-col gap-6">
+      <section id="theme" className="flex scroll-mt-20 flex-col gap-6">
         <div>
-          <h2 className="text-2xl font-semibold tracking-tight">Browse by deck theme</h2>
-          <p className="mt-1 text-zinc-600 dark:text-zinc-400">
+          <p className="eyebrow">Explore</p>
+          <h2 className="mt-1 text-2xl font-semibold">Browse by deck theme</h2>
+          <p className="mt-1 max-w-2xl text-muted">
             Pick an archetype to see the commanders most often built around it on EDHREC, and the cards
             those decks play. The number on each theme is how many decks use it.
           </p>
         </div>
-        <Suspense fallback={<p className="text-sm text-zinc-500">Loading themes…</p>}>
+        <Suspense fallback={<p className="text-sm text-muted">Loading themes…</p>}>
           <Themes searchParams={props.searchParams} />
         </Suspense>
       </section>

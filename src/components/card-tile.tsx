@@ -11,7 +11,7 @@ export function CardTile({ name, imageUrl, children }: { name: string; imageUrl?
   return (
     <div className="min-w-0">
       <CardLink name={name} className="group block" tag={false}>
-        <div className="relative aspect-[488/680] overflow-hidden rounded-[4.75%] bg-zinc-200 transition-opacity group-hover:opacity-90 dark:bg-zinc-800">
+        <div className="relative aspect-[488/680] overflow-hidden rounded-[4.75%] bg-subtle transition-opacity group-hover:opacity-90">
           {imageUrl ? <RetryingImage url={imageUrl} alt={name} /> : <ImageNote text="No image available" />}
           <GameChangerTag name={name} className="absolute top-[7%] left-[6%] shadow" />
         </div>

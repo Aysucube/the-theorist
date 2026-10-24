@@ -47,7 +47,7 @@ export function CardOverview({ lookup }: { lookup: ScryfallLookup }) {
             href={card.scryfallUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-sm text-amber-400 hover:underline"
+            className="text-sm link text-white"
           >
             View on Scryfall ↗
           </a>
@@ -61,7 +61,7 @@ export function CardOverview({ lookup }: { lookup: ScryfallLookup }) {
                 <li key={name}>
                   <CardLink
                     name={name}
-                    className="inline-block rounded-full border border-zinc-500 bg-zinc-950/60 px-3 py-1 hover:border-amber-500"
+                    className="inline-block rounded-full border border-zinc-500 bg-zinc-950/60 px-3 py-1 hover:border-foreground/30"
                   />
                 </li>
               ))}

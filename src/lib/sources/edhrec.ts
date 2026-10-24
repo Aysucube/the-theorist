@@ -7,6 +7,7 @@ import type {
   EdhrecCardStats,
   EdhrecCombo,
   EdhrecCommanderStats,
+  EdhrecDeckAverages,
   EdhrecTheme,
   EdhrecThemePage,
 } from "@/lib/types";
@@ -31,6 +32,18 @@ interface RawCardView {
 export interface RawPage {
   /** The page's title, e.g. a theme's name. */
   header?: string;
+  /** On commander pages: what its average deck holds. */
+  land?: number;
+  basic?: number;
+  nonbasic?: number;
+  creature?: number;
+  instant?: number;
+  sorcery?: number;
+  artifact?: number;
+  enchantment?: number;
+  planeswalker?: number;
+  battle?: number;
+  bracket_counts?: Record<string, number>;
   /** Set instead of data when EDHREC sends a name to its canonical page, e.g. "/cards/fire-ice". */
   redirect?: string;
   /** Names of cards EDHREC considers similar (e.g. other mana rocks for Sol Ring). */
@@ -188,12 +201,31 @@ export function parseCommanderStats(page: RawPage, path: string): EdhrecCommande
     t.value && t.slug && /^[a-z0-9-]+$/.test(t.slug) ? [{ name: t.value, slug: t.slug, numDecks: t.count ?? 0 }] : [],
   );
 
+  const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
+  const averages: EdhrecDeckAverages | undefined =
+    typeof page.land === "number"
+      ? {
+          lands: num(page.land),
+          basics: num(page.basic),
+          nonbasics: num(page.nonbasic),
+          creatures: num(page.creature),
+          instants: num(page.instant),
+          sorceries: num(page.sorcery),
+          artifacts: num(page.artifact),
+          enchantments: num(page.enchantment),
+          planeswalkers: num(page.planeswalker),
+          battles: num(page.battle),
+        }
+      : undefined;
+
   return {
     url: `${SITE}/${path}`,
     numDecks: dict.card.num_decks ?? 0,
     rank: dict.card.rank,
     lists,
     themes,
+    averages,
+    bracketCounts: page.bracket_counts && typeof page.bracket_counts === "object" ? page.bracket_counts : undefined,
   };
 }
 

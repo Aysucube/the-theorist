@@ -56,7 +56,7 @@ export async function EdhrecPanel({ card }: { card: ScryfallCard }) {
               Played in <strong>{formatPercent(cardStats.inclusion)}</strong> of decks that
               could run it
             </p>
-            <p className="text-sm text-zinc-500">
+            <p className="text-sm text-muted">
               {formatCount(cardStats.numDecks)} of {formatCount(cardStats.potentialDecks)} decks
               {cardStats.salt !== undefined && ` · Salt score ${cardStats.salt.toFixed(2)}`}
             </p>
@@ -67,7 +67,7 @@ export async function EdhrecPanel({ card }: { card: ScryfallCard }) {
           <p className="text-lg">
             Leads <strong>{formatCount(commanderStats.numDecks)}</strong> decks on EDHREC
             {commanderStats.rank && (
-              <span className="text-zinc-500"> · #{formatCount(commanderStats.rank)} commander</span>
+              <span className="text-muted"> · #{formatCount(commanderStats.rank)} commander</span>
             )}
           </p>
         )}
@@ -76,7 +76,7 @@ export async function EdhrecPanel({ card }: { card: ScryfallCard }) {
           <div className="flex flex-col gap-3">
             <div>
               <h3 className="font-medium">Recommended cards for this commander</h3>
-              <p className="text-xs text-zinc-500">
+              <p className="text-xs text-muted">
                 First number: share of this commander’s decks that run the card. Colored
                 number: synergy, how much more often it appears here than in other decks.
                 “Check ₱” looks up the cheapest Philippine price on TCGph.
@@ -109,20 +109,20 @@ export function CardList({
   showSynergy?: boolean;
 }) {
   return (
-    <details open={open} className="group rounded-lg border border-zinc-200 dark:border-zinc-800">
+    <details open={open} className="group rounded-lg border border-line">
       <summary className="cursor-pointer px-3 py-2 font-medium">
-        {title} <span className="text-sm font-normal text-zinc-500">({cards.length})</span>
+        {title} <span className="text-sm font-normal text-muted">({cards.length})</span>
       </summary>
       {/* grid-cols-1 (not the default auto column) lets long card names truncate on phones. */}
       <ul className="grid grid-cols-1 gap-x-4 px-3 pb-3 sm:grid-cols-2">
         {cards.slice(0, PER_LIST).map((c) => (
           <li
             key={c.name}
-            className="flex items-center gap-3 border-b border-zinc-100 py-1.5 text-sm last:border-0 dark:border-zinc-900"
+            className="flex items-center gap-3 border-b border-line py-1.5 text-sm last:border-0"
           >
             <AddToDeckToggle name={c.name} />
             <CardLink name={c.name} className="min-w-0 flex-1 truncate hover:underline" />
-            <span className="shrink-0 text-xs tabular-nums text-zinc-500">
+            <span className="shrink-0 text-xs tabular-nums text-muted">
               {c.inclusion !== undefined && formatPercent(c.inclusion)}
               {showSynergy && c.synergy !== undefined && (
                 <span className={c.synergy >= 0 ? "text-emerald-600" : "text-red-600"}>

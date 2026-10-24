@@ -82,12 +82,12 @@ export function InteractionsPopover({
       aria-label={`${card.name}: interactions`}
       tabIndex={-1}
       style={{ left: position?.left ?? 0, top: position?.top ?? 0, width: `min(${WIDTH}px, calc(100vw - 24px))` }}
-      className={`absolute z-40 flex max-h-[80vh] flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white text-sm shadow-2xl outline-none dark:border-zinc-700 dark:bg-zinc-900 ${
+      className={`absolute z-40 flex max-h-[80vh] flex-col overflow-hidden rounded-xl border border-line bg-background text-sm shadow-2xl outline-none   ${
         position ? "" : "invisible"
       }`}
     >
-      <div className="flex gap-3 border-b border-zinc-200 p-3 dark:border-zinc-800">
-        <div className="aspect-[488/680] w-30 shrink-0 overflow-hidden rounded-[4.75%] bg-zinc-200 dark:bg-zinc-800">
+      <div className="flex gap-3 border-b border-line p-3">
+        <div className="aspect-[488/680] w-30 shrink-0 overflow-hidden rounded-[4.75%] bg-subtle">
           {card.imageUrl && <RetryingImage url={card.imageUrl} alt={card.name} />}
         </div>
         <div className="min-w-0 flex-1">
@@ -96,19 +96,19 @@ export function InteractionsPopover({
               {card.name}
               <GameChangerTag name={card.name} className="ml-1.5" />
             </p>
-            <button type="button" onClick={onClose} aria-label="Close" className="-mt-1 -mr-1 rounded px-1.5 text-lg leading-none text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100">
+            <button type="button" onClick={onClose} aria-label="Close" className="-mt-1 -mr-1 rounded px-1.5 text-lg leading-none text-muted hover:text-foreground">
               ×
             </button>
           </div>
           {card.manaCost && <ManaCost cost={card.manaCost.split(" // ")[0]} />}
-          <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">{card.typeLine}</p>
-          <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
+          <p className="mt-1 text-xs text-muted">{card.typeLine}</p>
+          <p className="mt-1 text-xs text-muted">
             <ColorIdentity colors={card.colorIdentity} />
           </p>
         </div>
       </div>
 
-      <div role="tablist" className="flex border-b border-zinc-200 dark:border-zinc-800">
+      <div role="tablist" className="flex border-b border-line">
         {(["interactions", "rulings"] as const).map((v) => (
           <button
             key={v}
@@ -116,7 +116,7 @@ export function InteractionsPopover({
             role="tab"
             aria-selected={view === v}
             onClick={() => setView(v)}
-            className={`flex-1 px-3 py-2 text-sm font-medium ${view === v ? "border-b-2 border-amber-500" : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"}`}
+            className={`flex-1 px-3 py-2 text-sm font-medium ${view === v ? "border-b-2 border-foreground" : "text-muted hover:text-foreground"}`}
           >
             {v === "interactions"
               ? "Interacts with"
@@ -140,7 +140,7 @@ export function InteractionsPopover({
                 ))}
               </ul>
             ) : (
-              <p className="text-xs text-zinc-500">Nothing in its rules text points at other cards in your deck.</p>
+              <p className="text-xs text-muted">Nothing in its rules text points at other cards in your deck.</p>
             )}
           </section>
 
@@ -159,7 +159,7 @@ export function InteractionsPopover({
             <h3 className="mb-1 font-semibold">EDHREC: played with it</h3>
             {pairingsMessage(pairings) ?? (
               <>
-                <p className="mb-2 text-xs text-zinc-500">
+                <p className="mb-2 text-xs text-muted">
                   {edhrec.length > 0
                     ? `${edhrec.length} of your cards show up with it more often than usual in EDHREC decks.`
                     : pairings?.state === "done" && !pairings.result.found
@@ -180,11 +180,11 @@ export function InteractionsPopover({
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-3 border-t border-zinc-200 p-3 dark:border-zinc-800">
-        <button type="button" onClick={onOpenMap} className="h-9 rounded-lg bg-amber-500 px-3 text-sm font-medium text-zinc-950 hover:bg-amber-400">
+      <div className="flex flex-wrap items-center gap-3 border-t border-line p-3">
+        <button type="button" onClick={onOpenMap} className="h-9 rounded-lg bg-foreground px-3 text-sm font-medium text-background hover:bg-foreground/85">
           Open synergy map
         </button>
-        <button type="button" onClick={onRemove} className="text-xs text-zinc-500 hover:text-red-700 hover:underline dark:hover:text-red-400">
+        <button type="button" onClick={onRemove} className="text-xs text-muted hover:text-red-700 hover:underline dark:hover:text-red-400">
           Remove from deck
         </button>
       </div>

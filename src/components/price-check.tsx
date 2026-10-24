@@ -42,7 +42,7 @@ export function PriceCheck({ name }: { name: string }) {
         disabled={busy}
         title={state.status === "waiting" ? `Waiting because ${state.reason}` : undefined}
         aria-label={`Check Philippine price for ${name}`}
-        className="rounded-full border border-zinc-300 px-2 py-0.5 text-xs font-medium whitespace-nowrap text-zinc-700 transition-colors hover:border-amber-500 hover:text-amber-700 disabled:cursor-wait disabled:opacity-60 dark:border-zinc-700 dark:text-zinc-300 dark:hover:text-amber-400"
+        className="rounded-full border border-line-strong px-2 py-0.5 text-xs font-medium whitespace-nowrap text-foreground/80 transition-colors hover:border-foreground/30 hover:text-foreground disabled:cursor-wait disabled:opacity-60"
       >
         {label}
       </button>
@@ -53,11 +53,11 @@ export function PriceCheck({ name }: { name: string }) {
 /** A checked price: "₱90 Vault", linking to the card on TCGph. */
 export function PriceLabel({ result }: { result: PriceResponse }) {
   if (!result.found) {
-    return <span className="text-xs text-zinc-500">Not on TCGph</span>;
+    return <span className="text-xs text-muted">Not on TCGph</span>;
   }
   if (!result.cheapest) {
     return (
-      <a href={result.url} target="_blank" rel="noopener noreferrer" className="text-xs text-zinc-500 hover:underline">
+      <a href={result.url} target="_blank" rel="noopener noreferrer" className="text-xs text-muted hover:underline">
         Out of stock
       </a>
     );
@@ -78,7 +78,7 @@ export function PriceLabel({ result }: { result: PriceResponse }) {
       </span>
       <span className="sr-only"> cheapest at</span>{" "}
       {/* TCGph's short shop code, e.g. "HMO" or "Vault". */}
-      <span className="text-zinc-600 dark:text-zinc-400">{store}</span>
+      <span className="text-muted">{store}</span>
       <span className="sr-only">, {stores}</span>
     </a>
   );

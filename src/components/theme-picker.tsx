@@ -37,13 +37,13 @@ export function ThemePicker({ themes, selected }: { themes: EdhrecTheme[]; selec
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           placeholder={`Filter ${formatCount(themes.length)} themes, e.g. “elves” or “landfall”`}
-          className="h-10 w-full max-w-sm rounded-lg border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30 dark:border-zinc-700 dark:bg-zinc-900"
+          className="h-10 w-full max-w-sm rounded-lg border border-line-strong bg-background px-3 text-sm outline-none focus:border-foreground/40 focus:ring-4 focus:ring-foreground/5"
         />
         {!query && (
           <button
             type="button"
             onClick={() => setShowAll(!showAll)}
-            className="text-sm text-amber-700 hover:underline dark:text-amber-400"
+            className="text-sm link"
           >
             {showAll ? "Show popular themes only" : `Show all ${formatCount(themes.length)} themes`}
           </button>
@@ -51,7 +51,7 @@ export function ThemePicker({ themes, selected }: { themes: EdhrecTheme[]; selec
       </div>
 
       {list.length === 0 ? (
-        <p className="text-sm text-zinc-500">No themes match “{filter}”.</p>
+        <p className="text-sm text-muted">No themes match “{filter}”.</p>
       ) : (
         <ul className="flex max-h-72 flex-wrap gap-2 overflow-y-auto">
           {list.map((theme) => {
@@ -65,12 +65,12 @@ export function ThemePicker({ themes, selected }: { themes: EdhrecTheme[]; selec
                   aria-current={active ? "page" : undefined}
                   className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm ${
                     active
-                      ? "border-amber-500 bg-amber-500 text-zinc-950"
-                      : "border-zinc-300 hover:border-amber-500 dark:border-zinc-700"
+                      ? "border-foreground bg-foreground text-background"
+                      : "border-line-strong hover:border-foreground/30 "
                   }`}
                 >
                   {theme.name}
-                  <span className={`text-xs tabular-nums ${active ? "text-zinc-800" : "text-zinc-500"}`}>
+                  <span className={`text-xs tabular-nums ${active ? "text-zinc-800" : "text-muted"}`}>
                     {formatCount(theme.numDecks)}
                   </span>
                 </Link>

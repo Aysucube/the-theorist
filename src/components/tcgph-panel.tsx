@@ -20,7 +20,7 @@ export async function TcgphPanel({ card }: { card: ScryfallCard }) {
     return (
       <Panel title={TITLE} source="TCGph">
         <SourceMessage>Couldn’t reach TCGph right now. Try again in a bit.</SourceMessage>
-        <p className="mt-1 text-xs text-zinc-500">Reason: {reason}</p>
+        <p className="mt-1 text-xs text-muted">Reason: {reason}</p>
       </Panel>
     );
   }
@@ -57,20 +57,20 @@ export async function TcgphPanel({ card }: { card: ScryfallCard }) {
       <ListingTable rows={top} />
       {rest.length > 0 && (
         <details className="mt-2">
-          <summary className="cursor-pointer text-sm text-amber-700 dark:text-amber-400">
+          <summary className="cursor-pointer text-sm text-accent">
             Show {rest.length} more
           </summary>
           <ListingTable rows={rest} />
         </details>
       )}
       {unlisted > 0 && (
-        <p className="mt-2 text-sm text-zinc-500">
+        <p className="mt-2 text-sm text-muted">
           Showing the {formatCount(MAX_LISTED)} cheapest of {formatCount(rows.length)} listings.{" "}
           <a
             href={prices.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-amber-700 hover:underline dark:text-amber-400"
+            className="link"
           >
             See all on TCGph ↗
           </a>
@@ -82,8 +82,8 @@ export async function TcgphPanel({ card }: { card: ScryfallCard }) {
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg bg-zinc-100 px-3 py-2 dark:bg-zinc-900">
-      <dt className="text-xs text-zinc-500">{label}</dt>
+    <div className="rounded-lg bg-subtle px-3 py-2">
+      <dt className="text-xs text-muted">{label}</dt>
       <dd className="text-lg font-semibold">{value}</dd>
     </div>
   );
@@ -94,8 +94,8 @@ function Stat({ label, value }: { label: string; value: string }) {
 function ListingTable({ rows }: { rows: TcgphPrice[] }) {
   return (
     <table className="w-full text-left text-sm">
-      <thead className="text-xs text-zinc-500">
-        <tr className="border-b border-zinc-200 dark:border-zinc-800">
+      <thead className="text-xs text-muted">
+        <tr className="border-b border-line">
           <th className="py-2 pr-3 font-medium">Price</th>
           <th className="py-2 pr-3 font-medium">Store</th>
           <th className="py-2 pr-3 font-medium">Printing</th>
@@ -107,7 +107,7 @@ function ListingTable({ rows }: { rows: TcgphPrice[] }) {
         {rows.map(({ print, listing }) => (
           <tr
             key={listing.listingId}
-            className="border-b border-zinc-100 align-top last:border-0 dark:border-zinc-900"
+            className="border-b border-line align-top last:border-0"
           >
             <td className="py-2 pr-3 font-semibold whitespace-nowrap tabular-nums">
               {formatPhp(listing.pricePhp)}
@@ -117,7 +117,7 @@ function ListingTable({ rows }: { rows: TcgphPrice[] }) {
                 href={listing.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="whitespace-nowrap text-amber-700 hover:underline dark:text-amber-400"
+                className="whitespace-nowrap link"
               >
                 {listing.store} ↗
               </a>
@@ -126,7 +126,7 @@ function ListingTable({ rows }: { rows: TcgphPrice[] }) {
               <a href={print.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
                 {print.setName}
               </a>
-              <span className="block text-xs text-zinc-500">
+              <span className="block text-xs text-muted">
                 {[print.setCode && `${print.setCode} #${print.collectorNumber}`, print.finish, print.language]
                   .filter(Boolean)
                   .join(" · ")}

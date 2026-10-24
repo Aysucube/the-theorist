@@ -37,11 +37,11 @@ export function RetryingImage({
 
 export function ImageNote({ text, spinner }: { text: string; spinner?: boolean }) {
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-2 p-3 text-center text-[11px] text-zinc-500">
+    <div className="flex h-full flex-col items-center justify-center gap-2 p-3 text-center text-[11px] text-muted">
       {spinner && (
         <span
           aria-hidden
-          className="size-5 animate-spin rounded-full border-2 border-zinc-300 border-t-amber-500 dark:border-zinc-600 dark:border-t-amber-400"
+          className="size-5 spinner"
         />
       )}
       {text}

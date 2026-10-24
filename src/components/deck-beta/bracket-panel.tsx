@@ -29,11 +29,11 @@ export function BracketSection({
 }) {
   const info = BRACKET_INFO[target];
   return (
-    <section className="flex flex-col gap-4 rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
+    <section className="flex flex-col gap-4 rounded-xl border border-line p-4">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <h3 className="font-semibold">Bracket</h3>
         <span className={`rounded-full px-2.5 py-0.5 text-sm font-semibold ${BRACKET_STYLE[report.bracket]}`}>{bracketLabel(report)}</span>
-        <span className="text-sm text-zinc-500">
+        <span className="text-sm text-muted">
           {BRACKET_INFO[report.bracket].name}
           {report.spellbook && ` · Commander Spellbook says Bracket ${report.spellbook}`}
           {checking && " · still checking combos…"}
@@ -42,7 +42,7 @@ export function BracketSection({
 
       <div className="grid gap-4 md:grid-cols-2">
         <div>
-          <p className="mb-1 text-xs font-semibold tracking-wide text-zinc-500 uppercase">Why</p>
+          <p className="mb-1 text-xs font-semibold tracking-wide text-muted uppercase">Why</p>
           <ul className="list-disc space-y-1 pl-5 text-sm">
             {report.reasons.map((r) => (
               <li key={r.text}>{r.text}</li>
@@ -58,7 +58,7 @@ export function BracketSection({
         </div>
         {report.nearing && (
           <div>
-            <p className="mb-1 text-xs font-semibold tracking-wide text-zinc-500 uppercase">Close to Bracket {report.nearing}</p>
+            <p className="mb-1 text-xs font-semibold tracking-wide text-muted uppercase">Close to Bracket {report.nearing}</p>
             <ul className="list-disc space-y-1 pl-5 text-sm">
               {report.nearingReasons.map((text) => (
                 <li key={text}>{text}</li>
@@ -79,15 +79,15 @@ export function BracketSection({
               aria-checked={b === target}
               onClick={() => onTarget(b)}
               className={`rounded-lg border px-3 py-1.5 text-left text-sm ${
-                b === target ? "border-amber-500 bg-amber-500 text-zinc-950" : "border-zinc-300 hover:border-amber-500 dark:border-zinc-700"
+                b === target ? "border-foreground bg-foreground text-background" : "border-line-strong hover:border-foreground/30 "
               }`}
             >
-              <span className="font-semibold">Bracket {b}</span> <span className={b === target ? "text-zinc-800" : "text-zinc-500"}>{BRACKET_INFO[b].name}</span>
-              {b === report.bracket && <span className={`ml-1 text-xs ${b === target ? "text-zinc-800" : "text-zinc-500"}`}>(your deck)</span>}
+              <span className="font-semibold">Bracket {b}</span> <span className={b === target ? "text-zinc-800" : "text-muted"}>{BRACKET_INFO[b].name}</span>
+              {b === report.bracket && <span className={`ml-1 text-xs ${b === target ? "text-zinc-800" : "text-muted"}`}>(your deck)</span>}
             </button>
           ))}
         </div>
-        <p className="mt-2 text-xs text-zinc-500">
+        <p className="mt-2 text-xs text-muted">
           {info.rules} Games usually last {info.turns}.
           {target === 1 && " Bracket 1 is also about building around a theme rather than winning, which a list can't show."}
           {target === 5 && " Bracket 5 is about intent: a deck tuned to win as fast as possible for a competitive table."}
@@ -107,10 +107,10 @@ function PathToTarget({ report, path, onOpen }: { report: BracketReport; path: B
         <p className="text-sm font-medium">To fit Bracket {target}, cut:</p>
         <ul className="mt-2 flex flex-col gap-2">
           {path.cuts.map((group) => (
-            <li key={group.why} className="rounded-lg bg-zinc-50 p-2.5 dark:bg-zinc-900">
+            <li key={group.why} className="rounded-lg bg-surface p-2.5">
               <p className="text-sm">
                 {group.why}{" "}
-                <span className="text-zinc-500">
+                <span className="text-muted">
                   {group.cut >= group.cards.length ? (group.cards.length === 1 ? "Cut it." : "Cut them all.") : `Cut ${formatCount(group.cut)} of these.`}
                 </span>
               </p>
@@ -122,7 +122,7 @@ function PathToTarget({ report, path, onOpen }: { report: BracketReport; path: B
             </li>
           ))}
         </ul>
-        <p className="mt-2 text-xs text-zinc-500">The upgrades below leave out anything above Bracket {target}, so they can fill the gaps the cuts leave.</p>
+        <p className="mt-2 text-xs text-muted">The upgrades below leave out anything above Bracket {target}, so they can fill the gaps the cuts leave.</p>
       </div>
     );
   }
@@ -157,7 +157,7 @@ function NameChip({ name, onOpen }: { name: string; onOpen: (name: string) => vo
           trigger.onClick();
           onOpen(name);
         }}
-        className="inline-flex items-center gap-1 rounded-md border border-zinc-200 bg-white px-2 py-0.5 text-xs hover:border-amber-500 dark:border-zinc-700 dark:bg-zinc-900"
+        className="inline-flex items-center gap-1 rounded-md border border-line bg-background px-2 py-0.5 text-xs hover:border-foreground/30"
       >
         {name}
         <GameChangerTag name={name} compact />

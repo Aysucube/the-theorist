@@ -10,8 +10,8 @@ export function BetaRulings({ card, size }: { card: CardDetails; size?: "sm" | "
 
   if (!state || state.state === "loading" || state.state === "waiting") {
     return (
-      <p className="flex items-center gap-2 text-xs text-zinc-500">
-        <span aria-hidden className="size-4 animate-spin rounded-full border-2 border-zinc-300 border-t-amber-500 dark:border-zinc-600 dark:border-t-amber-400" />
+      <p className="flex items-center gap-2 text-xs text-muted">
+        <span aria-hidden className="size-4 spinner" />
         {state?.state === "waiting"
           ? `Waiting ${state.seconds}s because ${state.reason}, then trying again…`
           : "Loading rulings…"}
@@ -20,14 +20,14 @@ export function BetaRulings({ card, size }: { card: CardDetails; size?: "sm" | "
   }
   if (state.state === "error") {
     return (
-      <p className="text-xs text-zinc-500">
+      <p className="text-xs text-muted">
         Couldn’t load rulings after several tries.{" "}
-        <button type="button" onClick={() => requestRulings(card)} className="text-amber-700 underline dark:text-amber-400">
+        <button type="button" onClick={() => requestRulings(card)} className="link">
           Try again
         </button>
       </p>
     );
   }
-  if (!state.result.found) return <p className="text-xs text-zinc-500">Scryfall couldn’t find this card’s rulings.</p>;
+  if (!state.result.found) return <p className="text-xs text-muted">Scryfall couldn’t find this card’s rulings.</p>;
   return <RulingsList rulings={state.result.rulings} size={size} />;
 }

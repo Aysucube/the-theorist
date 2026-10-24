@@ -39,7 +39,7 @@ export async function ThemeResults({ slug }: { slug: string }) {
   return (
     <div className="flex flex-col gap-8">
       <Panel title={`${theme.name} commanders`} source="EDHREC" sourceUrl={theme.url}>
-        <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="mb-4 text-sm text-muted">
           {formatCount(theme.numDecks)} decks on EDHREC are built around {theme.name}. These commanders lead the
           most of them. Open one for its own recommendations and Philippine prices.
         </p>
@@ -50,7 +50,7 @@ export async function ThemeResults({ slug }: { slug: string }) {
             {theme.commanders.map((c) => (
               <li key={c.name}>
                 <CardTile name={c.name} imageUrl={info[c.name]?.imageUrl}>
-                  <span className="text-zinc-600 tabular-nums dark:text-zinc-400">{formatCount(c.numDecks)} decks</span>
+                  <span className="text-muted tabular-nums">{formatCount(c.numDecks)} decks</span>
                 </CardTile>
               </li>
             ))}
@@ -59,7 +59,7 @@ export async function ThemeResults({ slug }: { slug: string }) {
       </Panel>
 
       <Panel title={`Recommended ${theme.name} cards`} source="EDHREC" sourceUrl={theme.url}>
-        <p className="mb-4 text-xs text-zinc-500">
+        <p className="mb-4 text-xs text-muted">
           First number: share of {theme.name} decks that run the card. Colored number: synergy, how much more often
           it shows up in these decks than in others. “Check ₱” looks up the cheapest Philippine price on TCGph.
         </p>

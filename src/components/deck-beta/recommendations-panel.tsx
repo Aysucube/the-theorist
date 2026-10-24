@@ -162,7 +162,7 @@ export function RecommendationsPanel({
 
       <section>
         <h3 className="font-semibold">Quadrant Theory</h3>
-        <p className="mb-3 text-xs text-zinc-500">
+        <p className="mb-3 text-xs text-muted">
           Every card is good at some stage of a game: while everyone builds up, when you’re behind, when the board is
           stuck, or when you’re ahead. The more quadrants a card fits, the better it is; Sol Ring fits only Developing
           and is still worth playing for how strong it is there. Read from each card’s rules text, so it’s a guide: the
@@ -178,16 +178,16 @@ export function RecommendationsPanel({
       <div className="grid gap-8 lg:grid-cols-2">
         <section>
           <h3 className="font-semibold">What your deck has</h3>
-          <p className="mb-3 text-xs text-zinc-500">
+          <p className="mb-3 text-xs text-muted">
             Each job against a rough guide for a 100-card deck. Open a row for the cards doing it.
           </p>
           <JobMeters profile={profile} onOpen={onOpen} />
         </section>
         <section>
           <h3 className="font-semibold">Your most flexible cards</h3>
-          <p className="mb-3 text-xs text-zinc-500">Cards that fit two or more quadrants: good in more games, keep these.</p>
+          <p className="mb-3 text-xs text-muted">Cards that fit two or more quadrants: good in more games, keep these.</p>
           {profile.flexible.length === 0 ? (
-            <p className="text-sm text-zinc-500">None yet. Cards that do two jobs (like a creature that ramps and draws) show here.</p>
+            <p className="text-sm text-muted">None yet. Cards that do two jobs (like a creature that ramps and draws) show here.</p>
           ) : (
             <CardChips names={[...profile.flexible].sort((a, b) => quadrantsFor(profile, b).length - quadrantsFor(profile, a).length || a.localeCompare(b))} profile={profile} onOpen={onOpen} />
           )}
@@ -197,7 +197,7 @@ export function RecommendationsPanel({
       <section className="flex flex-col gap-5">
         <div>
           <h3 className="font-semibold">Upgrades for Bracket {target}</h3>
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-muted">
             Cards from EDHREC’s {commander?.name ?? "commander’s"} decks that fill what your deck is short on, most
             played and highest synergy first, with cards that fit more quadrants ranked up
             {target >= 4 ? " and stronger cards (Game Changers, tutors, fast mana, free spells) ranked higher still" : ""}.
@@ -205,7 +205,7 @@ export function RecommendationsPanel({
             {found && (
               <>
                 {" "}
-                <a href={found.url} target="_blank" rel="noopener noreferrer" className="text-amber-700 hover:underline dark:text-amber-400">
+                <a href={found.url} target="_blank" rel="noopener noreferrer" className="link">
                   View on EDHREC ↗
                 </a>
               </>
@@ -213,21 +213,21 @@ export function RecommendationsPanel({
           </p>
         </div>
         {!commander ? (
-          <p className="text-sm text-zinc-500">Pick a commander to see upgrades.</p>
+          <p className="text-sm text-muted">Pick a commander to see upgrades.</p>
         ) : !state || state.state === "loading" || state.state === "waiting" ? (
-          <p className="flex items-center gap-2 text-sm text-zinc-500">
-            <span aria-hidden className="size-4 animate-spin rounded-full border-2 border-zinc-300 border-t-amber-500" />
+          <p className="flex items-center gap-2 text-sm text-muted">
+            <span aria-hidden className="size-4 spinner" />
             {state?.state === "waiting" ? `Waiting ${state.seconds}s because ${state.reason}, then trying again…` : "Loading EDHREC’s decks for your commander…"}
           </p>
         ) : state.state === "error" ? (
-          <p className="text-sm text-zinc-500">
+          <p className="text-sm text-muted">
             Couldn’t reach EDHREC after several tries.{" "}
-            <button type="button" onClick={() => requestPlaystyle(commander, "", true)} className="text-amber-700 underline dark:text-amber-400">
+            <button type="button" onClick={() => requestPlaystyle(commander, "", true)} className="link">
               Try again
             </button>
           </p>
         ) : !found || !plan ? (
-          <p className="text-sm text-zinc-500">EDHREC has no page for {commander.name}.</p>
+          <p className="text-sm text-muted">EDHREC has no page for {commander.name}.</p>
         ) : (
           <>
             <UpgradeGroup
@@ -278,12 +278,12 @@ export function RecommendationsPanel({
                 <summary className="cursor-pointer font-medium">
                   Left out for Bracket {target} ({formatCount(plan.leftOut.length)})
                 </summary>
-                <p className="mt-1 mb-2 text-xs text-zinc-500">Good fits for your deck that would take it past Bracket {target}.</p>
+                <p className="mt-1 mb-2 text-xs text-muted">Good fits for your deck that would take it past Bracket {target}.</p>
                 <ul className="flex flex-col gap-1.5">
                   {plan.leftOut.map(({ pick, why }) => (
                     <li key={pick.card.name} className="flex flex-wrap items-center gap-2">
                       <CutName name={pick.card.name} onOpen={onOpen} />
-                      <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">{why}</span>
+                      <span className="rounded-full bg-subtle px-2 py-0.5 text-xs text-muted">{why}</span>
                     </li>
                   ))}
                 </ul>
@@ -295,16 +295,16 @@ export function RecommendationsPanel({
 
       <section>
         <h3 className="font-semibold">Complete a combo</h3>
-        <p className="mb-2 text-xs text-zinc-500">
+        <p className="mb-2 text-xs text-muted">
           Combos you could have with one more card that fit Bracket {target}, most played first.
           {tooStrong > 0 && ` ${formatCount(tooStrong)} more ${tooStrong === 1 ? "is" : "are"} hidden for being above Bracket ${target}.`}
         </p>
         {combos === undefined ? (
-          <p className="text-sm text-zinc-500">{commander ? "Loading combos…" : "Pick a commander to see combos."}</p>
+          <p className="text-sm text-muted">{commander ? "Loading combos…" : "Pick a commander to see combos."}</p>
         ) : combos === null ? (
-          <p className="text-sm text-zinc-500">Couldn’t reach Commander Spellbook. Use “Try again” beside the commander.</p>
+          <p className="text-sm text-muted">Couldn’t reach Commander Spellbook. Use “Try again” beside the commander.</p>
         ) : almost.length === 0 ? (
-          <p className="text-sm text-zinc-500">No combo in Bracket {target} is one card away.</p>
+          <p className="text-sm text-muted">No combo in Bracket {target} is one card away.</p>
         ) : (
           <CombosList combos={almost} deck={odds} missing={missing} inDeck={inDeck} onAdd={onAdd} onOpen={onOpen} onWalk={onWalk} />
         )}
@@ -312,19 +312,19 @@ export function RecommendationsPanel({
 
       <section>
         <h3 className="font-semibold">Cards to look at cutting</h3>
-        <p className="mb-2 text-xs text-zinc-500">
+        <p className="mb-2 text-xs text-muted">
           Cards with two or more of these marks: they fit no quadrant, they link to nothing else in your deck, or EDHREC’s
           decks for this commander rarely play them. Lands and your commander aren’t counted.
         </p>
         {cuts.length === 0 ? (
-          <p className="text-sm text-zinc-500">Nothing stands out: every card does a job or works with your deck.</p>
+          <p className="text-sm text-muted">Nothing stands out: every card does a job or works with your deck.</p>
         ) : (
           <ul className="flex flex-col gap-1.5">
             {cuts.map((c) => (
               <li key={c.name} className="flex flex-wrap items-center gap-2 text-sm">
                 <CutName name={c.name} onOpen={onOpen} />
                 {c.reasons.map((r) => (
-                  <span key={r} className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
+                  <span key={r} className="rounded-full bg-subtle px-2 py-0.5 text-xs text-muted">
                     {r}
                   </span>
                 ))}
@@ -349,17 +349,17 @@ function QuadrantTile({ quadrant, profile, onOpen }: { quadrant: Quadrant; profi
   // Flexible cards first.
   const sorted = [...names].sort((a, b) => quadrantsFor(profile, b).length - quadrantsFor(profile, a).length || a.localeCompare(b));
   return (
-    <li className="flex flex-col gap-2 rounded-xl border border-zinc-200 p-4 dark:border-zinc-800" style={{ borderTopColor: color, borderTopWidth: 3 }}>
+    <li className="flex flex-col gap-2 rounded-xl border border-line p-4" style={{ borderTopColor: color, borderTopWidth: 3 }}>
       <div className="flex items-baseline gap-2">
         <p className="font-semibold" style={{ color }}>
           {info.label}
         </p>
         <p className="ml-auto text-sm tabular-nums">
           <span className="font-semibold">{formatCount(names.length)}</span>
-          <span className="text-zinc-500"> / ~{target}</span>
+          <span className="text-muted"> / ~{target}</span>
         </p>
       </div>
-      <p className="text-xs text-zinc-500">
+      <p className="text-xs text-muted">
         {info.question} {info.examples}.
       </p>
       <Bar have={names.length} target={target} color={color} />
@@ -368,7 +368,7 @@ function QuadrantTile({ quadrant, profile, onOpen }: { quadrant: Quadrant; profi
           <CardChips names={sorted} profile={profile} onOpen={onOpen} />
         </div>
       ) : (
-        <p className="text-xs text-zinc-500">No cards here yet.</p>
+        <p className="text-xs text-muted">No cards here yet.</p>
       )}
     </li>
   );
@@ -376,7 +376,7 @@ function QuadrantTile({ quadrant, profile, onOpen }: { quadrant: Quadrant; profi
 
 function Bar({ have, target, color }: { have: number; target: number; color: string }) {
   return (
-    <span className="relative block h-2.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+    <span className="relative block h-2.5 overflow-hidden rounded-full bg-subtle">
       <span className="block h-full rounded-full" style={{ width: `${Math.min(100, (have / target) * 100)}%`, background: color }} />
     </span>
   );
@@ -405,7 +405,7 @@ function CardChip({ name, quadrants, onOpen }: { name: string; quadrants: Quadra
           onOpen(name);
         }}
         title={quadrants.map((q) => QUADRANT_INFO[q].label).join(", ")}
-        className="inline-flex items-center gap-1.5 rounded-md border border-zinc-200 bg-white px-2 py-0.5 text-xs hover:border-amber-500 dark:border-zinc-700 dark:bg-zinc-900"
+        className="inline-flex items-center gap-1.5 rounded-md border border-line bg-background px-2 py-0.5 text-xs hover:border-foreground/30"
       >
         {name}
         <GameChangerTag name={name} compact />
@@ -431,7 +431,7 @@ function CutName({ name, onOpen }: { name: string; onOpen: (name: string) => voi
           trigger.onClick();
           onOpen(name);
         }}
-        className="font-medium hover:text-amber-700 hover:underline dark:hover:text-amber-400"
+        className="font-medium hover:underline"
       >
         {name}
       </button>
@@ -480,15 +480,15 @@ function JobMeters({ profile, onOpen }: { profile: DeckProfile; onOpen: (name: s
         const short = m.target !== undefined && m.have < m.target;
         const row = (
           <span className="grid grid-cols-[6.5rem_1fr_3.5rem] items-center gap-3 text-sm">
-            <span className="truncate text-zinc-700 dark:text-zinc-300">{m.label}</span>
+            <span className="truncate text-foreground/80">{m.label}</span>
             {m.target !== undefined ? (
               <Bar have={m.have} target={m.target} color={short ? "#f59e0b" : "#10b981"} />
             ) : (
-              <span className="text-xs text-zinc-500">no set number</span>
+              <span className="text-xs text-muted">no set number</span>
             )}
             <span className="text-right tabular-nums">
               <span className="font-semibold">{formatCount(m.have)}</span>
-              {m.target !== undefined && <span className="text-zinc-500"> / {m.target}</span>}
+              {m.target !== undefined && <span className="text-muted"> / {m.target}</span>}
             </span>
           </span>
         );
@@ -498,7 +498,7 @@ function JobMeters({ profile, onOpen }: { profile: DeckProfile; onOpen: (name: s
               <div className="py-1 pl-4">{row}</div>
             ) : (
               <details className="group">
-                <summary className="cursor-pointer list-none rounded-md py-1 pl-4 hover:bg-zinc-50 dark:hover:bg-zinc-900 [&::-webkit-details-marker]:hidden">
+                <summary className="cursor-pointer list-none rounded-md py-1 pl-4 hover:bg-subtle [&::-webkit-details-marker]:hidden">
                   <span className="relative block">
                     <span aria-hidden className="absolute top-1/2 -left-3.5 -translate-y-1/2 text-[10px] text-zinc-400 transition-transform group-open:rotate-90">
                       ▶
@@ -542,7 +542,7 @@ function UpgradeGroup({
         {quadrant && <span aria-hidden className="size-2.5 rounded-full" style={{ background: QUADRANT_COLORS[quadrant] }} />}
         {title}
       </h4>
-      <p className="mb-2 text-xs text-zinc-500">{note}</p>
+      <p className="mb-2 text-xs text-muted">{note}</p>
       <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {picks.map((p) => (
           <UpgradeRow key={p.card.name} pick={p} added={inDeck(p.card.name)} onAdd={onAdd} />
@@ -556,8 +556,8 @@ function UpgradeRow({ pick, added, onAdd }: { pick: Pick; added: boolean; onAdd:
   const { card } = pick;
   const { trigger, preview } = useHoverPreview(card.name);
   return (
-    <li className="flex gap-2.5 rounded-lg border border-zinc-200 bg-white p-2 dark:border-zinc-800 dark:bg-zinc-900">
-      <div {...trigger} className="aspect-[488/680] w-12 shrink-0 overflow-hidden rounded-[4.75%] bg-zinc-200 dark:bg-zinc-800">
+    <li className="flex gap-2.5 rounded-lg border border-line bg-background p-2">
+      <div {...trigger} className="aspect-[488/680] w-12 shrink-0 overflow-hidden rounded-[4.75%] bg-subtle">
         <LazyCardImage url={card.imageUrl} alt={card.name} />
       </div>
       {preview}
@@ -571,24 +571,24 @@ function UpgradeRow({ pick, added, onAdd }: { pick: Pick; added: boolean; onAdd:
         </div>
         <p className="flex flex-wrap gap-1">
           {pick.completes && pick.completes >= 3 && (
-            <span className="rounded-full bg-violet-100 px-1.5 text-[11px] leading-4 text-violet-900 dark:bg-violet-950 dark:text-violet-300">
+            <span className="rounded-full bg-subtle px-1.5 text-[11px] leading-4 text-muted">
               Completes a Bracket {pick.completes} combo
             </span>
           )}
           {pick.extraTurn && (
-            <span className="rounded-full bg-zinc-100 px-1.5 text-[11px] leading-4 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">Extra turn</span>
+            <span className="rounded-full bg-subtle px-1.5 text-[11px] leading-4 text-foreground/80">Extra turn</span>
           )}
           {pick.roles.map((r) => (
             <span
               key={r}
-              className="inline-flex items-center gap-1 rounded-full border border-zinc-200 px-1.5 text-[11px] leading-4 dark:border-zinc-700"
+              className="inline-flex items-center gap-1 rounded-full border border-line px-1.5 text-[11px] leading-4"
             >
               <span aria-hidden className="size-1.5 rounded-full" style={{ background: QUADRANT_COLORS[ROLE_INFO[r].quadrant] }} />
               {ROLE_INFO[r].label}
             </span>
           ))}
         </p>
-        <p className="text-xs text-zinc-500 tabular-nums">
+        <p className="text-xs text-muted tabular-nums">
           {pick.inclusion !== undefined && <>in {formatPercent(pick.inclusion)} of decks</>}
           {pick.synergy !== undefined && pick.synergy > 0 && <span className="text-emerald-600"> · +{formatPercent(pick.synergy)} synergy</span>}
         </p>
@@ -599,7 +599,7 @@ function UpgradeRow({ pick, added, onAdd }: { pick: Pick; added: boolean; onAdd:
         onClick={() => onAdd(card)}
         aria-label={added ? `${card.name} is in your deck` : `Add ${card.name} to deck`}
         className={`h-8 shrink-0 self-center rounded-lg px-2.5 text-xs font-medium ${
-          added ? "border border-emerald-600 text-emerald-700 dark:text-emerald-400" : "bg-amber-500 text-zinc-950 hover:bg-amber-400"
+          added ? "border border-emerald-600 text-emerald-700 dark:text-emerald-400" : "bg-foreground text-background hover:bg-foreground/85"
         }`}
       >
         {added ? "In deck ✓" : "+ Add"}

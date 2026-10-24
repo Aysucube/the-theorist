@@ -55,23 +55,23 @@ export function PriceHistoryExplorer() {
 
   if (state !== "loading" && dates.length < 2) {
     return (
-      <p className="text-sm text-zinc-500">
+      <p className="text-sm text-muted">
         The price history fills in as this app runs, one day of prices at a time
         {dates.length === 1 ? ` (1 day saved, ${formatDate(dates[0])})` : ""}. Come back tomorrow to compare days.
       </p>
     );
   }
 
-  const select = "h-9 rounded-lg border border-zinc-300 bg-white px-2 text-sm dark:border-zinc-700 dark:bg-zinc-900";
+  const select = "h-9 rounded-lg border border-line-strong bg-background px-2 text-sm  ";
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-xs text-zinc-500">
+      <p className="text-xs text-muted">
         {formatCount(dates.length)} days of market prices saved by this app
         {dates.length > 0 && `, ${formatDate(dates[0])} to ${formatDate(dates.at(-1)!)}`}. Up to 90 days are kept.
       </p>
 
       <div className="flex flex-wrap items-end gap-3">
-        <label className="flex flex-col gap-1 text-xs text-zinc-500" htmlFor={`${id}-from`}>
+        <label className="flex flex-col gap-1 text-xs text-muted" htmlFor={`${id}-from`}>
           From
           <select id={`${id}-from`} className={select} value={result?.from ?? ""} onChange={(e) => set({ from: e.target.value })}>
             {dates.slice(0, -1).map((d) => (
@@ -81,7 +81,7 @@ export function PriceHistoryExplorer() {
             ))}
           </select>
         </label>
-        <label className="flex flex-col gap-1 text-xs text-zinc-500" htmlFor={`${id}-to`}>
+        <label className="flex flex-col gap-1 text-xs text-muted" htmlFor={`${id}-to`}>
           To
           <select id={`${id}-to`} className={select} value={result?.to ?? ""} onChange={(e) => set({ to: e.target.value })}>
             {dates.slice(1).map((d) => (
@@ -109,7 +109,7 @@ export function PriceHistoryExplorer() {
           ]}
           onChange={(sort) => set({ sort })}
         />
-        <label className="flex flex-col gap-1 text-xs text-zinc-500" htmlFor={`${id}-min`}>
+        <label className="flex flex-col gap-1 text-xs text-muted" htmlFor={`${id}-min`}>
           At least
           <select id={`${id}-min`} className={select} value={filters.minUsd} onChange={(e) => set({ minUsd: Number(e.target.value) })}>
             {[0.5, 1, 2, 5, 10, 25, 50].map((v) => (
@@ -120,25 +120,25 @@ export function PriceHistoryExplorer() {
           </select>
         </label>
         {state === "loading" && (
-          <span className="flex h-9 items-center gap-2 text-xs text-zinc-500">
-            <span aria-hidden className="size-4 animate-spin rounded-full border-2 border-zinc-300 border-t-amber-500" />
+          <span className="flex h-9 items-center gap-2 text-xs text-muted">
+            <span aria-hidden className="size-4 spinner" />
             Comparing…
           </span>
         )}
       </div>
 
       {state === "error" ? (
-        <p className="text-sm text-zinc-500">Couldn’t read the saved prices. Try another range.</p>
+        <p className="text-sm text-muted">Couldn’t read the saved prices. Try another range.</p>
       ) : result && result.cards.length === 0 && state === "done" ? (
-        <p className="text-sm text-zinc-500">No card moved that much between these days. Try a longer range or a lower minimum.</p>
+        <p className="text-sm text-muted">No card moved that much between these days. Try a longer range or a lower minimum.</p>
       ) : (
-        <ol className="flex flex-col divide-y divide-zinc-200 rounded-xl border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
+        <ol className="flex flex-col divide-y divide-line rounded-xl border border-line">
           {result?.cards.map((card, i) => (
             <Row key={card.id} rank={i + 1} card={card} open={open === card.id} onToggle={() => setOpen(open === card.id ? null : card.id)} />
           ))}
         </ol>
       )}
-      <p className="text-xs text-zinc-500">
+      <p className="text-xs text-muted">
         Market prices: TCGplayer (US dollars), from Scryfall. Commander-legal cards only; each card’s biggest-moving printing
         is shown.
       </p>
@@ -158,9 +158,9 @@ function Toggle<T extends string>({
   onChange: (value: T) => void;
 }) {
   return (
-    <div className="flex flex-col gap-1 text-xs text-zinc-500">
+    <div className="flex flex-col gap-1 text-xs text-muted">
       {label}
-      <div role="radiogroup" aria-label={label} className="flex h-9 overflow-hidden rounded-lg border border-zinc-300 dark:border-zinc-700">
+      <div role="radiogroup" aria-label={label} className="flex h-9 overflow-hidden rounded-lg border border-line-strong">
         {options.map(([v, text]) => (
           <button
             key={v}
@@ -168,7 +168,7 @@ function Toggle<T extends string>({
             role="radio"
             aria-checked={v === value}
             onClick={() => onChange(v)}
-            className={`px-3 text-sm ${v === value ? "bg-amber-500 font-medium text-zinc-950" : "bg-white text-zinc-700 hover:bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"}`}
+            className={`px-3 text-sm ${v === value ? "bg-foreground font-medium text-background" : "bg-background text-foreground/80 hover:bg-subtle   "}`}
           >
             {text}
           </button>
@@ -184,10 +184,10 @@ function Row({ rank, card, open, onToggle }: { rank: number; card: Mover; open: 
   return (
     <li className="px-3 py-2.5">
       <div className="grid grid-cols-[1.5rem_minmax(0,1fr)_auto] items-center gap-3 sm:grid-cols-[1.5rem_minmax(0,1fr)_130px_auto_auto]">
-        <span className="text-xs text-zinc-500 tabular-nums">{rank}</span>
+        <span className="text-xs text-muted tabular-nums">{rank}</span>
         <div className="min-w-0">
           <CardLink name={card.name} className="block truncate text-sm font-medium hover:underline" />
-          <p className="truncate text-xs text-zinc-500">
+          <p className="truncate text-xs text-muted">
             {card.setCode} · {formatUsd(card.fromUsd)} → {formatUsd(card.toUsd)}
           </p>
         </div>
@@ -203,14 +203,14 @@ function Row({ rank, card, open, onToggle }: { rank: number; card: Mover; open: 
           </span>
         </div>
         <div className="col-span-3 flex items-center justify-end gap-3 sm:col-span-1">
-          <button type="button" onClick={onToggle} className="text-xs text-amber-700 hover:underline sm:hidden dark:text-amber-400">
+          <button type="button" onClick={onToggle} className="text-xs link sm:hidden">
             {open ? "Hide chart" : "Chart"}
           </button>
           <PriceCheck name={card.name} />
         </div>
       </div>
       {open && (
-        <div className="mt-3 rounded-lg bg-zinc-50 p-2 dark:bg-zinc-900">
+        <div className="mt-3 rounded-lg bg-surface p-2">
           <PriceChart points={card.history ?? []} />
         </div>
       )}

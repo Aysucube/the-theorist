@@ -73,20 +73,20 @@ export function PlaystylePanel({
     <div className="flex flex-col gap-8">
       <section>
         <h3 className="font-semibold">What your deck is built around now</h3>
-        <p className="mb-3 text-xs text-zinc-500">
+        <p className="mb-3 text-xs text-muted">
           Read from your cards’ rules text: payoffs reward a theme, enablers are or make it.
         </p>
         {hubs.length === 0 ? (
-          <p className="text-sm text-zinc-500">No theme stands out yet.</p>
+          <p className="text-sm text-muted">No theme stands out yet.</p>
         ) : (
           <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {hubs.map((hub, i) => (
-              <li key={hub.tag} className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
+              <li key={hub.tag} className="rounded-lg border border-line p-3">
                 <p className="flex items-center gap-2 font-medium">
                   <span aria-hidden className="size-2.5 rounded-full" style={{ background: HUB_COLORS[i % HUB_COLORS.length] }} />
                   {tagLabel(hub.tag)}
                 </p>
-                <p className="mt-1 text-xs text-zinc-500">
+                <p className="mt-1 text-xs text-muted">
                   {formatCount(hub.payoffs.length)} payoffs ({hub.payoffs.slice(0, 3).join(", ")}
                   {hub.payoffs.length > 3 ? "…" : ""}) · {formatCount(hub.enablers.length)} enablers
                 </p>
@@ -99,10 +99,10 @@ export function PlaystylePanel({
       <section>
         <h3 className="font-semibold">Maximize a playstyle for {commander.name}</h3>
         {themes.length === 0 ? (
-          <p className="mt-1 text-sm text-zinc-500">EDHREC doesn’t list playstyles for this commander.</p>
+          <p className="mt-1 text-sm text-muted">EDHREC doesn’t list playstyles for this commander.</p>
         ) : (
           <>
-            <p className="mb-3 text-xs text-zinc-500">
+            <p className="mb-3 text-xs text-muted">
               The ways EDHREC players build this commander, with how many decks do. Pick one for the cards that suit it
               best that your deck doesn’t have yet.
             </p>
@@ -115,11 +115,11 @@ export function PlaystylePanel({
                   aria-selected={t.slug === theme}
                   onClick={() => setTheme(t.slug)}
                   className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm ${
-                    t.slug === theme ? "border-amber-500 bg-amber-500 text-zinc-950" : "border-zinc-300 hover:border-amber-500 dark:border-zinc-700"
+                    t.slug === theme ? "border-foreground bg-foreground text-background" : "border-line-strong hover:border-foreground/30 "
                   }`}
                 >
                   {t.name}
-                  <span className={`text-xs tabular-nums ${t.slug === theme ? "text-zinc-800" : "text-zinc-500"}`}>{formatCount(t.numDecks)}</span>
+                  <span className={`text-xs tabular-nums ${t.slug === theme ? "text-zinc-800" : "text-muted"}`}>{formatCount(t.numDecks)}</span>
                 </button>
               ))}
             </div>
@@ -130,31 +130,31 @@ export function PlaystylePanel({
       {theme && (
         <section className="flex flex-col gap-4">
           {!state || state.state === "loading" || state.state === "waiting" ? (
-            <p className="flex items-center gap-2 text-sm text-zinc-500">
-              <span aria-hidden className="size-4 animate-spin rounded-full border-2 border-zinc-300 border-t-amber-500" />
+            <p className="flex items-center gap-2 text-sm text-muted">
+              <span aria-hidden className="size-4 spinner" />
               {state?.state === "waiting" ? `Waiting ${state.seconds}s because ${state.reason}, then trying again…` : "Loading EDHREC’s picks…"}
             </p>
           ) : state.state === "error" ? (
-            <p className="text-sm text-zinc-500">
+            <p className="text-sm text-muted">
               Couldn’t reach EDHREC after several tries.{" "}
-              <button type="button" onClick={() => requestPlaystyle(commander, theme, true)} className="text-amber-700 underline dark:text-amber-400">
+              <button type="button" onClick={() => requestPlaystyle(commander, theme, true)} className="link">
                 Try again
               </button>
             </p>
           ) : !found ? (
-            <p className="text-sm text-zinc-500">EDHREC has no page for this playstyle.</p>
+            <p className="text-sm text-muted">EDHREC has no page for this playstyle.</p>
           ) : (
             <>
               <div>
                 <h4 className="font-medium">Add for {chosen?.name ?? "this playstyle"}</h4>
-                <p className="mb-2 text-xs text-zinc-500">
+                <p className="mb-2 text-xs text-muted">
                   EDHREC’s highest-synergy cards for {commander.name} {chosen?.name} decks that you don’t run.{" "}
-                  <a href={found.url} target="_blank" rel="noopener noreferrer" className="text-amber-700 hover:underline dark:text-amber-400">
+                  <a href={found.url} target="_blank" rel="noopener noreferrer" className="link">
                     View on EDHREC ↗
                   </a>
                 </p>
                 {recommendations.length === 0 ? (
-                  <p className="text-sm text-zinc-500">You already run all of EDHREC’s top picks for it.</p>
+                  <p className="text-sm text-muted">You already run all of EDHREC’s top picks for it.</p>
                 ) : (
                   <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                     {recommendations.map((c) => (
@@ -166,7 +166,7 @@ export function PlaystylePanel({
               {offPlan.length > 0 && (
                 <div>
                   <h4 className="font-medium">Your cards these decks rarely play</h4>
-                  <p className="mb-2 text-xs text-zinc-500">
+                  <p className="mb-2 text-xs text-muted">
                     Not in EDHREC’s lists for this playstyle, so worth a look if you need room. Lands aren’t counted.
                   </p>
                   <NameList names={offPlan} onOpen={onOpen} />
@@ -175,7 +175,7 @@ export function PlaystylePanel({
             </>
           )}
           {commanderUrl && !found && (
-            <a href={commanderUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-amber-700 hover:underline dark:text-amber-400">
+            <a href={commanderUrl} target="_blank" rel="noopener noreferrer" className="text-sm link">
               {commander.name} on EDHREC ↗
             </a>
           )}
@@ -185,7 +185,7 @@ export function PlaystylePanel({
       {loose.length > 0 && (
         <section>
           <h3 className="font-semibold">Cards that don’t link to anything</h3>
-          <p className="mb-2 text-xs text-zinc-500">
+          <p className="mb-2 text-xs text-muted">
             Nothing in their rules text works with the rest of your deck. Removal and ramp often land here and still earn
             their slot; the rest are the first places to look for cuts.
           </p>
@@ -199,8 +199,8 @@ export function PlaystylePanel({
 function PickRow({ pick, card, added, onAdd }: { pick: PlaystyleCard; card: CardDetails; added: boolean; onAdd: (card: CardDetails) => void }) {
   const { trigger, preview } = useHoverPreview(card.name);
   return (
-    <li className="flex gap-2.5 rounded-lg border border-zinc-200 bg-white p-2 dark:border-zinc-800 dark:bg-zinc-900">
-      <div {...trigger} className="aspect-[488/680] w-12 shrink-0 overflow-hidden rounded-[4.75%] bg-zinc-200 dark:bg-zinc-800">
+    <li className="flex gap-2.5 rounded-lg border border-line bg-background p-2">
+      <div {...trigger} className="aspect-[488/680] w-12 shrink-0 overflow-hidden rounded-[4.75%] bg-subtle">
         <LazyCardImage url={card.imageUrl} alt={card.name} />
       </div>
       {preview}
@@ -212,7 +212,7 @@ function PickRow({ pick, card, added, onAdd }: { pick: PlaystyleCard; card: Card
           </p>
           {card.manaCost && <ManaCost cost={card.manaCost.split(" // ")[0]} />}
         </div>
-        <p className="truncate text-xs text-zinc-500">{card.typeLine}</p>
+        <p className="truncate text-xs text-muted">{card.typeLine}</p>
         <p className="text-xs tabular-nums">
           {pick.synergy !== undefined && (
             <span className={pick.synergy >= 0 ? "text-emerald-600" : "text-red-600"}>
@@ -220,7 +220,7 @@ function PickRow({ pick, card, added, onAdd }: { pick: PlaystyleCard; card: Card
               {formatPercent(pick.synergy)} synergy
             </span>
           )}
-          {pick.inclusion !== undefined && <span className="text-zinc-500"> · in {formatPercent(pick.inclusion)} of these decks</span>}
+          {pick.inclusion !== undefined && <span className="text-muted"> · in {formatPercent(pick.inclusion)} of these decks</span>}
         </p>
       </div>
       <button
@@ -229,7 +229,7 @@ function PickRow({ pick, card, added, onAdd }: { pick: PlaystyleCard; card: Card
         onClick={() => onAdd(card)}
         aria-label={added ? `${card.name} is in your deck` : `Add ${card.name} to deck`}
         className={`h-8 shrink-0 self-center rounded-lg px-2.5 text-xs font-medium ${
-          added ? "border border-emerald-600 text-emerald-700 dark:text-emerald-400" : "bg-amber-500 text-zinc-950 hover:bg-amber-400"
+          added ? "border border-emerald-600 text-emerald-700 dark:text-emerald-400" : "bg-foreground text-background hover:bg-foreground/85"
         }`}
       >
         {added ? "In deck ✓" : "+ Add"}
@@ -246,7 +246,7 @@ function NameList({ names, onOpen }: { names: string[]; onOpen: (name: string) =
           key={name}
           type="button"
           onClick={() => onOpen(name)}
-          className="rounded-md border border-zinc-200 bg-white px-2 py-0.5 text-xs hover:border-amber-500 dark:border-zinc-700 dark:bg-zinc-900"
+          className="rounded-md border border-line bg-background px-2 py-0.5 text-xs hover:border-foreground/30"
         >
           {name}
         </button>

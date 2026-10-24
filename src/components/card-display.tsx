@@ -44,7 +44,7 @@ export function CardImage({ name, imageUrl }: { name: string; imageUrl?: string 
       {printing && (
         <p className="mt-2 text-center text-xs text-zinc-300 [text-shadow:0_1px_3px_rgb(0_0_0/0.6)]">
           Showing {printing.label}.{" "}
-          <button type="button" onClick={() => showPrinting(name, null)} className="text-amber-400 underline">
+          <button type="button" onClick={() => showPrinting(name, null)} className="link">
             Show default
           </button>
         </p>

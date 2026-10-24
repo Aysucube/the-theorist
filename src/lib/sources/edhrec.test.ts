@@ -212,6 +212,14 @@ describe("commander playstyles", () => {
   });
 });
 
+describe("commander deck averages", () => {
+  it("reads what the commander's average deck holds and its brackets", () => {
+    const stats = parseCommanderStats(atraxa(), "commanders/atraxa-praetors-voice")!;
+    expect(stats.averages).toMatchObject({ lands: 36, basics: 13, nonbasics: 23, creatures: 24 });
+    expect(Object.keys(stats.bracketCounts ?? {})).toEqual(["1", "2", "3", "4", "5"]);
+  });
+});
+
 describe("commander combos", () => {
   it("reads the combos on a commander's EDHREC combo page, in EDHREC's order", () => {
     const combos = parseCommanderCombos(JSON.parse(fixture("edhrec/combos-lathril-blade-of-the-elves.json")) as RawPage);

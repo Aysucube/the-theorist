@@ -100,15 +100,15 @@ export function SynergyMap({
       onClose={onClose}
       onClick={(e) => e.target === dialog.current && dialog.current?.close()}
       aria-label={`Synergy map for ${focus.name}`}
-      className="m-auto h-[94vh] max-h-none w-[min(1200px,96vw)] max-w-none overflow-hidden rounded-2xl border border-zinc-200 bg-white p-0 text-zinc-900 backdrop:bg-black/70 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100"
+      className="m-auto h-[94vh] max-h-none w-[min(1200px,96vw)] max-w-none overflow-hidden rounded-2xl border border-line bg-background p-0 text-foreground backdrop:bg-black/70"
     >
       <div className="flex h-full flex-col">
-        <header className="flex flex-wrap items-center gap-3 border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
+        <header className="flex flex-wrap items-center gap-3 border-b border-line px-4 py-3">
           {trail.length > 1 && (
             <button
               type="button"
               onClick={() => setTrail(trail.slice(0, -1))}
-              className="rounded-lg border border-zinc-300 px-2.5 py-1 text-sm hover:border-amber-500 dark:border-zinc-700"
+              className="rounded-lg border border-line-strong px-2.5 py-1 text-sm hover:border-foreground/30"
             >
               ← Back
             </button>
@@ -119,14 +119,14 @@ export function SynergyMap({
           <button
             type="button"
             onClick={() => dialog.current?.close()}
-            className="rounded-lg border border-zinc-300 px-2.5 py-1 text-sm hover:border-amber-500 dark:border-zinc-700"
+            className="rounded-lg border border-line-strong px-2.5 py-1 text-sm hover:border-foreground/30"
           >
             Close
           </button>
         </header>
 
         {/* Tabs on small screens; side by side on wide ones. */}
-        <div role="tablist" className="flex border-b border-zinc-200 lg:hidden dark:border-zinc-800">
+        <div role="tablist" className="flex border-b border-line lg:hidden">
           {(["map", "rulings", "others"] as const).map((t) => (
             <button
               key={t}
@@ -134,7 +134,7 @@ export function SynergyMap({
               role="tab"
               aria-selected={tab === t}
               onClick={() => setTab(t)}
-              className={`flex-1 px-3 py-2 text-sm font-medium ${tab === t ? "border-b-2 border-amber-500" : "text-zinc-500"}`}
+              className={`flex-1 px-3 py-2 text-sm font-medium ${tab === t ? "border-b-2 border-foreground" : "text-muted"}`}
             >
               {t === "map" ? "Synergies" : t === "rulings" ? "Rulings" : `Recommendations${found ? ` (${recommendations.length})` : ""}`}
             </button>
@@ -152,7 +152,7 @@ export function SynergyMap({
                   aria-selected={view === v}
                   onClick={() => setView(v)}
                   className={`rounded-full border px-3 py-1 text-sm font-medium ${
-                    view === v ? "border-amber-500 bg-amber-500 text-zinc-950" : "border-zinc-300 hover:border-amber-500 dark:border-zinc-700"
+                    view === v ? "border-foreground bg-foreground text-background" : "border-line-strong hover:border-foreground/30 "
                   }`}
                 >
                   {v === "network" ? "Network" : "Breakdown"}
@@ -179,7 +179,7 @@ export function SynergyMap({
                     onOpen={goTo}
                   />
                 </div>
-                <p className="mt-2 text-xs text-zinc-500">
+                <p className="mt-2 text-xs text-muted">
                   Lines from the middle are this card’s strongest synergies in your deck (blue: subtypes, violet: themes,
                   gray: card types). Coloured chains are combos: each runs from this card through the other pieces to what
                   the combo does (a diamond: click it to walk through the combo); dashed chains and shaded cards are a card
@@ -188,11 +188,11 @@ export function SynergyMap({
                 <section className="mt-6">
                   <h3 className="mb-2 font-semibold">Combos with {focus.name}</h3>
                   {combos === undefined ? (
-                    <p className="text-sm text-zinc-500">Loading combos from Commander Spellbook…</p>
+                    <p className="text-sm text-muted">Loading combos from Commander Spellbook…</p>
                   ) : combos === null ? (
-                    <p className="text-sm text-zinc-500">Couldn’t reach Commander Spellbook for combos.</p>
+                    <p className="text-sm text-muted">Couldn’t reach Commander Spellbook for combos.</p>
                   ) : combosWith(combos.included, focus.name).length + combosWith([...combos.almostIncluded, ...(combos.wider ?? [])], focus.name).length === 0 ? (
-                    <p className="text-sm text-zinc-500">
+                    <p className="text-sm text-muted">
                       No known combo uses {focus.name} with {commander ? `${commander.name} and ` : ""}your deck.
                     </p>
                   ) : (
@@ -222,7 +222,7 @@ export function SynergyMap({
                 <PairingsStatus message={pairingsMessage(pairings)!} focus={focus} failed={pairings?.state === "error"} />
               ) : (
                 <>
-                  <p className="mt-1 mb-2 text-sm text-zinc-500">
+                  <p className="mt-1 mb-2 text-sm text-muted">
                     {edhrec.length > 0
                       ? "Your cards that EDHREC decks run with it more often than usual (× how much more often)."
                       : found
@@ -239,7 +239,7 @@ export function SynergyMap({
                     />
                   )}
                   {found && (
-                    <a href={found.url} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block text-sm text-amber-700 hover:underline dark:text-amber-400">
+                    <a href={found.url} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block text-sm link">
                       View on EDHREC ↗
                     </a>
                   )}
@@ -249,7 +249,7 @@ export function SynergyMap({
           </div>
 
           <aside
-            className={`min-h-0 overflow-y-auto border-zinc-200 bg-zinc-50 p-4 lg:border-l dark:border-zinc-800 dark:bg-zinc-900/60 ${
+            className={`min-h-0 overflow-y-auto border-line bg-surface p-4 lg:border-l   ${
               tab === "map" ? "hidden lg:block" : ""
             }`}
           >
@@ -263,7 +263,7 @@ export function SynergyMap({
 
             <section className={tab === "others" ? "" : "hidden lg:block"}>
               <h3 className="font-semibold">Other recommendations</h3>
-              <p className="mt-1 text-xs text-zinc-500">
+              <p className="mt-1 text-xs text-muted">
                 Not in your deck: cards EDHREC decks play with {focus.name}, and cards that do a similar job.{" "}
                 {analysis.colors.length > 0 ? (
                   <>
@@ -288,13 +288,13 @@ export function SynergyMap({
 
 function PairingsStatus({ message, focus, failed }: { message: string; focus: CardDetails; failed: boolean }) {
   return (
-    <p className="mt-2 flex flex-wrap items-center gap-2 text-sm text-zinc-500">
+    <p className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted">
       {!failed && (
-        <span aria-hidden className="size-4 animate-spin rounded-full border-2 border-zinc-300 border-t-amber-500 dark:border-zinc-600 dark:border-t-amber-400" />
+        <span aria-hidden className="size-4 spinner" />
       )}
       {message}
       {failed && (
-        <button type="button" onClick={() => requestPairings(focus)} className="text-amber-700 underline dark:text-amber-400">
+        <button type="button" onClick={() => requestPairings(focus)} className="link">
           Try again
         </button>
       )}
@@ -336,8 +336,8 @@ function FocusCard({ card }: { card: CardDetails }) {
   const { trigger, preview } = useHoverPreview(card.name);
   return (
     <>
-      <div {...trigger} className="w-40 shrink-0 rounded-xl border-2 border-amber-500 bg-white p-2 shadow-lg dark:bg-zinc-900">
-        <div className="aspect-[488/680] overflow-hidden rounded-[4.75%] bg-zinc-200 dark:bg-zinc-800">
+      <div {...trigger} className="w-40 shrink-0 rounded-xl border border-line bg-background p-2 shadow-sm">
+        <div className="aspect-[488/680] overflow-hidden rounded-[4.75%] bg-subtle">
           {card.imageUrl && <RetryingImage url={card.imageUrl} alt={card.name} />}
         </div>
         <p className="mt-1.5 text-center text-xs font-semibold">{card.name}</p>
@@ -353,7 +353,7 @@ function FocusCard({ card }: { card: CardDetails }) {
 /** An arrow between the columns: down on narrower screens, right on wide ones. */
 function Connector() {
   return (
-    <span aria-hidden className="flex items-center justify-center text-zinc-400 dark:text-zinc-600">
+    <span aria-hidden className="flex items-center justify-center text-line-strong">
       <span className="xl:hidden">↓</span>
       <span className="hidden items-center xl:flex">
         <span className="h-0.5 w-6 bg-current" />▶
@@ -381,17 +381,17 @@ function Branch({
   const twig = side === "left" ? "-right-6" : "-left-6";
   return (
     <div className="min-w-0">
-      <h3 className={`mb-2 text-sm font-semibold text-zinc-600 dark:text-zinc-400 ${side === "left" ? "xl:pr-6 xl:text-right" : "xl:pl-6"}`}>
+      <h3 className={`mb-2 text-sm font-semibold text-muted ${side === "left" ? "xl:pr-6 xl:text-right" : "xl:pl-6"}`}>
         {title}
       </h3>
       {links.length === 0 ? (
-        <p className={`text-sm text-zinc-500 ${side === "left" ? "xl:pr-6 xl:text-right" : "xl:pl-6"}`}>{empty}</p>
+        <p className={`text-sm text-muted ${side === "left" ? "xl:pr-6 xl:text-right" : "xl:pl-6"}`}>{empty}</p>
       ) : (
-        <ul className={`flex flex-col gap-3 border-zinc-300 dark:border-zinc-700 ${trunk}`}>
+        <ul className={`flex flex-col gap-3 border-line-strong  ${trunk}`}>
           {links.map((link) => (
             <li key={link.tag} className="relative">
-              <span aria-hidden className={`absolute top-5 hidden h-0.5 w-6 bg-zinc-300 xl:block dark:bg-zinc-700 ${twig}`} />
-              <ul className="rounded-lg border border-zinc-200 bg-white p-2.5 dark:border-zinc-800 dark:bg-zinc-900" aria-label={tagLabel(link.tag)}>
+              <span aria-hidden className={`absolute top-5 hidden h-0.5 w-6 bg-line-strong xl:block  ${twig}`} />
+              <ul className="rounded-lg border border-line bg-background p-2.5" aria-label={tagLabel(link.tag)}>
                 <LinkRow link={link} cardFor={cardFor} onCard={onCard} hoverPreview />
               </ul>
             </li>
@@ -417,7 +417,7 @@ function RecommendationList({
   const shown = showAll ? inColors : inColors.slice(0, FIRST_RECOMMENDATIONS);
 
   if (recommendations.length === 0) {
-    return <p className="mt-3 text-sm text-zinc-500">Nothing to add: EDHREC’s picks for it are already in your deck.</p>;
+    return <p className="mt-3 text-sm text-muted">Nothing to add: EDHREC’s picks for it are already in your deck.</p>;
   }
 
   return (
@@ -429,10 +429,10 @@ function RecommendationList({
           ))}
         </ul>
       ) : (
-        <p className="text-sm text-zinc-500">None of EDHREC’s picks fit your deck’s colors.</p>
+        <p className="text-sm text-muted">None of EDHREC’s picks fit your deck’s colors.</p>
       )}
       {inColors.length > shown.length && (
-        <button type="button" onClick={() => setShowAll(true)} className="self-start text-sm text-amber-700 hover:underline dark:text-amber-400">
+        <button type="button" onClick={() => setShowAll(true)} className="self-start text-sm link">
           Show {formatCount(inColors.length - shown.length)} more
         </button>
       )}
@@ -455,8 +455,8 @@ function RecommendationRow({ rec, added, onAdd }: { rec: Recommendation; added: 
   // Resting the mouse on the picture or the name shows the card's hover preview.
   const { trigger, preview } = useHoverPreview(card.name);
   return (
-    <li className="flex gap-2.5 rounded-lg border border-zinc-200 bg-white p-2 dark:border-zinc-800 dark:bg-zinc-900">
-      <div {...trigger} className="aspect-[488/680] w-12 shrink-0 overflow-hidden rounded-[4.75%] bg-zinc-200 dark:bg-zinc-800">
+    <li className="flex gap-2.5 rounded-lg border border-line bg-background p-2">
+      <div {...trigger} className="aspect-[488/680] w-12 shrink-0 overflow-hidden rounded-[4.75%] bg-subtle">
         <LazyCardImage url={card.imageUrl} alt={card.name} />
       </div>
       {preview}
@@ -468,22 +468,22 @@ function RecommendationRow({ rec, added, onAdd }: { rec: Recommendation; added: 
           </p>
           {card.manaCost && <ManaCost cost={card.manaCost.split(" // ")[0]} />}
         </div>
-        <p className="truncate text-xs text-zinc-500">{card.typeLine}</p>
+        <p className="truncate text-xs text-muted">{card.typeLine}</p>
         <div className="flex flex-wrap items-center gap-1">
           {rec.withFocus.slice(0, 3).map((tag) => (
             <TagName key={tag} tag={tag} />
           ))}
-          {rec.similar && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-900 dark:bg-amber-950 dark:text-amber-300">Similar job</span>}
+          {rec.similar && <span className="rounded-full bg-subtle px-2 py-0.5 text-xs text-foreground/80">Similar job</span>}
           {rec.pairing && (
             <span
-              className="text-xs text-zinc-500 tabular-nums"
+              className="text-xs text-muted tabular-nums"
               title="EDHREC: the share of this card's decks that play it, and how many times more often than decks overall"
             >
               EDHREC {formatPercent(rec.pairing.inclusion ?? 0)} · {formatLift(rec.pairing.lift)}
             </span>
           )}
           {rec.deckPartners > 0 && (
-            <span className="text-xs text-zinc-500">
+            <span className="text-xs text-muted">
               · works with {formatCount(rec.deckPartners)} of your cards
             </span>
           )}
@@ -497,7 +497,7 @@ function RecommendationRow({ rec, added, onAdd }: { rec: Recommendation; added: 
         className={`h-8 shrink-0 self-center rounded-lg px-2.5 text-xs font-medium ${
           added
             ? "border border-emerald-600 text-emerald-700 dark:text-emerald-400"
-            : "bg-amber-500 text-zinc-950 hover:bg-amber-400"
+            : "bg-foreground text-background hover:bg-foreground/85"
         }`}
       >
         {added ? "In deck ✓" : "+ Add"}

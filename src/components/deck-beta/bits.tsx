@@ -10,9 +10,9 @@ import { LazyCardImage } from "./lazy-card-image";
 
 const KIND_LABEL = { type: "Card type", subtype: "Subtype", theme: "Theme" } as const;
 const KIND_STYLE = {
-  type: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
+  type: "bg-subtle text-foreground/80  ",
   subtype: "bg-sky-100 text-sky-900 dark:bg-sky-950 dark:text-sky-300",
-  theme: "bg-violet-100 text-violet-900 dark:bg-violet-950 dark:text-violet-300",
+  theme: "bg-subtle text-muted ",
 } as const;
 
 /** A tag's name, colored by kind: card type (gray), subtype (blue) or EDHREC-style theme (violet). */
@@ -57,7 +57,7 @@ export function LinkRow({
     <li className="flex flex-col gap-1.5">
       <div className="flex items-center gap-2">
         <TagName tag={link.tag} />
-        <span className="text-xs text-zinc-500 tabular-nums">
+        <span className="text-xs text-muted tabular-nums">
           {formatCount(link.cards.length)} {link.cards.length === 1 ? "card" : "cards"}
         </span>
       </div>
@@ -94,7 +94,7 @@ export function MiniGallery({
   return (
     <ul
       aria-label={label}
-      className="grid max-h-64 grid-cols-[repeat(auto-fill,minmax(76px,1fr))] content-start gap-2 overflow-y-auto overscroll-contain rounded-lg border border-zinc-200 bg-zinc-50 p-2 dark:border-zinc-800 dark:bg-zinc-950/60"
+      className="grid max-h-64 grid-cols-[repeat(auto-fill,minmax(76px,1fr))] content-start gap-2 overflow-y-auto overscroll-contain rounded-lg border border-line bg-surface p-2"
     >
       {items.map((item) => (
         <GalleryItem key={item.name} {...item} imageUrl={cardFor(item.name)?.imageUrl} onCard={onCard} hoverPreview={hoverPreview} />
@@ -120,12 +120,12 @@ function GalleryItem({
   const trigger = hoverPreview ? hover.trigger : undefined;
   const body = (
     <>
-      <div className="relative aspect-[488/680] overflow-hidden rounded-[4.75%] bg-zinc-200 transition-opacity group-hover:opacity-85 dark:bg-zinc-800">
+      <div className="relative aspect-[488/680] overflow-hidden rounded-[4.75%] bg-subtle transition-opacity group-hover:opacity-85">
         <LazyCardImage url={imageUrl} alt={name} />
         <GameChangerTag name={name} compact className="absolute top-1 left-1 shadow" />
       </div>
       <p className="mt-1 truncate text-[11px] leading-tight font-medium group-hover:underline">{name}</p>
-      {note && <p className="text-[11px] leading-tight text-zinc-500 tabular-nums">{note}</p>}
+      {note && <p className="text-[11px] leading-tight text-muted tabular-nums">{note}</p>}
     </>
   );
   return (

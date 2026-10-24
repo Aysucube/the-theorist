@@ -40,7 +40,7 @@ export async function PrintingsPanel({ card }: { card: ScryfallCard }) {
 
   return (
     <Panel title={TITLE} source="Scryfall + TCGph">
-      <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-400">
+      <p className="mb-4 text-sm text-muted">
         {formatCount(total)} {total === 1 ? "printing" : "printings"} ·{" "}
         {formatCount(inStock.length)} in stock at PH stores
         {cheapest && (

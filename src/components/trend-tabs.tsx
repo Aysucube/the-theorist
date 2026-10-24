@@ -27,7 +27,7 @@ export function TrendTabs({ trends }: { trends: MarketTrends }) {
   }, [namesKey]);
 
   if (!current) {
-    return <p className="text-sm text-zinc-500">No card’s market price jumped enough to stand out lately.</p>;
+    return <p className="text-sm text-muted">No card’s market price jumped enough to stand out lately.</p>;
   }
 
   return (
@@ -43,8 +43,8 @@ export function TrendTabs({ trends }: { trends: MarketTrends }) {
               onClick={() => setTab(w)}
               className={`rounded-full border px-3 py-1 text-sm font-medium ${
                 w === tab
-                  ? "border-amber-500 bg-amber-500 text-zinc-950"
-                  : "border-zinc-300 hover:border-amber-500 dark:border-zinc-700"
+                  ? "border-foreground bg-foreground text-background"
+                  : "border-line-strong hover:border-foreground/30 "
               }`}
             >
               {LABELS[w]}
@@ -53,7 +53,7 @@ export function TrendTabs({ trends }: { trends: MarketTrends }) {
         </div>
       )}
 
-      <p className="text-xs text-zinc-500">
+      <p className="text-xs text-muted">
         Market prices on {formatDate(trends.pricesFrom)} compared with {formatDate(current.since)}, in US dollars. Under
         each: the cheapest copy in Philippine stores right now.
       </p>
@@ -64,7 +64,7 @@ export function TrendTabs({ trends }: { trends: MarketTrends }) {
             <CardTile name={card.name} imageUrl={card.imageUrl}>
               <span className="block tabular-nums">
                 <span className="font-semibold text-emerald-700 dark:text-emerald-400">+{formatPercent(card.change)}</span>{" "}
-                <span className="text-zinc-600 dark:text-zinc-400">
+                <span className="text-muted">
                   {formatUsd(card.fromUsd)} → {formatUsd(card.toUsd)}
                 </span>
               </span>

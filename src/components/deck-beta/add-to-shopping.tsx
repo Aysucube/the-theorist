@@ -41,14 +41,14 @@ export function AddToShopping({ deck, detailsFor }: { deck: DeckCard[]; detailsF
           setOpen(!open);
           setResult(null);
         }}
-        className="h-9 rounded-lg border border-amber-500 px-3 text-sm font-medium text-amber-800 hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-950/40"
+        className="h-9 rounded-lg border border-line-strong px-3 text-sm font-medium hover:bg-subtle"
       >
         Add to Shopping
       </button>
       {open && (
         <div
           id={panelId}
-          className="absolute top-full right-0 z-30 mt-2 flex w-72 flex-col gap-3 rounded-xl border border-zinc-200 bg-white p-4 text-sm shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
+          className="absolute top-full right-0 z-30 mt-2 flex w-72 flex-col gap-3 rounded-xl border border-line bg-background p-4 text-sm shadow-xl"
         >
           {result ? (
             <>
@@ -57,7 +57,7 @@ export function AddToShopping({ deck, detailsFor }: { deck: DeckCard[]; detailsF
                 {result.left > 0 &&
                   ` ${formatCount(result.left)} didn’t fit: the list holds ${MAX_DECK_CARDS} different cards.`}
               </p>
-              <Link href="/shopping" className="font-medium text-amber-700 hover:underline dark:text-amber-400">
+              <Link href="/shopping" className="font-medium link">
                 Open Shopping →
               </Link>
             </>
@@ -68,10 +68,10 @@ export function AddToShopping({ deck, detailsFor }: { deck: DeckCard[]; detailsF
                 price it in Philippine stores. Cards already there take this deck’s quantity.
               </p>
               <label className="flex items-center gap-2">
-                <input type="checkbox" checked={skipBasics} onChange={(e) => setSkipBasics(e.target.checked)} className="size-4 accent-amber-500" />
+                <input type="checkbox" checked={skipBasics} onChange={(e) => setSkipBasics(e.target.checked)} className="size-4 accent-foreground" />
                 Leave out basic lands
               </label>
-              <button type="button" onClick={add} disabled={cards.length === 0} className="h-9 rounded-lg bg-amber-500 px-3 font-medium text-zinc-950 hover:bg-amber-400 disabled:opacity-50">
+              <button type="button" onClick={add} disabled={cards.length === 0} className="h-9 rounded-lg bg-foreground px-3 font-medium text-background hover:bg-foreground/85 disabled:opacity-50">
                 Add {formatCount(copies)} {copies === 1 ? "card" : "cards"}
               </button>
             </>

@@ -32,10 +32,10 @@ export function ShoppingList({
   const stopCount = plan.stops.length;
 
   return (
-    <section className="flex flex-col gap-4 rounded-xl border border-zinc-200 p-4 sm:p-6 dark:border-zinc-800">
+    <section className="flex flex-col gap-4 rounded-xl border border-line p-4 sm:p-6">
       <div>
         <h2 className="text-xl font-semibold">Shopping list</h2>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="mt-1 text-sm text-muted">
           {stopCount === 1 ? (
             <>
               <strong>{plan.stops[0].store}</strong> has everything in stock:{" "}
@@ -62,7 +62,7 @@ export function ShoppingList({
           Bought {formatCount(boughtCount)} of {formatCount(ticks.length)}
         </span>
         {boughtCount > 0 && (
-          <button type="button" onClick={reset} className="text-zinc-500 underline hover:text-zinc-700 dark:hover:text-zinc-300">
+          <button type="button" onClick={reset} className="text-muted underline hover:text-foreground">
             Clear ticks
           </button>
         )}
@@ -75,7 +75,7 @@ export function ShoppingList({
       </ol>
 
       {plan.short.length > 0 && (
-        <p className="text-sm text-amber-700 dark:text-amber-400">
+        <p className="text-sm text-accent">
           <span className="font-medium">Not enough copies in stock ({formatCount(plan.short.length)}):</span>{" "}
           {plan.short.map((c) => `${c.name} (${formatCount(c.inStock)} of ${formatCount(c.qty)})`).join(", ")}. The
           list above buys every copy there is.
@@ -83,7 +83,7 @@ export function ShoppingList({
       )}
 
       {plan.unavailable.length > 0 && (
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="text-sm text-muted">
           <span className="font-medium">Not in stock anywhere ({formatCount(plan.unavailable.length)}):</span>{" "}
           {plan.unavailable.join(", ")}
         </p>
@@ -111,11 +111,11 @@ function StopCard({
   const cards = stop.items.reduce((sum, i) => sum + i.qty, 0);
 
   return (
-    <li className="rounded-lg border border-zinc-200 dark:border-zinc-800">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-200 px-3 py-2 dark:border-zinc-800">
+    <li className="rounded-lg border border-line">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-3 py-2">
         <h3 className="font-semibold">
-          <span className="text-zinc-500">{number}.</span> {stop.store}
-          <span className="ml-2 text-sm font-normal text-zinc-500">
+          <span className="text-muted">{number}.</span> {stop.store}
+          <span className="ml-2 text-sm font-normal text-muted">
             {formatCount(cards)} {cards === 1 ? "card" : "cards"} · {formatPhp(stop.subtotalPhp)}
           </span>
         </h3>
@@ -130,7 +130,7 @@ function StopCard({
           return (
             <li
               key={item.name}
-              className="flex items-center gap-3 border-b border-zinc-100 px-3 py-2 text-sm last:border-0 dark:border-zinc-900"
+              className="flex items-center gap-3 border-b border-line px-3 py-2 text-sm last:border-0"
             >
               <input
                 type="checkbox"
@@ -147,12 +147,12 @@ function StopCard({
                   </span>
                   {info?.manaCost && <ManaCost cost={info.manaCost} />}
                 </div>
-                <div className="truncate text-xs text-zinc-500">
+                <div className="truncate text-xs text-muted">
                   {[info?.typeLine, ...(more.length === 0 ? copyDetails(first.offer) : [])].filter(Boolean).join(" · ")}
                 </div>
                 {more.length > 0 && (
                   // One listing hasn't enough copies: say which copies to take from each.
-                  <ul className="text-xs text-zinc-500">
+                  <ul className="text-xs text-muted">
                     {item.parts.map((part, i) => (
                       <li key={i} className="truncate tabular-nums">
                         {part.qty}× {copyDetails(part.offer).filter(Boolean).join(" · ")} at{" "}
@@ -164,7 +164,7 @@ function StopCard({
                   </ul>
                 )}
                 {item.alsoAt.length > 0 && (
-                  <div className="text-xs text-amber-700 dark:text-amber-400">
+                  <div className="text-xs text-accent">
                     + {item.alsoAt.map((a) => `${formatCount(a.qty)} more at ${a.store}`).join(", ")}
                   </div>
                 )}
@@ -180,9 +180,9 @@ function StopCard({
                   {formatPhp(item.lineTotalPhp)} ↗
                 </a>
                 {item.qty > 1 && more.length === 0 && (
-                  <div className="text-xs text-zinc-500 tabular-nums">{formatPhp(first.offer.pricePhp)} each</div>
+                  <div className="text-xs text-muted tabular-nums">{formatPhp(first.offer.pricePhp)} each</div>
                 )}
-                <div className="text-xs text-zinc-500 tabular-nums">{formatCount(item.stock)} in stock</div>
+                <div className="text-xs text-muted tabular-nums">{formatCount(item.stock)} in stock</div>
               </div>
             </li>
           );
@@ -212,20 +212,20 @@ function CopyOrderButton({ text, store }: { text: string; store: string }) {
         type="button"
         onClick={copy}
         aria-label={`Copy order text for ${store}`}
-        className="rounded-full border border-zinc-300 px-3 py-1 text-xs font-medium hover:border-amber-500 dark:border-zinc-700"
+        className="rounded-full border border-line-strong px-3 py-1 text-xs font-medium hover:border-foreground/30"
       >
         <span aria-live="polite">{status === "copied" ? "Copied ✓" : "Copy order"}</span>
       </button>
       {status === "manual" && (
         <div className="w-full">
-          <label className="text-xs text-zinc-500">
+          <label className="text-xs text-muted">
             Couldn’t copy automatically. Select the text below and copy it:
             <textarea
               readOnly
               value={text}
               rows={text.split("\n").length}
               ref={(el) => el?.select()}
-              className="mt-1 w-full rounded-lg border border-zinc-300 bg-white p-2 font-mono text-xs text-zinc-800 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
+              className="mt-1 w-full rounded-lg border border-line-strong bg-background p-2 font-mono text-xs text-foreground/90"
             />
           </label>
         </div>

@@ -101,14 +101,14 @@ export function CardSearch({ defaultValue = "" }: { defaultValue?: string }) {
           aria-expanded={showList}
           aria-controls={listId}
           aria-activedescendant={showList && highlight >= 0 ? `${listId}-${highlight}` : undefined}
-          className="h-12 w-full rounded-lg border border-zinc-300 bg-white px-4 text-base outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30 dark:border-zinc-700 dark:bg-zinc-900"
+          className="h-12 w-full rounded-lg border border-line-strong bg-background px-4 text-base outline-none focus:border-foreground/40 focus:ring-4 focus:ring-foreground/5"
         />
         <ul
           id={listId}
           role="listbox"
           aria-label="Card name suggestions"
           hidden={!showList}
-          className="absolute top-full right-0 left-0 z-20 mt-1 max-h-80 overflow-auto rounded-lg border border-zinc-200 bg-white py-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
+          className="absolute top-full right-0 left-0 z-20 mt-1 max-h-80 overflow-auto rounded-lg border border-line bg-background py-1 shadow-lg"
         >
           {visible.map((name, i) => {
             const parts = splitMatch(name, query);
@@ -125,7 +125,7 @@ export function CardSearch({ defaultValue = "" }: { defaultValue?: string }) {
                 onClick={() => choose(name)}
                 onMouseEnter={() => setHighlight(i)}
                 className={`cursor-pointer px-4 py-2 text-sm ${
-                  i === highlight ? "bg-amber-100 dark:bg-amber-500/20" : ""
+                  i === highlight ? "bg-subtle" : ""
                 }`}
               >
                 {parts ? (
@@ -145,7 +145,7 @@ export function CardSearch({ defaultValue = "" }: { defaultValue?: string }) {
       </div>
       <button
         type="submit"
-        className="h-12 rounded-lg bg-amber-500 px-5 font-medium text-zinc-950 transition-colors hover:bg-amber-400"
+        className="h-12 rounded-lg bg-foreground px-5 font-medium text-background transition-colors hover:bg-foreground/85"
       >
         Search
       </button>

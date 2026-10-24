@@ -49,7 +49,7 @@ export async function MarketTrendsSection() {
       )}
       <section>
         <h3 className="text-lg font-semibold">Price history</h3>
-        <p className="mb-3 text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="mb-3 text-sm text-muted">
           Compare any two days the app has saved and find the biggest price moves between them.
         </p>
         <PriceHistoryExplorer />
@@ -62,7 +62,7 @@ function Trends({ trends }: { trends: MarketTrends }) {
   return (
     <div className="flex flex-col gap-3">
       <TrendTabs trends={trends} />
-      <p className="text-xs text-zinc-500">
+      <p className="text-xs text-muted">
         {trends.source === "mtgjson"
           ? "Market prices: TCGplayer, from MTGJSON’s daily price history."
           : "Market prices: TCGplayer, from Scryfall, saved daily by this app."}{" "}

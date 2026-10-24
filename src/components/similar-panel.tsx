@@ -31,7 +31,7 @@ export async function SimilarPanel({ card }: { card: ScryfallCard }) {
 
   return (
     <Panel title={TITLE} source="EDHREC">
-      <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-400">
+      <p className="mb-4 text-sm text-muted">
         Cards that do almost the same job as {card.name}. Hover one to read its effect; click to open it.
       </p>
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
@@ -43,10 +43,10 @@ export async function SimilarPanel({ card }: { card: ScryfallCard }) {
                   <span className="font-semibold text-emerald-700 tabular-nums dark:text-emerald-400">
                     {formatPhp(s.cheapest.pricePhp)}
                   </span>{" "}
-                  <span className="text-zinc-600 dark:text-zinc-400">{s.cheapest.store}</span>
+                  <span className="text-muted">{s.cheapest.store}</span>
                 </>
               ) : (
-                <span className="text-zinc-500">{s.priceUnavailable ? "Price unavailable" : "Not in PH stores"}</span>
+                <span className="text-muted">{s.priceUnavailable ? "Price unavailable" : "Not in PH stores"}</span>
               )}
             </CardTile>
           </li>

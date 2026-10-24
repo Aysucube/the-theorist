@@ -18,6 +18,33 @@ them all, and get a **shopping list** that uses the fewest stores possible,
 with a ready-to-send order message for each store. Prices always use the cheapest
 printing of a card, whatever printing your list names.
 
+The **Binder** holds your collection. Paste a list (`4 Llanowar Elves`, a Moxfield or Archidekt
+export) or upload a CSV from a collection app such as ManaBox, Deckbox or Dragon Shield; any CSV
+with a name column and a count column works. Add to what's there or replace it, change counts
+card by card, and filter by color, type or commanders.
+
+**Create Commander Deck** builds a deck from the binder, one step at a time:
+
+1. **Commander**: every commander in your binder, filtered by color (including, exactly or within
+   those colors) or by name, or any commander at all if you'd rather.
+2. **Bracket**: the bracket you're building for (1 to 5), with how EDHREC's decks for the
+   commander split across them.
+3. **Synergies**: EDHREC's cards for the commander, highest synergy and new cards first, and its
+   playstyles to lean into. Cards you don't own are grayed out throughout.
+4. **Lands**: how many to run, from EDHREC's average for the commander (one fewer for Brackets 4
+   and 5), and how the basics split across the colors by the deck's mana symbols.
+5. **Build**: recommendations that change with every card you add: the cards that help most right
+   now, each of Quadrant Theory's four quadrants, consistency (card draw, tutors, ramp), combos a
+   card away that fit the bracket, the chosen playstyle, nonbasic lands and cards from your binder,
+   your own cards first if you like. The deck comes together beside it: its commander, a count to
+   100, quadrant and job meters, its bracket, and the newest cards on a stack.
+6. **Finish**: name it and save it. Basic lands fill the rest of the mana base.
+
+A deck in progress is saved as you go, so you can leave and continue later. Saved decks go to
+**My Decks**, each shown by its commander with its name and how many cards you'd need to buy.
+Click one to open it in Deck Synergy; right-click it (or use its ⋯ button) to add **only the cards
+missing from your binder** to Shopping, copy it, or delete it.
+
 **Deck Synergy (beta)** is a separate, early test. Paste a deck and pick its commander. Beside the
 title it shows the deck's **Commander Bracket**, such as "Bracket 2 nearing 3": worked out from its
 Game Changers, mass land denial, extra turns and combos (rated by Commander Spellbook), following
@@ -70,6 +97,10 @@ load it. Codes are made and read in the browser; no deck is sent to a server to 
 It keeps its own deck. **Add to Shopping** copies the deck as it is into the Shopping list (basic
 lands left out unless you ask) so you can price it in Philippine stores; nothing else changes the
 Shopping list.
+
+The look is quiet on purpose: ink on paper (or paper on ink, following the system's dark mode),
+hairline borders, and short animations that use strong ease-out curves and only move or fade
+things, so they stay smooth. They're switched off when the system asks for reduced motion.
 
 ## Running it on a Windows computer (no setup)
 
@@ -205,6 +236,9 @@ same pages their own websites use, so the app is built to stay a light, polite v
 - Commander Spellbook is asked twice per deck analysis (Deck Synergy: its combos and its bracket
   estimate), cached for a day, plus once per combo EDHREC lists for the commander that Spellbook's
   search didn't return (up to 20, for their steps), cached for a week.
+- Create Commander Deck reads the same EDHREC commander page as everything else (cached for a
+  day). Card details for a binder are asked for 150 cards at a time and kept in the browser, so
+  each card is looked up once.
 - The Game Changers list comes from one Scryfall search, cached for a day on the server and in
   each browser. The land art behind Deck Synergy's networks is one Scryfall search per land, cached
   for a day, and its artist is credited on the page.
@@ -245,8 +279,9 @@ several instances needs a shared cache handler; see Next.js's `cacheHandlers` do
 
 ## Limitations
 
-- The shopping list, beta deck, saved prices and ticks live in the visitor's browser
-  (localStorage). They don't sync between devices.
+- The binder, My Decks, the shopping list, beta deck, saved prices and ticks live in the
+  visitor's browser (localStorage, and IndexedDB for the binder's card details). They don't sync
+  between devices.
 - Store totals assume a store has enough copies; TCGph only shows stock per listing.
 - For decks needing more than three stores, the shopping list uses a quick
   approximation, which may not always find the fewest stores.

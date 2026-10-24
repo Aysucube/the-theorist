@@ -14,12 +14,13 @@ export function manaSymbols(cost: string): string[] {
   return [...cost.matchAll(/\{([^}]+)\}/g)].map((m) => m[1]);
 }
 
-function Pip({ symbol }: { symbol: string }) {
+/** One mana symbol as a colored pip. */
+export function Pip({ symbol, className = "" }: { symbol: string; className?: string }) {
   // Hybrid and Phyrexian symbols ("W/U", "B/P") take the first color they mention.
   const color = symbol.split("/").map((part) => COLORS[part]).find(Boolean);
   return (
     <span
-      className={`inline-flex size-4 items-center justify-center rounded-full text-[9px] leading-none font-bold ${
+      className={`inline-flex size-4 items-center justify-center rounded-full text-[9px] leading-none font-bold ${className} ${
         color?.className ?? GENERIC
       }`}
     >
@@ -40,16 +41,16 @@ export function ManaCost({ cost }: { cost: string }) {
   );
 }
 
-/** "Blue, Black" with matching pips, or "Colorless". */
-export function ColorIdentity({ colors }: { colors: string[] }) {
+/** "Blue, Black" with matching pips, or "Colorless". `compact` shows just the pips (the names stay for screen readers). */
+export function ColorIdentity({ colors, compact = false }: { colors: string[]; compact?: boolean }) {
   const known = colors.filter((c) => COLORS[c]);
-  if (known.length === 0) return <span>Colorless</span>;
+  if (known.length === 0) return compact ? <span className="text-[11px] text-muted">Colorless</span> : <span>Colorless</span>;
   return (
-    <span className="inline-flex flex-wrap items-center gap-1">
+    <span className={`inline-flex items-center gap-1 ${compact ? "shrink-0" : "flex-wrap"}`}>
       {known.map((c) => (
         <Pip key={c} symbol={c} />
       ))}
-      <span>{known.map((c) => COLORS[c].name).join(", ")}</span>
+      <span className={compact ? "sr-only" : undefined}>{known.map((c) => COLORS[c].name).join(", ")}</span>
     </span>
   );
 }

@@ -23,7 +23,7 @@ export async function RulingsPanel({ card }: { card: ScryfallCard }) {
   return (
     <Panel title={TITLE} source="Scryfall" sourceUrl={card.scryfallUrl}>
       {rulings.length > 0 && (
-        <p className="mb-3 text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="mb-3 text-sm text-muted">
           {rulings.length} official {rulings.length === 1 ? "ruling" : "rulings"} on how {card.name} works.
         </p>
       )}

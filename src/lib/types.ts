@@ -229,6 +229,23 @@ export interface EdhrecCommanderStats {
   lists: EdhrecCardList[];
   /** The playstyles its decks are built around ("Infect", "+1/+1 Counters"...), most decks first. */
   themes?: EdhrecTheme[];
+  /** What its average deck holds, e.g. 36 lands (13 basic), 24 creatures. */
+  averages?: EdhrecDeckAverages;
+  /** How many of its decks are in each bracket, keyed "1" to "5". */
+  bracketCounts?: Record<string, number>;
+}
+
+export interface EdhrecDeckAverages {
+  lands: number;
+  basics: number;
+  nonbasics: number;
+  creatures: number;
+  instants: number;
+  sorceries: number;
+  artifacts: number;
+  enchantments: number;
+  planeswalkers: number;
+  battles: number;
 }
 
 // --- TCGph ------------------------------------------------------------------

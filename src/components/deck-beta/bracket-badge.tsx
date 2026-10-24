@@ -19,7 +19,7 @@ export function BracketBadge({ report, checking, onClick }: { report: BracketRep
       type="button"
       onClick={onClick}
       title={`${BRACKET_INFO[report.bracket].name}. ${why}\nClick for details and how to change it.`}
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-sm font-semibold tracking-normal ${BRACKET_STYLE[report.bracket]} hover:ring-2 hover:ring-amber-500`}
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-sm font-semibold tracking-normal ${BRACKET_STYLE[report.bracket]} hover:ring-2 hover:ring-foreground/60`}
     >
       {bracketLabel(report)}
       {checking && <span aria-hidden className="size-3 animate-spin rounded-full border-2 border-current border-t-transparent opacity-60" />}

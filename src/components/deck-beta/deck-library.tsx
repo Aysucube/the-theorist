@@ -43,10 +43,10 @@ export function DeckLibrary({ deck, commander }: { deck: DeckCard[]; commander?:
   }
 
   return (
-    <details open={deck.length === 0 && decks.length > 0} className="rounded-xl border border-zinc-200 dark:border-zinc-800">
+    <details open={deck.length === 0 && decks.length > 0} className="rounded-xl border border-line">
       <summary className="cursor-pointer px-4 py-3 font-medium">
         Saved decks and sharing
-        {decks.length > 0 && <span className="ml-1.5 text-sm font-normal text-zinc-500 tabular-nums">({formatCount(decks.length)})</span>}
+        {decks.length > 0 && <span className="ml-1.5 text-sm font-normal text-muted tabular-nums">({formatCount(decks.length)})</span>}
       </summary>
       <div className="flex flex-col gap-5 px-4 pb-4">
         {deck.length > 0 && (
@@ -58,7 +58,7 @@ export function DeckLibrary({ deck, commander }: { deck: DeckCard[]; commander?:
                 onSave();
               }}
             >
-              <label htmlFor={nameId} className="flex min-w-0 flex-1 flex-col gap-1 text-sm text-zinc-600 dark:text-zinc-400">
+              <label htmlFor={nameId} className="flex min-w-0 flex-1 flex-col gap-1 text-sm text-muted">
                 Deck name
                 <input
                   id={nameId}
@@ -66,20 +66,20 @@ export function DeckLibrary({ deck, commander }: { deck: DeckCard[]; commander?:
                   onChange={(e) => setName(e.target.value)}
                   maxLength={80}
                   placeholder={commander || "My deck"}
-                  className="h-10 min-w-0 rounded-lg border border-zinc-300 bg-white px-3 text-sm text-zinc-900 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+                  className="h-10 min-w-0 rounded-lg border border-line-strong bg-background px-3 text-sm text-foreground outline-none focus:border-foreground/40 focus:ring-4 focus:ring-foreground/5"
                 />
               </label>
-              <button type="submit" className="h-10 rounded-lg bg-amber-500 px-4 text-sm font-medium text-zinc-950 hover:bg-amber-400">
+              <button type="submit" className="h-10 rounded-lg bg-foreground px-4 text-sm font-medium text-background hover:bg-foreground/85">
                 Save deck
               </button>
             </form>
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm text-zinc-600 dark:text-zinc-400">Share this deck:</span>
+              <span className="text-sm text-muted">Share this deck:</span>
               <CopyButton label="Copy deck code" text={() => encodeDeck(current)} />
               <CopyButton label="Copy link" text={() => shareLink(current)} />
               <CopyButton label="Copy as list" text={async () => deckToText(current)} />
             </div>
-            <p className="text-xs text-zinc-500">
+            <p className="text-xs text-muted">
               A deck code holds the whole deck and its commander in one line. Paste it into “Paste a deck list” on any
               copy of The Theorist to load it. The list works on Moxfield, Archidekt and EDHREC.
             </p>
@@ -87,7 +87,7 @@ export function DeckLibrary({ deck, commander }: { deck: DeckCard[]; commander?:
         )}
 
         {(message || undo) && (
-          <p role="status" className="text-sm text-zinc-600 dark:text-zinc-400">
+          <p role="status" className="text-sm text-muted">
             {message}{" "}
             {undo && (
               <button
@@ -97,7 +97,7 @@ export function DeckLibrary({ deck, commander }: { deck: DeckCard[]; commander?:
                   setUndo(null);
                   setMessage("Put back the deck you had before.");
                 }}
-                className="text-amber-700 underline dark:text-amber-400"
+                className="link"
               >
                 Undo
               </button>
@@ -106,21 +106,21 @@ export function DeckLibrary({ deck, commander }: { deck: DeckCard[]; commander?:
         )}
 
         {decks.length === 0 ? (
-          <p className="text-sm text-zinc-500">No saved decks yet. Saved decks stay in this browser.</p>
+          <p className="text-sm text-muted">No saved decks yet. Saved decks stay in this browser.</p>
         ) : (
-          <ul className="flex flex-col divide-y divide-zinc-200 rounded-lg border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
+          <ul className="flex flex-col divide-y divide-line rounded-lg border border-line">
             {decks.map((d) => (
               <li key={d.id} className="flex flex-wrap items-center gap-2 px-3 py-2">
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{d.name}</p>
-                  <p className="truncate text-xs text-zinc-500">
+                  <p className="truncate text-xs text-muted">
                     {[d.commander, `${formatCount(cardCount(d.cards))} cards`, `saved ${savedDate.format(d.savedAt)}`].filter(Boolean).join(" · ")}
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => onLoad(d)}
-                  className="h-8 rounded-lg border border-zinc-300 px-3 text-xs font-medium hover:border-amber-500 dark:border-zinc-700"
+                  className="h-8 rounded-lg border border-line-strong px-3 text-xs font-medium hover:border-foreground/30"
                 >
                   Load
                 </button>
@@ -155,19 +155,19 @@ function CopyButton({ label, text }: { label: string; text: () => Promise<string
       <button
         type="button"
         onClick={copy}
-        className="h-8 rounded-lg border border-zinc-300 px-3 text-xs font-medium hover:border-amber-500 dark:border-zinc-700"
+        className="h-8 rounded-lg border border-line-strong px-3 text-xs font-medium hover:border-foreground/30"
       >
         <span aria-live="polite">{status === "copied" ? "Copied ✓" : label}</span>
       </button>
       {typeof status === "object" && (
-        <label className="w-full text-xs text-zinc-500">
+        <label className="w-full text-xs text-muted">
           Couldn’t copy automatically. Select the text below and copy it:
           <textarea
             readOnly
             value={status.manual}
             rows={Math.min(8, status.manual.split("\n").length + 1)}
             ref={(el) => el?.select()}
-            className="mt-1 w-full rounded-lg border border-zinc-300 bg-white p-2 font-mono text-xs break-all text-zinc-800 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
+            className="mt-1 w-full rounded-lg border border-line-strong bg-background p-2 font-mono text-xs break-all text-foreground/90"
           />
         </label>
       )}
@@ -189,7 +189,7 @@ function DeleteButton({ name, onDelete }: { name: string; onDelete: () => void }
       className={`h-8 rounded-lg border px-3 text-xs ${
         confirming
           ? "border-red-600 text-red-700 dark:text-red-400"
-          : "border-zinc-300 text-zinc-600 hover:border-red-500 dark:border-zinc-700 dark:text-zinc-400"
+          : "border-line-strong text-muted hover:border-red-500  "
       }`}
     >
       {confirming ? "Click again" : "Delete"}
@@ -248,7 +248,7 @@ export function SharedDeckBanner() {
   }
   const title = shared.name || shared.commander || "A deck";
   return (
-    <div className={`${box} border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100`}>
+    <div className={`${box} border-line bg-surface`}>
       <span className="min-w-0 flex-1">
         Shared with you: <strong>{title}</strong>
         {shared.commander && shared.commander !== title && <> ({shared.commander})</>} · {formatCount(cardCount(shared.cards))} cards. Loading it
@@ -260,7 +260,7 @@ export function SharedDeckBanner() {
           loadWholeDeck(shared.cards, shared.commander);
           clearHash();
         }}
-        className="h-8 rounded-lg bg-amber-500 px-3 text-xs font-medium text-zinc-950 hover:bg-amber-400"
+        className="h-8 rounded-lg bg-foreground px-3 text-xs font-medium text-background hover:bg-foreground/85"
       >
         Load it
       </button>
@@ -270,7 +270,7 @@ export function SharedDeckBanner() {
           save(title, shared.commander, shared.cards);
           clearHash();
         }}
-        className="h-8 rounded-lg border border-amber-400 px-3 text-xs font-medium hover:border-amber-600 dark:border-amber-700"
+        className="h-8 rounded-lg border border-line-strong px-3 text-xs font-medium hover:border-foreground/40"
       >
         Save for later
       </button>

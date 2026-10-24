@@ -1,5 +1,5 @@
 // What the deck beta's API routes return.
-import type { CardDetails, DeckCombos, EdhrecPairing, EdhrecTheme, Ruling, SpellbookBracket } from "@/lib/types";
+import type { CardDetails, DeckCombos, EdhrecDeckAverages, EdhrecPairing, EdhrecTheme, Ruling, SpellbookBracket } from "@/lib/types";
 
 /** POST /api/deck-beta/cards */
 export interface CardsResponse {
@@ -67,5 +67,29 @@ export type PlaystyleResponse =
       cards: PlaystyleCard[];
       /** Every card EDHREC lists for it, to spot deck cards that don't fit. */
       listed: string[];
+      details: Record<string, CardDetails>;
+    };
+
+/** One card EDHREC's decks for a commander play, for Create Commander Deck. */
+export interface BuilderCard {
+  name: string;
+  synergy?: number;
+  inclusion?: number;
+  numDecks: number;
+  /** The EDHREC lists it's in, e.g. "New Cards", "High Synergy Cards", "Lands". */
+  lists: string[];
+}
+
+/** GET /api/deck-beta/builder */
+export type BuilderResponse =
+  | { found: false }
+  | {
+      found: true;
+      url: string;
+      numDecks: number;
+      themes: EdhrecTheme[];
+      averages?: EdhrecDeckAverages;
+      bracketCounts?: Record<string, number>;
+      cards: BuilderCard[];
       details: Record<string, CardDetails>;
     };

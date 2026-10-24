@@ -7,7 +7,7 @@ import { importCards, MAX_DECK_CARDS, removeCard, type DeckCard } from "@/lib/de
 import { createLocalStore, useHydrated } from "@/lib/local-store";
 import { fetchJsonWithRetry, sleep } from "@/lib/retry";
 import type { CardDetails } from "@/lib/types";
-import type { AnalysisResponse, CardsResponse, LandArtResponse, PairingsResponse, PlaystyleResponse, RulingsResponse } from "./api";
+import type { AnalysisResponse, BuilderResponse, CardsResponse, LandArtResponse, PairingsResponse, PlaystyleResponse, RulingsResponse } from "./api";
 
 function isDeckCard(value: unknown): value is DeckCard {
   const card = value as DeckCard;
@@ -353,6 +353,24 @@ export function useLandArt(colors: string[], seed: string): LandArtResponse | un
   return state?.state === "done" ? state.result : undefined;
 }
 
+// --- Create Commander Deck -----------------------------------------------------------
+
+/** Everything EDHREC has for a commander, for the deck builder. */
+export function useBuilderData(commander: { name: string; layout: string } | undefined): RemoteState<BuilderResponse> | undefined {
+  useSyncExternalStore(subscribePairings, () => pairingsVersion, () => 0);
+  const url = commander ? `/api/deck-beta/builder?${new URLSearchParams({ commander: commander.name, layout: commander.layout })}` : "";
+  useEffect(() => {
+    if (url) loadRemote<BuilderResponse>(url, url, undefined, "EDHREC or Scryfall is busy");
+  }, [url]);
+  return url ? (remote.get(url) as RemoteState<BuilderResponse> | undefined) : undefined;
+}
+
+/** Tries the builder's EDHREC lookup again after it failed. */
+export function retryBuilderData(commander: { name: string; layout: string }) {
+  const url = `/api/deck-beta/builder?${new URLSearchParams({ commander: commander.name, layout: commander.layout })}`;
+  loadRemote<BuilderResponse>(url, url, undefined, "EDHREC or Scryfall is busy", true);
+}
+
 // --- Saved decks --------------------------------------------------------------------
 
 export interface SavedDeck {
@@ -361,6 +379,12 @@ export interface SavedDeck {
   commander?: string;
   cards: DeckCard[];
   savedAt: number;
+  /** The bracket it was built for (Create Commander Deck). */
+  bracket?: number;
+  /** The EDHREC playstyle it was built around, by name. */
+  theme?: string;
+  /** The commander's card image, for My Decks. */
+  commanderImage?: string;
 }
 
 function isSavedDeck(value: unknown): value is SavedDeck {
@@ -386,6 +410,15 @@ export function useDeckLibrary() {
       libraryStore.set([{ id, name: name.trim(), commander, cards, savedAt: Date.now() }, ...others]);
     },
     remove: (id: string) => libraryStore.set(libraryStore.get().filter((d) => d.id !== id)),
+    /** Puts a deleted deck back where it was. */
+    restore: (deck: SavedDeck) =>
+      libraryStore.set([deck, ...libraryStore.get().filter((d) => d.id !== deck.id)].sort((a, b) => b.savedAt - a.savedAt)),
+    /** Saves a new deck (never replacing one) and returns its id. */
+    create: (deck: Omit<SavedDeck, "id" | "savedAt">): string => {
+      const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
+      libraryStore.set([{ ...deck, name: deck.name.trim() || "Untitled deck", id, savedAt: Date.now() }, ...libraryStore.get()]);
+      return id;
+    },
   };
 }
 

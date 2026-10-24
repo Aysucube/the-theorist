@@ -48,10 +48,10 @@ export function PrintingGrid({ tiles, label, cardName }: { tiles: PrintingTile[]
         <button
           type="button"
           onClick={() => setShown((n) => n + STEP)}
-          className="mt-3 rounded-full border border-zinc-300 px-4 py-1.5 text-sm hover:border-amber-500 dark:border-zinc-700"
+          className="mt-3 rounded-full border border-line-strong px-4 py-1.5 text-sm hover:border-foreground/30"
         >
           Show {formatCount(Math.min(STEP, remaining))} more {label}
-          <span className="text-zinc-500"> ({formatCount(remaining)} left)</span>
+          <span className="text-muted"> ({formatCount(remaining)} left)</span>
         </button>
       )}
     </>
@@ -64,8 +64,8 @@ function Tile({ tile: t, cardName, selected }: { tile: PrintingTile; cardName: s
   const picture = (
     <>
       <div
-        className={`aspect-[146/204] overflow-hidden rounded-[4.75%] bg-zinc-200 dark:bg-zinc-800 ${
-          selected ? "ring-3 ring-amber-500" : ""
+        className={`aspect-[146/204] overflow-hidden rounded-[4.75%] bg-subtle  ${
+          selected ? "ring-3 ring-foreground/60" : ""
         }`}
       >
         {t.imageUrl && (
@@ -84,7 +84,7 @@ function Tile({ tile: t, cardName, selected }: { tile: PrintingTile; cardName: s
       <p className="mt-1.5 truncate text-xs font-medium" title={t.setName}>
         {t.setName}
       </p>
-      <p className="truncate text-xs text-zinc-500">
+      <p className="truncate text-xs text-muted">
         {t.setCode} #{t.collectorNumber}
         {t.year && ` · ${t.year}`}
       </p>
@@ -119,12 +119,12 @@ function Tile({ tile: t, cardName, selected }: { tile: PrintingTile; cardName: s
             <span className="font-semibold text-emerald-700 tabular-nums dark:text-emerald-400">
               {formatPhp(t.pricePhp)}
             </span>{" "}
-            <span className="text-zinc-600 dark:text-zinc-400">{t.store}</span>
-            {t.finish && <span className="text-zinc-500"> · {t.finish}</span>}
-            <span className="text-zinc-500"> ↗</span>
+            <span className="text-muted">{t.store}</span>
+            {t.finish && <span className="text-muted"> · {t.finish}</span>}
+            <span className="text-muted"> ↗</span>
           </a>
         ) : (
-          <p className="text-zinc-500">Not in PH stores</p>
+          <p className="text-muted">Not in PH stores</p>
         )}
       </div>
     </div>

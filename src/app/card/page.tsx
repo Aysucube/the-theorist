@@ -23,7 +23,7 @@ export default function CardPage(props: PageProps<"/card">) {
         <SearchWithQuery searchParams={props.searchParams} />
       </Suspense>
 
-      <Suspense fallback={<p className="text-zinc-500">Looking up card…</p>}>
+      <Suspense fallback={<p className="text-muted">Looking up card…</p>}>
         <Results searchParams={props.searchParams} />
       </Suspense>
     </main>

@@ -40,7 +40,7 @@ export function Sparkline({ points, width = 120, height = 32 }: { points: PriceP
 
 /** A full price chart: every saved day as a point (hover for its price), with the range labelled. */
 export function PriceChart({ points, height = 180 }: { points: PricePoint[]; height?: number }) {
-  if (points.length < 2) return <p className="text-xs text-zinc-500">Not enough days saved for a chart yet.</p>;
+  if (points.length < 2) return <p className="text-xs text-muted">Not enough days saved for a chart yet.</p>;
   const width = 600;
   const scaled = scale(points, width, height, 24);
   const color = points.at(-1)!.usd >= points[0].usd ? UP : DOWN;
@@ -49,8 +49,8 @@ export function PriceChart({ points, height = 180 }: { points: PricePoint[]; hei
   const low = Math.min(...values);
   return (
     <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Price history" className="h-auto w-full">
-      <line x1={24} x2={width - 24} y1={24} y2={24} className="stroke-zinc-200 dark:stroke-zinc-800" strokeDasharray="3 4" />
-      <line x1={24} x2={width - 24} y1={height - 24} y2={height - 24} className="stroke-zinc-200 dark:stroke-zinc-800" strokeDasharray="3 4" />
+      <line x1={24} x2={width - 24} y1={24} y2={24} className="stroke-line" strokeDasharray="3 4" />
+      <line x1={24} x2={width - 24} y1={height - 24} y2={height - 24} className="stroke-line" strokeDasharray="3 4" />
       <text x={24} y={16} fontSize={11} className="fill-zinc-500">
         high {formatUsd(high)}
       </text>

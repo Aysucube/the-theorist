@@ -255,9 +255,9 @@ function HoverCard({
       id={id}
       role="tooltip"
       style={{ left: position.left, top, width: CARD_SIZE.width, maxWidth: "calc(100vw - 24px)" }}
-      className="pointer-events-none fixed z-50 grid grid-cols-[300px_1fr] gap-4 rounded-xl border border-zinc-200 bg-white p-4 text-zinc-900 shadow-xl dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+      className="pointer-events-none fixed z-50 grid grid-cols-[300px_1fr] gap-4 rounded-xl border border-line bg-background p-4 text-foreground shadow-xl"
     >
-      <div className="aspect-[488/680] self-start overflow-hidden rounded-[4.75%] bg-zinc-200 dark:bg-zinc-800">
+      <div className="aspect-[488/680] self-start overflow-hidden rounded-[4.75%] bg-subtle">
         {loaded?.imageUrl ? (
           // A new key starts a fresh load if the preview's image changes.
           <RetryingImage key={loaded.imageUrl} url={loaded.imageUrl} failedText="Image couldn’t load. Hover again to retry." />
@@ -278,24 +278,24 @@ function HoverCard({
         </div>
 
         {waiting && (
-          <p className="text-amber-700 dark:text-amber-400">
+          <p className="text-accent">
             Waiting {waiting.seconds}s because {waiting.reason}, then trying again…
           </p>
         )}
-        {!loaded && !waiting && !snapshot.done && <p className="text-zinc-500">Loading card details…</p>}
-        {!loaded && snapshot.done && <p className="text-zinc-500">Couldn’t load this card after several tries.</p>}
+        {!loaded && !waiting && !snapshot.done && <p className="text-muted">Loading card details…</p>}
+        {!loaded && snapshot.done && <p className="text-muted">Couldn’t load this card after several tries.</p>}
 
         {loaded && (
           <>
-            {loaded.typeLine && <p className="text-zinc-500">{loaded.typeLine}</p>}
+            {loaded.typeLine && <p className="text-muted">{loaded.typeLine}</p>}
             {loaded.colorIdentity && (
-              <p className="text-zinc-600 dark:text-zinc-300">
+              <p className="text-foreground/75">
                 <ColorIdentity colors={loaded.colorIdentity} />
               </p>
             )}
             {loaded.oracleText && <p className="line-clamp-12 whitespace-pre-line">{loaded.oracleText}</p>}
 
-            <div className="border-t border-zinc-200 pt-2 dark:border-zinc-700">
+            <div className="border-t border-line pt-2">
               {cheapest ? (
                 <>
                   <p>
@@ -303,14 +303,14 @@ function HoverCard({
                       {formatPhp(cheapest.pricePhp)}
                     </span>{" "}
                     at <span className="font-semibold">{cheapest.store}</span>
-                    {loaded.stores > 1 && <span className="text-zinc-500"> · {formatCount(loaded.stores)} stores</span>}
+                    {loaded.stores > 1 && <span className="text-muted"> · {formatCount(loaded.stores)} stores</span>}
                   </p>
-                  <p className="text-zinc-500">
+                  <p className="text-muted">
                     {[cheapest.printing, cheapest.conditionLabel ?? cheapest.condition].filter(Boolean).join(" · ")}
                   </p>
                 </>
               ) : (
-                <p className="text-zinc-500">
+                <p className="text-muted">
                   {loaded.priceUnavailable ? "PH prices unavailable right now." : "Not in PH stores right now."}
                 </p>
               )}
@@ -321,7 +321,7 @@ function HoverCard({
                 <span className="font-medium">Decks:</span> in {formatPercent(loaded.decks.inclusion)} of decks that
                 can run it ({formatCount(loaded.decks.numDecks)} decks)
                 {loaded.decks.topCommanders.length > 0 && (
-                  <span className="text-zinc-500"> · popular with {loaded.decks.topCommanders.join(", ")}</span>
+                  <span className="text-muted"> · popular with {loaded.decks.topCommanders.join(", ")}</span>
                 )}
               </p>
             )}

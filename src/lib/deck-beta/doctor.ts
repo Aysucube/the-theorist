@@ -14,6 +14,8 @@ export interface Candidate {
   synergy?: number;
   /** Share of the commander's decks that run it (0–1). */
   inclusion?: number;
+  /** In the player's binder (Create Commander Deck favours what they own). */
+  owned?: boolean;
 }
 
 export interface Pick extends Candidate {
@@ -49,6 +51,8 @@ export interface PlanOptions {
   gameChangersInDeck?: number;
   /** The highest bracket of a combo each card would complete, if it would. */
   completes?: (name: string) => Bracket | undefined;
+  /** How much to favour cards the player owns. */
+  ownedBonus?: number;
 }
 
 // Lower brackets favour synergy and flexible cards; higher ones raw strength.
@@ -88,7 +92,7 @@ export function scoreCandidate(candidate: Candidate, gaps: Partial<Record<Role, 
     (gameChanger ? w.gameChanger : 0) +
     strength(candidate.card, roles) * w.strength;
   // Cards EDHREC has never seen in this commander's decks (e.g. Game Changers added for their power) rank lower.
-  const score = candidate.inclusion === undefined ? fit * UNSEEN : fit;
+  const score = (candidate.inclusion === undefined ? fit * UNSEEN : fit) + (candidate.owned ? (options.ownedBonus ?? 0) : 0);
   return {
     ...candidate,
     roles,

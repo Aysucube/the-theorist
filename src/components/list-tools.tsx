@@ -14,7 +14,7 @@ type Gallery =
   | { status: "error" };
 
 const button =
-  "rounded-full border border-zinc-300 px-3 py-1 text-xs font-medium hover:border-amber-500 disabled:cursor-default disabled:opacity-60 dark:border-zinc-700";
+  "rounded-full border border-line-strong px-3 py-1 text-xs font-medium hover:border-foreground/30 disabled:cursor-default disabled:opacity-60 ";
 
 /**
  * "Load All Prices" and "Load Gallery" for one EDHREC list. Prices go through
@@ -45,7 +45,7 @@ export function ListTools({ names }: { names: string[] }) {
   }
 
   return (
-    <div className="border-t border-zinc-200 px-3 py-3 dark:border-zinc-800">
+    <div className="border-t border-line px-3 py-3">
       <div className="flex flex-wrap items-center gap-2">
         <button type="button" onClick={() => checkPrices(names)} disabled={done === names.length} className={button}>
           Load All Prices
@@ -57,7 +57,7 @@ export function ListTools({ names }: { names: string[] }) {
         >
           {showGallery ? "Hide Gallery" : "Load Gallery"}
         </button>
-        <span role="status" className="text-xs text-zinc-500 tabular-nums">
+        <span role="status" className="text-xs text-muted tabular-nums">
           {pending > 0
             ? `Loading prices… ${formatCount(done)} of ${formatCount(names.length)}`
             : done > 0
@@ -69,14 +69,14 @@ export function ListTools({ names }: { names: string[] }) {
       {showGallery && gallery && (
         <div className="mt-3">
           {gallery.status === "loading" && (
-            <p className="text-xs text-zinc-500">
+            <p className="text-xs text-muted">
               {gallery.waiting
                 ? `Waiting ${gallery.waiting.seconds}s because ${gallery.waiting.reason}, then trying again…`
                 : "Loading gallery…"}
             </p>
           )}
           {gallery.status === "error" && (
-            <p className="text-xs text-zinc-500">
+            <p className="text-xs text-muted">
               Couldn’t load the gallery after several tries.{" "}
               <button type="button" onClick={() => { setGallery(null); void loadGallery(); }} className="underline">
                 Try again

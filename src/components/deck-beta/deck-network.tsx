@@ -287,7 +287,7 @@ export function DeckNetwork({
               role="radio"
               aria-checked={mode === m}
               onClick={() => setMode(m)}
-              className={`rounded-md px-2.5 py-1 font-medium ${mode === m ? "bg-amber-500 text-zinc-950" : "text-zinc-300 hover:text-white"}`}
+              className={`rounded-md px-2.5 py-1 font-medium ${mode === m ? "bg-foreground text-background" : "text-zinc-300 hover:text-white"}`}
             >
               {m === "map" ? "2D map" : "3D sphere"}
             </button>
@@ -323,13 +323,13 @@ export function DeckNetwork({
 
       <div className="flex flex-col gap-3 text-sm">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-semibold tracking-wide text-zinc-500 uppercase">Playstyles</span>
-          {hubs.length === 0 && <span className="text-zinc-500">None stand out yet.</span>}
+          <span className="text-xs font-semibold tracking-wide text-muted uppercase">Playstyles</span>
+          {hubs.length === 0 && <span className="text-muted">None stand out yet.</span>}
           {hubs.map((hub, i) => (
-            <span key={hub.tag} className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 px-2.5 py-0.5 dark:border-zinc-800">
+            <span key={hub.tag} className="inline-flex items-center gap-1.5 rounded-full border border-line px-2.5 py-0.5">
               <span aria-hidden className="size-2 rounded-full" style={{ background: HUB_COLORS[i % HUB_COLORS.length] }} />
               {tagLabel(hub.tag)}
-              <span className="text-xs text-zinc-500 tabular-nums">
+              <span className="text-xs text-muted tabular-nums">
                 {formatCount(hub.payoffs.length)} payoffs · {formatCount(hub.enablers.length)} enablers
               </span>
             </span>
@@ -337,7 +337,7 @@ export function DeckNetwork({
         </div>
         {allCombos.length > 0 && (
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold tracking-wide text-zinc-500 uppercase">Combos</span>
+            <span className="text-xs font-semibold tracking-wide text-muted uppercase">Combos</span>
             {allCombos.map((combo) => {
               const ghost = ghostCombos.includes(combo);
               return (
@@ -350,15 +350,15 @@ export function DeckNetwork({
                   onBlur={() => setShownCombo(null)}
                   onClick={() => onWalk(walkId === combo.id ? null : combo.id)}
                   aria-pressed={walkId === combo.id}
-                  className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 hover:border-amber-500 ${
-                    walkId === combo.id ? "border-amber-500 bg-amber-50 dark:bg-amber-950/40" : "border-zinc-200 dark:border-zinc-800"
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 hover:border-foreground/30 ${
+                    walkId === combo.id ? "border-foreground bg-subtle" : "border-line "
                   } ${ghost ? "border-dashed" : ""}`}
                   title={`${combo.cards.join(" + ")}: click to walk through it`}
                 >
                   <span aria-hidden className="size-2 rounded-full" style={{ background: colorOf(combo.id) }} />
                   {combo.results[0] ?? "Combo"}
                   {ghost && (
-                    <span className="text-xs text-zinc-500">
+                    <span className="text-xs text-muted">
                       +{missingPieces(combo, deckNames).length} {missingPieces(combo, deckNames).length === 1 ? "card" : "cards"}
                     </span>
                   )}
@@ -368,14 +368,14 @@ export function DeckNetwork({
           </div>
         )}
         {mode === "map" ? (
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-muted">
             Click a combo to zoom in and walk through it step by step. Click a card to select it, double-click to open its
             own network; drag cards or the background to move them, and zoom with the buttons or Ctrl + scroll. Shaded dashed
             cards aren’t in your deck: each completes a combo.
             {hiddenLands > 0 && ` ${formatCount(hiddenLands)} lands that don’t link to anything aren’t shown.`}
           </p>
         ) : (
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-muted">
             Your commander is the star at the center. Each playstyle is a station on the sphere’s shell, with the
             cards that feed it gathered round it; cards that only work with your commander sit at the poles, and cards that
             would complete a combo float just outside. Cards that link to nothing orbit further out like planets
@@ -409,16 +409,16 @@ function SelectionBar({
   onWalk: (comboId: string) => void;
   onClose: () => void;
 }) {
-  const small = "h-8 rounded-lg border border-zinc-300 px-3 text-xs font-medium hover:border-amber-500 dark:border-zinc-700";
+  const small = "h-8 rounded-lg border border-line-strong px-3 text-xs font-medium hover:border-foreground/30 ";
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-800">
+    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-line px-3 py-2 text-sm">
       <span aria-hidden className={`size-2.5 rounded-full ${node.kind === "ghost" ? "border border-dashed" : ""}`} style={{ background: node.color }} />
       {node.kind === "hub" || node.id === "__deck" ? (
         <span className="font-medium">{node.label}</span>
       ) : (
         <HoverName name={node.label} className="font-medium" />
       )}
-      {node.sublabel && <span className="text-xs text-zinc-500">{node.sublabel}</span>}
+      {node.sublabel && <span className="text-xs text-muted">{node.sublabel}</span>}
       <span className="ml-auto flex flex-wrap items-center gap-2">
         {combos.map((combo) => (
           <button key={combo.id} type="button" className={small} onClick={() => onWalk(combo.id)}>
@@ -431,7 +431,7 @@ function SelectionBar({
             type="button"
             disabled={inDeck(missingCard.name)}
             onClick={() => onAdd(missingCard)}
-            className="h-8 rounded-lg bg-amber-500 px-3 text-xs font-medium text-zinc-950 hover:bg-amber-400 disabled:bg-transparent disabled:text-emerald-600"
+            className="h-8 rounded-lg bg-foreground px-3 text-xs font-medium text-background hover:bg-foreground/85 disabled:bg-transparent disabled:text-emerald-600"
           >
             {inDeck(missingCard.name) ? "In deck ✓" : `+ Add ${missingCard.name}`}
           </button>
@@ -441,7 +441,7 @@ function SelectionBar({
             Open its network
           </button>
         )}
-        <button type="button" onClick={onClose} aria-label="Clear selection" className="rounded px-1.5 text-lg leading-none text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100">
+        <button type="button" onClick={onClose} aria-label="Clear selection" className="rounded px-1.5 text-lg leading-none text-muted hover:text-foreground">
           ×
         </button>
       </span>

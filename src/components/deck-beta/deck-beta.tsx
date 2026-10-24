@@ -155,7 +155,7 @@ export function DeckBeta() {
   // Combos a card away, then the wider ones EDHREC lists for the commander.
   const nearCombos = useMemo(() => [...(deckCombos?.almostIncluded ?? []), ...(deckCombos?.wider ?? [])], [deckCombos]);
 
-  if (!ready) return <p className="text-zinc-500">Loading your deck…</p>;
+  if (!ready) return <p className="text-muted">Loading your deck…</p>;
 
   const totalCards = deck.reduce((sum, c) => sum + c.qty, 0);
   const notFound = entries.filter((e) => e.details === null);
@@ -191,13 +191,13 @@ export function DeckBeta() {
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <h1 className="flex items-center gap-2 text-3xl font-semibold tracking-tight">
               Deck Synergy
-              <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-semibold tracking-normal text-violet-900 uppercase dark:bg-violet-950 dark:text-violet-300">
+              <span className="rounded-full bg-subtle px-2 py-0.5 text-xs font-semibold tracking-normal text-muted uppercase">
                 Beta
               </span>
             </h1>
             {loaded.length > 0 && <BracketBadge report={report} checking={checking} onClick={() => setView("recommend")} />}
           </div>
-          <p className="mt-1 flex flex-wrap items-center gap-x-2 text-sm text-zinc-500">
+          <p className="mt-1 flex flex-wrap items-center gap-x-2 text-sm text-muted">
             <span>
               {formatCount(totalCards)} {totalCards === 1 ? "card" : "cards"} · saved in this browser only
             </span>
@@ -216,7 +216,7 @@ export function DeckBeta() {
         )}
       </div>
 
-      <p className="rounded-lg border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-950 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-200">
+      <p className="text-sm text-muted">
         An early test, kept separate from the rest of the app: this deck isn’t your Shopping list, and nothing here
         changes it unless you click Add to Shopping. Synergies are read from each card’s types and rules text plus EDHREC’s data, combos come from
         Commander Spellbook and EDHREC, so treat them as hints.
@@ -232,7 +232,7 @@ export function DeckBeta() {
         <>
           <StatusLine status={status} pending={pending} />
 
-          <div className="flex flex-wrap items-center gap-3 rounded-xl border border-zinc-200 p-3 dark:border-zinc-800">
+          <div className="flex flex-wrap items-center gap-3 rounded-xl border border-line p-3">
             {options.length > 0 ? (
               <>
                 <label htmlFor={commanderSelect} className="text-sm font-medium">
@@ -242,7 +242,7 @@ export function DeckBeta() {
                   id={commanderSelect}
                   value={commander?.name ?? ""}
                   onChange={(e) => setChosenCommander(e.target.value)}
-                  className="h-9 min-w-0 max-w-full rounded-lg border border-zinc-300 bg-white px-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                  className="h-9 min-w-0 max-w-full rounded-lg border border-line-strong bg-background px-2 text-sm"
                 >
                   {options.map((c) => (
                     <option key={c.name} value={c.name}>
@@ -253,14 +253,14 @@ export function DeckBeta() {
                 <AnalysisStatus state={remote} commander={commander} cards={deckNames} />
               </>
             ) : (
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              <p className="text-sm text-muted">
                 No card in this deck can be a commander yet. Add one (a legendary creature, or a legendary Vehicle or
                 Spacecraft) to see combos and playstyles.
               </p>
             )}
           </div>
 
-          <div role="tablist" aria-label="Deck Synergy view" className="flex flex-wrap gap-2 border-b border-zinc-200 pb-3 dark:border-zinc-800">
+          <div role="tablist" aria-label="Deck Synergy view" className="flex flex-wrap gap-2 border-b border-line pb-3">
             {VIEWS.map((v) => (
               <button
                 key={v.id}
@@ -269,7 +269,7 @@ export function DeckBeta() {
                 aria-selected={view === v.id}
                 onClick={() => setView(v.id)}
                 className={`rounded-full border px-3.5 py-1.5 text-sm font-medium ${
-                  view === v.id ? "border-amber-500 bg-amber-500 text-zinc-950" : "border-zinc-300 hover:border-amber-500 dark:border-zinc-700"
+                  view === v.id ? "border-foreground bg-foreground text-background" : "border-line-strong hover:border-foreground/30 "
                 }`}
               >
                 {v.label}
@@ -353,7 +353,7 @@ export function DeckBeta() {
 
           {view === "cards" && (
             <>
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              <p className="text-sm text-muted">
                 <strong>Click</strong> a card to see what it interacts with in your deck.{" "}
                 <strong>Double-click</strong> it for its network, combos and recommendations.
               </p>
@@ -362,11 +362,11 @@ export function DeckBeta() {
           )}
 
           {notFound.length > 0 && (
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+            <p className="text-sm text-muted">
               Scryfall doesn’t know {notFound.map((e) => `“${e.asked}”`).join(", ")}. Check the spelling, or remove{" "}
               {notFound.length === 1 ? "it" : "them"}:{" "}
               {notFound.map((e) => (
-                <button key={e.asked} type="button" onClick={() => remove(e.asked)} className="mr-2 text-amber-700 underline dark:text-amber-400">
+                <button key={e.asked} type="button" onClick={() => remove(e.asked)} className="mr-2 link">
                   remove {e.asked}
                 </button>
               ))}
@@ -426,14 +426,14 @@ function AnalysisStatus({
   if (state.state === "done") {
     const combos = state.result.combos;
     return (
-      <span className="text-xs text-zinc-500">
+      <span className="text-xs text-muted">
         {combos
           ? `${formatCount(combos.included.length)} combos found, ${formatCount(combos.almostIncluded.length)} a card away${
               combos.wider?.length ? `, ${formatCount(combos.wider.length)} more on EDHREC` : ""
             }.`
           : "Couldn’t reach Commander Spellbook for combos."}{" "}
         {(!combos || state.result.themes.length === 0) && (
-          <button type="button" onClick={() => requestAnalysis(commander, cards, true)} className="text-amber-700 underline dark:text-amber-400">
+          <button type="button" onClick={() => requestAnalysis(commander, cards, true)} className="link">
             Try again
           </button>
         )}
@@ -442,17 +442,17 @@ function AnalysisStatus({
   }
   if (state.state === "error") {
     return (
-      <span className="text-xs text-zinc-500">
+      <span className="text-xs text-muted">
         Couldn’t analyze the deck after several tries.{" "}
-        <button type="button" onClick={() => requestAnalysis(commander, cards, true)} className="text-amber-700 underline dark:text-amber-400">
+        <button type="button" onClick={() => requestAnalysis(commander, cards, true)} className="link">
           Try again
         </button>
       </span>
     );
   }
   return (
-    <span className="flex items-center gap-2 text-xs text-zinc-500">
-      <span aria-hidden className="size-3.5 animate-spin rounded-full border-2 border-zinc-300 border-t-amber-500" />
+    <span className="flex items-center gap-2 text-xs text-muted">
+      <span aria-hidden className="size-3.5 spinner" />
       {state.state === "waiting"
         ? `Waiting ${state.seconds}s because ${state.reason}, then trying again…`
         : "Finding combos and playstyles (Commander Spellbook and EDHREC)…"}
@@ -472,7 +472,7 @@ function WaitingFor({
   failed?: boolean;
 }) {
   return (
-    <p className="text-sm text-zinc-500">
+    <p className="text-sm text-muted">
       {!commander
         ? `Pick a commander to see ${what}.`
         : failed || state?.state === "error"
@@ -489,8 +489,8 @@ function StatusLine({ status, pending }: { status: LoadStatus; pending: number }
       ? `Waiting ${status.seconds}s because ${status.reason}, then trying again. Every card will load; it just takes a while.`
       : `Loading details for ${formatCount(pending)} ${pending === 1 ? "card" : "cards"} from Scryfall…`;
   return (
-    <p role="status" className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
-      <span aria-hidden className="size-4 animate-spin rounded-full border-2 border-zinc-300 border-t-amber-500 dark:border-zinc-600 dark:border-t-amber-400" />
+    <p role="status" className="flex items-center gap-2 text-sm text-muted">
+      <span aria-hidden className="size-4 spinner" />
       {text}
     </p>
   );
@@ -523,7 +523,7 @@ function Gallery({
         return (
           <section key={group}>
             <h2 className="mb-3 text-lg font-semibold">
-              {group} <span className="text-sm font-normal text-zinc-500 tabular-nums">({formatCount(count)})</span>
+              {group} <span className="text-sm font-normal text-muted tabular-nums">({formatCount(count)})</span>
             </h2>
             <ul className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
               {cards.map((entry) => (
@@ -553,8 +553,8 @@ function Tile({
   const body = (
     <>
       <div
-        className={`relative aspect-[488/680] overflow-hidden rounded-[4.75%] bg-zinc-200 dark:bg-zinc-800 ${
-          selected ? "ring-3 ring-amber-500" : ""
+        className={`relative aspect-[488/680] overflow-hidden rounded-[4.75%] bg-subtle  ${
+          selected ? "ring-3 ring-foreground/60" : ""
         }`}
       >
         {card ? <LazyCardImage url={card.imageUrl} alt={name} /> : <ImageNote text="Loading card details…" spinner />}
@@ -580,7 +580,7 @@ function Tile({
       type="button"
       onClick={(e) => onClick(e, card.name)}
       aria-label={`${name}: click for what it interacts with, double-click for its synergy map`}
-      className="group block w-full min-w-0 text-left select-none focus-visible:outline-none [&:focus-visible>div]:ring-3 [&:focus-visible>div]:ring-amber-500"
+      className="group block w-full min-w-0 text-left select-none focus-visible:outline-none [&:focus-visible>div]:ring-3 [&:focus-visible>div]:ring-foreground/60"
     >
       {body}
     </button>
@@ -626,7 +626,7 @@ function ImportBox({
   }
 
   return (
-    <details open={!hasDeck} className="rounded-xl border border-zinc-200 dark:border-zinc-800">
+    <details open={!hasDeck} className="rounded-xl border border-line">
       <summary className="cursor-pointer px-4 py-3 font-medium">{hasDeck ? "Import another list" : "Paste a deck list"}</summary>
       <form
         className="flex flex-col gap-3 px-4 pb-4"
@@ -635,7 +635,7 @@ function ImportBox({
           void submit(hasDeck ? "add" : "replace");
         }}
       >
-        <label htmlFor={id} className="text-sm text-zinc-600 dark:text-zinc-400">
+        <label htmlFor={id} className="text-sm text-muted">
           One card per line, as Moxfield, Archidekt or EDHREC export it (“1 Sol Ring”, “1x Sol Ring (CMM) 410”). Up
           to {MAX_DECK_CARDS} different cards. Or paste a deck code (“TT1.…”) from The Theorist.
         </label>
@@ -645,28 +645,28 @@ function ImportBox({
           onChange={(e) => setText(e.target.value)}
           rows={8}
           placeholder={"1 Lathril, Blade of the Elves\n1 Elvish Archdruid\n1 Llanowar Elves\n1 Sol Ring\n30 Forest"}
-          className="w-full rounded-lg border border-zinc-300 bg-white p-3 font-mono text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30 dark:border-zinc-700 dark:bg-zinc-900"
+          className="w-full rounded-lg border border-line-strong bg-background p-3 font-mono text-sm outline-none focus:border-foreground/40 focus:ring-4 focus:ring-foreground/5"
         />
         <div className="flex flex-wrap items-center gap-3">
           {hasDeck ? (
             <>
-              <button type="submit" className="h-10 rounded-lg bg-amber-500 px-4 text-sm font-medium text-zinc-950 hover:bg-amber-400">
+              <button type="submit" className="h-10 rounded-lg bg-foreground px-4 text-sm font-medium text-background hover:bg-foreground/85">
                 Add to deck
               </button>
               <button
                 type="button"
                 onClick={() => void submit("replace")}
-                className="h-10 rounded-lg border border-zinc-300 px-4 text-sm font-medium hover:border-amber-500 dark:border-zinc-700"
+                className="h-10 rounded-lg border border-line-strong px-4 text-sm font-medium hover:border-foreground/30"
               >
                 Replace deck
               </button>
             </>
           ) : (
-            <button type="submit" className="h-10 rounded-lg bg-amber-500 px-4 text-sm font-medium text-zinc-950 hover:bg-amber-400">
+            <button type="submit" className="h-10 rounded-lg bg-foreground px-4 text-sm font-medium text-background hover:bg-foreground/85">
               Import deck
             </button>
           )}
-          <span role="status" className="text-sm text-zinc-600 dark:text-zinc-400">
+          <span role="status" className="text-sm text-muted">
             {message}
           </span>
         </div>
@@ -688,7 +688,7 @@ function ClearButton({ onClear }: { onClear: () => void }) {
       className={`h-9 rounded-lg border px-3 text-sm ${
         confirming
           ? "border-red-600 text-red-700 dark:text-red-400"
-          : "border-zinc-300 text-zinc-600 hover:border-red-500 dark:border-zinc-700 dark:text-zinc-400"
+          : "border-line-strong text-muted hover:border-red-500  "
       }`}
     >
       {confirming ? "Click again to clear" : "Clear deck"}

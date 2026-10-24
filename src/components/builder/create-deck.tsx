@@ -1,0 +1,461 @@
+"use client";
+
+import { AnimatePresence, LayoutGroup, motion, MotionConfig } from "motion/react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useId, useMemo, useState } from "react";
+import { toast } from "sonner";
+import { BRACKET_STYLE } from "@/components/deck-beta/bracket-badge";
+import { useBinder } from "@/lib/binder/store";
+import { rememberDetails, useCardDetails } from "@/lib/binder/card-cache";
+import { isBasicLandName } from "@/lib/binder/collection";
+import { STEPS, useBuilderDraft } from "@/lib/builder/draft";
+import { builderRecommendations, fitsIdentity, recommendLands, splitBasics, type BuilderCandidate } from "@/lib/builder/plan";
+import { bracketLabel, estimateDeckBracket } from "@/lib/deck-beta/bracket";
+import { cardKey } from "@/lib/deck-beta/recommend";
+import { retryBuilderData, useBuilderData, useDeckAnalysis, useDeckLibrary, usePlaystyle } from "@/lib/deck-beta/store";
+import { useGameChangers } from "@/lib/use-game-changers";
+import type { CardDetails } from "@/lib/types";
+import { BuildStep } from "./build-step";
+import { DeckRail } from "./deck-rail";
+import { BracketStep, CommanderStep, LandsStep, SynergyStep } from "./steps";
+
+/** Wait this long after the last card goes in before asking for the deck's combos again. */
+const ANALYSIS_SETTLE_MS = 1500;
+
+const HEADINGS = [
+  { title: "Choose your commander", note: "Every deck starts here. These are the commanders in your binder." },
+  { title: "Pick a bracket", note: "How strong should it be? Every recommendation will stay inside it." },
+  { title: "What EDHREC knows", note: "The cards that suit your commander best, and the ways players build it." },
+  { title: "Set your lands", note: "Start from the recommendation; basics re-balance as the deck grows." },
+  { title: "Build the deck", note: "Recommendations follow the deck: each card you add changes what it needs next." },
+  { title: "Name it", note: "Save it to My Decks. You can price what’s missing from there." },
+];
+
+const ease = [0.23, 1, 0.32, 1] as const;
+
+/**
+ * Create Commander Deck: a step-by-step build, from picking a commander in the
+ * binder to a named deck in My Decks. The deck itself sits beside every step
+ * and grows as cards go in; cards not in the binder stay grayed out.
+ */
+export function CreateDeck() {
+  const router = useRouter();
+  const { draft, ready, update, chooseCommander, addCard, removeCard, reset } = useBuilderDraft();
+  const binder = useBinder();
+  const library = useDeckLibrary();
+  const gameChangers = useGameChangers();
+  const [direction, setDirection] = useState(1);
+
+  const binderNames = useMemo(() => binder.cards.map((c) => c.name), [binder.cards]);
+  const deckNames = draft.cards.map((c) => c.name);
+  const commanderName = draft.commander?.name;
+  const { detailsFor, status } = useCardDetails([...binderNames, ...deckNames, ...(commanderName ? [commanderName] : [])]);
+
+  const commanderRef = useMemo(
+    () => (draft.commander ? ({ name: draft.commander.name, layout: draft.commander.layout } as CardDetails) : undefined),
+    [draft.commander],
+  );
+  const builder = useBuilderData(commanderRef);
+  const data = builder?.state === "done" && builder.result.found ? builder.result : null;
+  useEffect(() => {
+    if (data) rememberDetails(Object.values(data.details));
+  }, [data]);
+
+  const playstyle = usePlaystyle(commanderRef, draft.theme || undefined);
+  const themeCards = playstyle?.state === "done" && playstyle.result.found ? playstyle.result.cards : undefined;
+  useEffect(() => {
+    if (playstyle?.state === "done" && playstyle.result.found) rememberDetails(Object.values(playstyle.result.details));
+  }, [playstyle]);
+
+  // The deck's combos, asked for once the deck stops changing for a moment.
+  const deckKey = deckNames.join("\n");
+  const [settled, setSettled] = useState("");
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSettled(deckKey), ANALYSIS_SETTLE_MS);
+    return () => window.clearTimeout(timer);
+  }, [deckKey]);
+  const analysis = useDeckAnalysis(draft.step >= 4 ? commanderRef : undefined, settled ? settled.split("\n") : []);
+  const analysisResult = analysis?.state === "done" ? analysis.result : undefined;
+  useEffect(() => {
+    if (analysisResult) rememberDetails(Object.values(analysisResult.missing));
+  }, [analysisResult]);
+
+  const commanderCard = commanderName ? detailsFor(commanderName) : undefined;
+  const identity = draft.commander?.colorIdentity ?? [];
+  const identityKey = identity.join("");
+  const deckCards = draft.cards.map((c) => detailsFor(c.name)).filter((d): d is CardDetails => Boolean(d));
+  const deck = [...(commanderCard ? [{ card: commanderCard, qty: 1 }] : []), ...deckCards.map((card) => ({ card, qty: 1 }))];
+  const isLand = (c: CardDetails) => /\bLand\b/.test(c.typeLine.split(" // ")[0]);
+  const nonbasicLands = deckCards.filter(isLand).length;
+  const spells = deckCards.length - nonbasicLands;
+
+  const recommended = draft.commander && draft.bracket
+    ? recommendLands({ average: data?.averages?.lands, commanderCmc: draft.commander.cmc, bracket: draft.bracket, commander: draft.commander.name })
+    : undefined;
+  const lands = draft.lands ?? recommended?.count ?? 36;
+  const basics = Math.max(0, lands - nonbasicLands);
+  const spellTarget = 99 - lands;
+
+  const candidates = useMemo(() => {
+    const out: BuilderCandidate[] = [];
+    const seen = new Set<string>();
+    const push = (card: CardDetails, extra: Partial<BuilderCandidate> = {}) => {
+      if (seen.has(cardKey(card.name)) || isBasicLandName(card.name)) return;
+      seen.add(cardKey(card.name));
+      out.push({ card, lists: [], ownedCopies: binder.owned(card.name), ...extra });
+    };
+    for (const c of data?.cards ?? []) {
+      const card = data!.details[c.name] ?? detailsFor(c.name);
+      if (card) push(card, { synergy: c.synergy, inclusion: c.inclusion, lists: c.lists });
+    }
+    for (const name of binderNames) {
+      const card = detailsFor(name);
+      if (card && fitsIdentity(card, identity)) push(card);
+    }
+    for (const card of Object.values(analysisResult?.missing ?? {})) push(card);
+    return out;
+    // The cache's status changes as details arrive, which is when this needs redoing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, binder.cards, analysisResult, status.state, identityKey]);
+
+  const plan = useMemo(() => {
+    if (!draft.bracket || deck.length === 0) return null;
+    return builderRecommendations({
+      deck,
+      candidates: candidates.filter((c) => cardKey(c.card.name) !== cardKey(commanderName ?? "")),
+      identity,
+      bracket: draft.bracket,
+      isGameChanger: gameChangers.has,
+      combos: analysisResult?.combos,
+      playstyle: themeCards,
+      preferOwned: draft.preferOwned,
+    });
+    // The deck key and the inputs above capture what the plan depends on.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [candidates, deckKey, commanderCard, draft.bracket, analysisResult, themeCards, draft.preferOwned, gameChangers]);
+
+  const report = useMemo(
+    () =>
+      deck.length > 0
+        ? estimateDeckBracket({
+            cards: deck.map((d) => d.card),
+            isGameChanger: gameChangers.has,
+            combos: analysisResult?.combos,
+            spellbook: analysisResult?.bracket,
+            tutors: plan?.profile.roles.tutor.length ?? 0,
+          })
+        : undefined,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [deckKey, commanderCard, analysisResult, gameChangers, plan],
+  );
+
+  const commanders = binderNames
+    .map((n) => detailsFor(n))
+    .filter((d, i, all): d is CardDetails => Boolean(d?.canBeCommander) && all.findIndex((x) => x?.name === d!.name) === i);
+
+  if (!ready) return <p className="text-muted">Loading…</p>;
+
+  const step = draft.step;
+  const go = (next: number) => {
+    setDirection(next > step ? 1 : -1);
+    if (next === 3 && draft.lands === undefined && recommended) update({ step: next, lands: recommended.count });
+    else update({ step: next });
+    window.scrollTo({ top: 0 });
+  };
+  const canContinue = [Boolean(draft.commander), Boolean(draft.bracket), Boolean(data) || builder?.state === "error", true, true, false][step];
+
+  function add(card: CardDetails) {
+    addCard(card.name);
+    if (!binder.owned(card.name)) toast(`${card.name} added`, { description: "Not in your binder: it’ll be on the list of cards to buy." });
+  }
+
+  function save(name: string) {
+    if (!draft.commander) return;
+    const split = splitBasics(basics, identity, deckCards.map((c) => c.manaCost ?? ""));
+    const id = library.create({
+      name,
+      commander: draft.commander.name,
+      cards: [{ name: draft.commander.name, qty: 1 }, ...draft.cards, ...Object.entries(split).map(([basic, qty]) => ({ name: basic, qty }))],
+      bracket: draft.bracket,
+      theme: draft.themeName,
+      commanderImage: draft.commander.imageUrl,
+    });
+    toast.success(`${name} saved to My Decks`);
+    reset();
+    router.push(`/decks?new=${id}`);
+  }
+
+  return (
+    <MotionConfig reducedMotion="user">
+      <LayoutGroup>
+        <div className="flex flex-col gap-10">
+          <header className="flex flex-col gap-6">
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <p className="eyebrow">Create Commander Deck</p>
+                <AnimatePresence mode="wait" initial={false}>
+                  <motion.div
+                    key={step}
+                    initial={{ opacity: 0, filter: "blur(4px)" }}
+                    animate={{ opacity: 1, filter: "blur(0px)" }}
+                    exit={{ opacity: 0, filter: "blur(4px)", transition: { duration: 0.12 } }}
+                    transition={{ duration: 0.25, ease }}
+                  >
+                    <h1 className="mt-1 text-3xl font-semibold tracking-[-0.03em]">{HEADINGS[step].title}</h1>
+                    <p className="mt-1 max-w-xl text-muted">{HEADINGS[step].note}</p>
+                  </motion.div>
+                </AnimatePresence>
+              </div>
+              {(draft.commander || draft.cards.length > 0) && <StartOver onReset={reset} />}
+            </div>
+            <Stepper step={step} reached={stepReached(draft)} onGo={go} />
+          </header>
+
+          <div className="grid gap-10 lg:grid-cols-[16rem_minmax(0,1fr)]">
+            <DeckRail
+              commander={draft.commander}
+              cards={deckCards}
+              basics={step >= 3 ? basics : 0}
+              profile={step >= 4 ? plan?.profile : undefined}
+              report={step >= 4 ? report : undefined}
+              combosFound={analysisResult?.combos?.included.length}
+              onRemove={removeCard}
+            />
+
+            <div className="min-w-0">
+              <AnimatePresence mode="wait" custom={direction} initial={false}>
+                <motion.section
+                  key={step}
+                  custom={direction}
+                  initial={{ opacity: 0, transform: `translateX(${direction * 24}px)` }}
+                  animate={{ opacity: 1, transform: "translateX(0px)" }}
+                  exit={{ opacity: 0, transform: `translateX(${direction * -16}px)`, transition: { duration: 0.15, ease } }}
+                  transition={{ duration: 0.3, ease }}
+                >
+                  {step === 0 && (
+                    <CommanderStep
+                      commanders={commanders}
+                      binderSize={binder.cards.length}
+                      status={status}
+                      owned={binder.owned}
+                      selected={draft.commander?.name}
+                      onChoose={chooseCommander}
+                    />
+                  )}
+                  {step === 1 && draft.commander && (
+                    <BracketStep commander={draft.commander.name} counts={data?.bracketCounts} selected={draft.bracket} onChoose={(bracket) => update({ bracket })} />
+                  )}
+                  {step === 2 && draft.commander && (
+                    <SynergyStep
+                      commander={draft.commander}
+                      data={data}
+                      loading={builder?.state === "waiting" ? `Waiting ${builder.seconds}s because ${builder.reason}…` : null}
+                      failed={builder?.state === "error"}
+                      onRetry={() => retryBuilderData(draft.commander!)}
+                      owned={binder.owned}
+                      theme={draft.theme}
+                      onTheme={(theme, themeName) => update({ theme, themeName })}
+                      preferOwned={draft.preferOwned}
+                      onPreferOwned={(preferOwned) => update({ preferOwned })}
+                    />
+                  )}
+                  {step === 3 && recommended && (
+                    <LandsStep
+                      recommended={recommended.count}
+                      why={recommended.why}
+                      lands={lands}
+                      onLands={(n) => update({ lands: n })}
+                      colors={identity}
+                      nonbasicLands={nonbasicLands}
+                      manaCosts={deckCards.map((c) => c.manaCost ?? "")}
+                    />
+                  )}
+                  {step === 4 &&
+                    (plan ? (
+                      <BuildStep
+                        groups={plan}
+                        ownedFor={binder.owned}
+                        onAdd={add}
+                        spells={spells}
+                        spellTarget={spellTarget}
+                        themeName={draft.themeName}
+                        leftOut={plan.leftOut.length}
+                        bracket={draft.bracket ?? 3}
+                        onPickTheme={() => go(2)}
+                        has={(name) => deckCards.some((c) => cardKey(c.name) === cardKey(name)) || cardKey(name) === cardKey(commanderName ?? "")}
+                      />
+                    ) : (
+                      <p className="flex items-center gap-2 text-sm text-muted">
+                        <span aria-hidden className="spinner size-4" /> Getting the recommendations ready…
+                      </p>
+                    ))}
+                  {step === 5 && draft.commander && (
+                    <FinishStep
+                      defaultName={`${draft.commander.name.split(",")[0]}${draft.themeName ? ` · ${draft.themeName}` : ""}`}
+                      total={1 + deckCards.length + basics}
+                      spells={spells}
+                      nonbasicLands={nonbasicLands}
+                      basics={basics}
+                      missing={[draft.commander.name, ...deckNames].filter((n) => binder.owned(n) === 0).length}
+                      bracket={report ? bracketLabel(report) : undefined}
+                      bracketStyle={report ? BRACKET_STYLE[report.bracket] : undefined}
+                      onSave={save}
+                    />
+                  )}
+                </motion.section>
+              </AnimatePresence>
+
+              {step < 5 && (
+                <div className="mt-12 flex items-center justify-between border-t border-line pt-6">
+                  {step > 0 ? (
+                    <button type="button" onClick={() => go(step - 1)} className="btn btn-ghost">
+                      ← Back
+                    </button>
+                  ) : (
+                    <Link href="/decks" className="btn btn-ghost">
+                      My Decks
+                    </Link>
+                  )}
+                  <button type="button" disabled={!canContinue} onClick={() => go(step + 1)} className="btn btn-primary btn-lg">
+                    {step === 4 ? "Finish" : "Continue"}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </LayoutGroup>
+    </MotionConfig>
+  );
+}
+
+/** The furthest step the draft can be on. */
+function stepReached(draft: ReturnType<typeof useBuilderDraft>["draft"]) {
+  if (!draft.commander) return 0;
+  if (!draft.bracket) return 1;
+  return Math.max(draft.step, 2);
+}
+
+function Stepper({ step, reached, onGo }: { step: number; reached: number; onGo: (step: number) => void }) {
+  return (
+    <ol className="no-scrollbar flex items-center gap-1 overflow-x-auto text-xs">
+      {STEPS.map((label, i) => (
+        <li key={label} className="flex items-center gap-1">
+          <button
+            type="button"
+            disabled={i > reached}
+            onClick={() => onGo(i)}
+            aria-current={i === step ? "step" : undefined}
+            className={`flex items-center gap-2 rounded-full px-2.5 py-1 transition-colors duration-150 ${
+              i === step ? "text-foreground" : i <= reached ? "text-muted hover:text-foreground" : "text-muted/50"
+            }`}
+          >
+            <span
+              className={`flex size-5 items-center justify-center rounded-full text-[10px] font-semibold tabular-nums transition-colors duration-200 ${
+                i === step ? "bg-foreground text-background" : i < step ? "bg-subtle text-foreground" : "border border-line"
+              }`}
+            >
+              {i < step ? "✓" : i + 1}
+            </span>
+            <span className="whitespace-nowrap">{label}</span>
+          </button>
+          {i < STEPS.length - 1 && (
+            <span aria-hidden className="block h-px w-6 overflow-hidden bg-line">
+              <span className="block h-full origin-left bg-foreground transition-transform duration-300 ease-out" style={{ transform: `scaleX(${i < step ? 1 : 0})` }} />
+            </span>
+          )}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function StartOver({ onReset }: { onReset: () => void }) {
+  const [confirming, setConfirming] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={() => (confirming ? onReset() : setConfirming(true))}
+      onBlur={() => setConfirming(false)}
+      className="btn btn-ghost btn-sm text-muted"
+    >
+      {confirming ? "Click again to start over" : "Start over"}
+    </button>
+  );
+}
+
+/** 6. Name the deck and save it to My Decks. */
+function FinishStep({
+  defaultName,
+  total,
+  spells,
+  nonbasicLands,
+  basics,
+  missing,
+  bracket,
+  bracketStyle,
+  onSave,
+}: {
+  defaultName: string;
+  total: number;
+  spells: number;
+  nonbasicLands: number;
+  basics: number;
+  missing: number;
+  bracket?: string;
+  bracketStyle?: string;
+  onSave: (name: string) => void;
+}) {
+  const id = useId();
+  const [name, setName] = useState(defaultName);
+  return (
+    <form
+      className="flex max-w-lg flex-col gap-8"
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSave(name.trim() || defaultName);
+      }}
+    >
+      <div>
+        <label htmlFor={id} className="text-sm font-medium">
+          Deck name
+        </label>
+        <input id={id} value={name} onChange={(e) => setName(e.target.value)} maxLength={80} className="field mt-2 h-11 text-base" autoFocus />
+      </div>
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-4 border-y border-line py-6 text-sm">
+        <div>
+          <dt className="text-muted">Cards</dt>
+          <dd className="mt-0.5 text-lg font-semibold tabular-nums">{total} / 100</dd>
+        </div>
+        <div>
+          <dt className="text-muted">Bracket</dt>
+          <dd className="mt-1">{bracket ? <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${bracketStyle}`}>{bracket}</span> : "—"}</dd>
+        </div>
+        <div>
+          <dt className="text-muted">Spells</dt>
+          <dd className="mt-0.5 tabular-nums">{spells}</dd>
+        </div>
+        <div>
+          <dt className="text-muted">Lands</dt>
+          <dd className="mt-0.5 tabular-nums">
+            {nonbasicLands + basics} ({basics} basic)
+          </dd>
+        </div>
+        <div className="col-span-2">
+          <dt className="text-muted">Not in your binder</dt>
+          <dd className="mt-0.5 tabular-nums">
+            {missing} {missing === 1 ? "card" : "cards"}
+            {missing > 0 && <span className="text-muted"> · right-click the deck in My Decks to add them to Shopping</span>}
+          </dd>
+        </div>
+      </dl>
+      {total < 100 && <p className="text-sm text-muted">The deck has {total} of 100 cards. You can save it now and finish it later in Deck Synergy.</p>}
+      <div className="flex items-center gap-3">
+        <button type="submit" className="btn btn-primary btn-lg">
+          Save to My Decks
+        </button>
+      </div>
+    </form>
+  );
+}
