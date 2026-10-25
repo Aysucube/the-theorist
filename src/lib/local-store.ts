@@ -166,7 +166,13 @@ export function createLocalStore<T>(key: string, empty: T, isValid: (value: unkn
       const localAt = readSavedAt();
       const hasLocal = JSON.stringify(local) !== JSON.stringify(empty);
 
-      if (saved === undefined || savedAt === 0) return hasLocal ? upload(localAt ?? Date.now()) : settle();
+      if (saved === undefined || savedAt === 0) {
+        if (!hasLocal) return settle();
+        // The computer has no copy yet: send this one, dated the same on both sides.
+        const at = localAt ?? Date.now();
+        write(savedAtKey, String(at));
+        return upload(at);
+      }
       if (localAt === undefined) {
         // This browser's copy predates dated copies: keep everything from both.
         if (hasLocal && merge) {
