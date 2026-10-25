@@ -187,5 +187,7 @@ if (-not $env:NO_BROWSER) {
   Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -EncodedCommand $encoded"
 }
 
+# Keep the binder and My Decks in .datasaved too, so they're there whatever port or browser opens the app.
+$env:THEORIST_SAVE_ON_COMPUTER = '1'
 & $npm start -- -p $port
 exit $LASTEXITCODE

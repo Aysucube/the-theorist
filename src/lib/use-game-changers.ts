@@ -16,6 +16,7 @@ const store = createLocalStore<Saved | null>(
   "commander-ph:game-changers",
   null,
   (v): v is Saved | null => v === null || (typeof (v as Saved).fetchedAt === "number" && Array.isArray((v as Saved).cards)),
+  { cache: true },
 );
 
 const DAY_MS = 24 * 60 * 60 * 1000;

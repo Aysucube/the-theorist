@@ -51,6 +51,7 @@ const infoStore = createLocalStore<Record<string, CardInfo | null>>(
   "commander-ph:card-info",
   {},
   (v): v is Record<string, CardInfo | null> => typeof v === "object" && v !== null && !Array.isArray(v),
+  { cache: true },
 );
 
 const infoKey = (name: string) => name.trim().toLowerCase();

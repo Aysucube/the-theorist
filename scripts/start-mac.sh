@@ -180,4 +180,6 @@ if [ -z "${NO_BROWSER:-}" ]; then
   ) &
 fi
 
+# Keep the binder and My Decks in .data/saved too, so they're there whatever port or browser opens the app.
+export THEORIST_SAVE_ON_COMPUTER=1
 exec npm start -- -p "$port"

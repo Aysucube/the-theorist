@@ -8,9 +8,11 @@ import { useId, useState } from "react";
 import { toast } from "sonner";
 import { useCardDetails } from "@/lib/binder/card-cache";
 import { parseCollection } from "@/lib/binder/collection";
+import type { SaveStatus } from "@/lib/local-store";
 import { useBinder } from "@/lib/binder/store";
 import { parseTypeLine } from "@/lib/deck-beta/synergy";
 import { formatCount } from "@/lib/format";
+import type { DeckCard } from "@/lib/deck";
 import type { CardDetails } from "@/lib/types";
 import { useHoverPreview } from "../card-link";
 import { LazyCardImage } from "../deck-beta/lazy-card-image";
@@ -71,11 +73,19 @@ export function BinderView() {
         />
 
         {binder.cards.length > 0 && (
-          <dl className="grid grid-cols-3 gap-6 border-y border-line py-6">
-            <Stat label="Cards" value={binder.cards.length} />
-            <Stat label="Copies" value={copies} />
-            <Stat label="Commanders" value={commanders} />
-          </dl>
+          <div className="flex flex-col gap-3">
+            <dl className="grid grid-cols-3 gap-6 border-y border-line py-6">
+              <Stat label="Cards" value={binder.cards.length} />
+              <Stat label="Copies" value={copies} />
+              <Stat label="Commanders" value={commanders} />
+            </dl>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <SaveLine status={binder.saveStatus} />
+              <button type="button" onClick={() => downloadBackup(binder.cards)} className="btn btn-ghost btn-sm text-muted">
+                Download a backup
+              </button>
+            </div>
+          </div>
         )}
 
         <ImportBox empty={binder.cards.length === 0} onAdd={binder.add} onReplace={binder.replace} />
@@ -150,6 +160,41 @@ export function BinderView() {
   );
 }
 
+const SAVE_TEXT: Record<SaveStatus, string> = {
+  checking: "Checking where your binder is saved…",
+  saving: "Saving…",
+  saved: "Saved on this computer. It’s there whichever browser or port you open The Theorist on.",
+  "browser-only": "Saved in this browser only. Open The Theorist from its launcher to keep a copy on your computer, or download a backup.",
+  unsaved: "Not saved: this browser refused to store it. Download a backup so you don’t lose it.",
+};
+
+/** Where the binder is kept right now, so you know it's safe. */
+function SaveLine({ status }: { status: SaveStatus }) {
+  const tone = status === "saved" ? "text-emerald-400" : status === "unsaved" ? "text-red-400" : "text-muted";
+  return (
+    <p role="status" className={`flex items-center gap-2 text-xs ${tone}`}>
+      {status === "saving" || status === "checking" ? (
+        <span aria-hidden className="spinner size-3.5" />
+      ) : (
+        <span aria-hidden className={`size-1.5 rounded-full ${status === "saved" ? "bg-emerald-400" : status === "unsaved" ? "bg-red-400" : "bg-muted"}`} />
+      )}
+      {SAVE_TEXT[status]}
+    </p>
+  );
+}
+
+/** Downloads the binder as a CSV (Count, Name) that the import box reads back. */
+function downloadBackup(cards: DeckCard[]) {
+  const quote = (name: string) => (/[",]/.test(name) ? `"${name.replace(/"/g, '""')}"` : name);
+  const csv = ["Count,Name", ...cards.map((c) => `${c.qty},${quote(c.name)}`)].join("\n");
+  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `the-theorist-binder-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 function Stat({ label, value }: { label: string; value: number }) {
   return (
     <div>
@@ -210,7 +255,7 @@ function BinderCard({
   );
 }
 
-function ImportBox({ empty, onAdd, onReplace }: { empty: boolean; onAdd: (cards: ReturnType<typeof parseCollection>) => void; onReplace: (cards: ReturnType<typeof parseCollection>) => void }) {
+function ImportBox({ empty, onAdd, onReplace }: { empty: boolean; onAdd: (cards: DeckCard[]) => boolean; onReplace: (cards: DeckCard[]) => boolean }) {
   const id = useId();
   const fileId = useId();
   const [text, setText] = useState("");
@@ -222,9 +267,14 @@ function ImportBox({ empty, onAdd, onReplace }: { empty: boolean; onAdd: (cards:
       toast.error("No cards found", { description: "Put one card per line (“4 Forest”), or paste a CSV export with a Name column." });
       return;
     }
-    (mode === "add" ? onAdd : onReplace)(cards);
+    const stored = (mode === "add" ? onAdd : onReplace)(cards);
     const total = cards.reduce((sum, c) => sum + c.qty, 0);
     toast.success(`${mode === "add" ? "Added" : "Binder replaced with"} ${formatCount(total)} ${total === 1 ? "card" : "cards"}`);
+    if (!stored) {
+      toast.warning("Your browser wouldn’t store the binder", {
+        description: "It’s kept on your computer if you opened The Theorist from its launcher. To be safe, download a backup.",
+      });
+    }
     setText("");
     setOpen(false);
   }

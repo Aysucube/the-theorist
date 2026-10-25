@@ -5,6 +5,7 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { importCards, MAX_DECK_CARDS, removeCard, type DeckCard } from "@/lib/deck";
 import { createLocalStore, useHydrated } from "@/lib/local-store";
+import { mergeDeckLists } from "@/lib/saved-shape";
 import { fetchJsonWithRetry, sleep } from "@/lib/retry";
 import type { CardDetails } from "@/lib/types";
 import type { AnalysisResponse, BuilderResponse, CardsResponse, LandArtResponse, PairingsResponse, PlaystyleResponse, RulingsResponse } from "./api";
@@ -26,6 +27,7 @@ const detailsStore = createLocalStore<Record<string, CardDetails | null>>(
   "commander-ph:deck-beta-cards-v2",
   {},
   (v): v is Record<string, CardDetails | null> => typeof v === "object" && v !== null && !Array.isArray(v),
+  { cache: true },
 );
 
 const detailsKey = (name: string) => name.trim().toLowerCase();
@@ -393,10 +395,12 @@ function isSavedDeck(value: unknown): value is SavedDeck {
 }
 
 // Decks saved in this browser for Deck Synergy, newest first.
+// Kept on the computer too when The Theorist runs there, like the binder.
 const libraryStore = createLocalStore<SavedDeck[]>(
   "commander-ph:deck-beta-library",
   [],
   (v): v is SavedDeck[] => Array.isArray(v) && v.every(isSavedDeck),
+  { repair: (v) => (Array.isArray(v) ? v.filter(isSavedDeck) : undefined), saveTo: "decks", merge: mergeDeckLists },
 );
 
 /** Saved decks, and saving (a deck with the same name is replaced) and deleting them. */

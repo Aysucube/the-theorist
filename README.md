@@ -45,6 +45,16 @@ A deck in progress is saved as you go, so you can leave and continue later. Save
 Click one to open it in Deck Synergy; right-click it (or use its ⋯ button) to add **only the cards
 missing from your binder** to Shopping, copy it, or delete it.
 
+**Where the binder is saved.** The binder and My Decks are kept in your browser and, when you
+open The Theorist from its launcher (or `npm run dev`), in files on your computer too
+(`.data/saved/binder.json` and `decks.json`, each with the previous version beside it). Browsers
+keep storage per address, port included, and the launcher moves to the next port when 3000 is
+busy, so without the computer's copy the binder could look empty after a restart. Now whichever
+port or browser opens the app gets the newest copy; an older browser copy is merged in rather than
+lost. The binder page says where it's saved, and **Download a backup** saves it as a CSV that the
+import box reads back. If the browser's storage fills up, rebuildable caches are cleared first so
+the binder still fits.
+
 **Deck Synergy (beta)** is a separate, early test. Paste a deck and pick its commander. Beside the
 title it shows the deck's **Commander Bracket**, such as "Bracket 2 nearing 3": worked out from its
 Game Changers, mass land denial, extra turns and combos (rated by Commander Spellbook), following
@@ -294,9 +304,10 @@ several instances needs a shared cache handler; see Next.js's `cacheHandlers` do
 
 ## Limitations
 
-- The binder, My Decks, the shopping list, beta deck, saved prices and ticks live in the
-  visitor's browser (localStorage, and IndexedDB for the binder's card details). They don't sync
-  between devices.
+- The shopping list, beta deck, saved prices and ticks live in the visitor's browser
+  (localStorage, and IndexedDB for the binder's card details). The binder and My Decks are also
+  saved on the computer when the app runs there (see above), never on a shared server. Nothing
+  syncs between devices.
 - Store totals assume a store has enough copies; TCGph only shows stock per listing.
 - For decks needing more than three stores, the shopping list uses a quick
   approximation, which may not always find the fewest stores.
