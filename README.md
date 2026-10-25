@@ -104,9 +104,10 @@ deck as a code (`TT1.…`, the whole deck and its commander in one line), a link
 for Moxfield and Archidekt. Paste a code into "Paste a deck list" on any copy of The Theorist to
 load it. Codes are made and read in the browser; no deck is sent to a server to share it.
 
-It keeps its own deck. **Add to Shopping** copies the deck as it is into the Shopping list (basic
-lands left out unless you ask) so you can price it in Philippine stores; nothing else changes the
-Shopping list.
+It keeps its own deck. **Add to Shopping** puts only the cards you don't own into the Shopping list,
+so you can price them in Philippine stores: copies in your binder are taken off (own 1 of a card the
+deck runs 2 of, and 1 goes on the list), and basic lands are left out unless you ask. Nothing else
+changes the Shopping list.
 
 The look is themed on **Jace Beleren, the Theorist**: always midnight navy, with moonlit text and
 mind-blue light on whatever is active. The graphics are original: a sigil (rune rings around a
