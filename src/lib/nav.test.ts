@@ -7,6 +7,8 @@ describe("transitionFor", () => {
     expect(transitionFor("/binder", "/shopping")).toBe("nav-forward");
     expect(transitionFor("/deck", "/decks")).toBe("nav-back");
     expect(transitionFor("/shopping", "/")).toBe("nav-back");
+    expect(transitionFor("/deck", "/market")).toBe("nav-forward");
+    expect(transitionFor("/shopping", "/market")).toBe("nav-back");
   });
 
   it("slides forward going deeper into a section, and back coming out", () => {

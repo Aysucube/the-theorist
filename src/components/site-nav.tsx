@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { useLayoutEffect, useRef, type ComponentType, type SVGProps } from "react";
 import { useDeck } from "@/lib/use-deck";
 import { AppLink } from "./app-link";
-import { BinderIcon, DecksIcon, HomeIcon, SearchIcon, ShoppingIcon, SynergyIcon } from "./theme/icons";
+import { BinderIcon, DecksIcon, HomeIcon, MarketIcon, SearchIcon, ShoppingIcon, SynergyIcon } from "./theme/icons";
 import { Sigil } from "./theme/sigil";
 
 type Section = { href: string; label: string; Icon: ComponentType<SVGProps<SVGSVGElement>> };
@@ -13,6 +13,7 @@ const SECTIONS: Section[] = [
   { href: "/binder", label: "Binder", Icon: BinderIcon },
   { href: "/decks", label: "Decks", Icon: DecksIcon },
   { href: "/deck", label: "Synergy", Icon: SynergyIcon },
+  { href: "/market", label: "Market", Icon: MarketIcon },
   { href: "/shopping", label: "Shopping", Icon: ShoppingIcon },
 ];
 const TABBAR: Section[] = [{ href: "/", label: "Home", Icon: HomeIcon }, ...SECTIONS];
@@ -57,7 +58,7 @@ export function SiteNav() {
         style={{ viewTransitionName: "site-tabbar" }}
         className="fixed inset-x-0 bottom-0 z-40 border-t border-line/80 bg-background/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl sm:hidden"
       >
-        <ul className="grid grid-cols-5">
+        <ul className="grid grid-cols-6">
           {TABBAR.map(({ href, label, Icon }) => {
             const on = active(href);
             return (
@@ -65,12 +66,12 @@ export function SiteNav() {
                 <AppLink
                   href={href}
                   aria-current={on ? "page" : undefined}
-                  className={`relative flex h-16 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors duration-150 ${
+                  className={`relative flex h-16 flex-col items-center justify-center gap-1 text-[10.5px] font-medium transition-colors duration-150 ${
                     on ? "text-accent" : "text-muted"
                   }`}
                 >
                   <span
-                    className={`flex h-7 w-12 items-center justify-center rounded-full transition-colors duration-200 ${
+                    className={`flex h-7 w-11 items-center justify-center rounded-full transition-colors duration-200 ${
                       on ? "bg-accent/15 shadow-[0_0_14px_-4px_rgb(90_176_255/0.7)]" : ""
                     }`}
                   >

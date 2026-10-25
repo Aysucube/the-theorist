@@ -6,7 +6,7 @@
 export type TransitionType = "nav-forward" | "nav-back" | "nav-fade";
 
 /** The sections in nav order. A card page sits under the front page. */
-const SECTIONS = ["/", "/binder", "/decks", "/deck", "/shopping"];
+const SECTIONS = ["/", "/binder", "/decks", "/deck", "/market", "/shopping"];
 
 function place(path: string): { section: number; depth: number } {
   const clean = path.replace(/[?#].*$/, "").replace(/\/+$/, "") || "/";

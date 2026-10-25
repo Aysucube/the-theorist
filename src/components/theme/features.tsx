@@ -1,7 +1,7 @@
 import type { ComponentType, SVGProps } from "react";
-import { BinderIcon, CreateIcon, DecksIcon, ShoppingIcon, SynergyIcon } from "./icons";
+import { BinderIcon, CreateIcon, DecksIcon, MarketIcon, ShoppingIcon, SynergyIcon } from "./icons";
 
-export type FeatureId = "create" | "binder" | "decks" | "synergy" | "shopping";
+export type FeatureId = "create" | "binder" | "decks" | "synergy" | "market" | "shopping";
 
 export interface Feature {
   id: FeatureId;
@@ -40,6 +40,13 @@ export const FEATURES: Record<FeatureId, Feature> = {
     title: "Deck Synergy",
     blurb: "Paste a deck to see its network, combos, bracket and upgrades.",
     Icon: SynergyIcon,
+  },
+  market: {
+    id: "market",
+    href: "/market",
+    title: "Market",
+    blurb: "The cards whose price is climbing, in pesos, with the cheapest copy in Philippine stores.",
+    Icon: MarketIcon,
   },
   shopping: {
     id: "shopping",

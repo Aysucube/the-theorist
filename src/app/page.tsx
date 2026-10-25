@@ -1,7 +1,6 @@
 import { Suspense } from "react";
 import { CardSearch } from "@/components/card-search";
 import { FeatureTiles } from "@/components/feature-tiles";
-import { MarketTrendsSection } from "@/components/market-trends";
 import { PanelSkeleton, SourceMessage } from "@/components/panel";
 import { ThemePicker } from "@/components/theme-picker";
 import { ThemeResults } from "@/components/theme-results";
@@ -46,20 +45,6 @@ export default function Home(props: PageProps<"/">) {
           </div>
           <FeatureTiles />
         </div>
-
-        <section id="trends" className="flex scroll-mt-20 flex-col gap-6">
-          <div>
-            <p className="eyebrow">Market</p>
-            <h2 className="mt-1 text-2xl font-semibold">Price trends</h2>
-            <p className="mt-1 max-w-2xl text-muted">
-              Cards whose market price jumped the most lately, and what the cheapest copy costs in Philippine stores
-              right now.
-            </p>
-          </div>
-          <Suspense fallback={<p className="text-sm text-muted">Loading price trends…</p>}>
-            <MarketTrendsSection />
-          </Suspense>
-        </section>
 
         <section id="theme" className="flex scroll-mt-20 flex-col gap-6">
           <div>

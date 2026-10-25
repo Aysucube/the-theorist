@@ -37,6 +37,7 @@ export function FeatureTiles() {
     binder: binder.cards.length > 0 ? plural(binder.cards.length, "card") : "Import your collection",
     decks: decks.length > 0 ? `${plural(decks.length, "deck")} saved` : "No decks yet",
     synergy: "Beta",
+    market: "Surging cards, in pesos",
     shopping: toBuy > 0 ? `${plural(toBuy, "card")} to buy` : "Your list is empty",
   };
 
@@ -50,7 +51,31 @@ export function FeatureTiles() {
           <Tile feature={FEATURES[id]} status={ready ? status[id] : undefined} />
         </li>
       ))}
+      <li className="sm:col-span-2 lg:col-span-4">
+        <WideTile feature={FEATURES.market} status={status.market} />
+      </li>
     </ul>
+  );
+}
+
+/** A tile across the whole grid: icon, title and line side by side. */
+function WideTile({ feature, status }: { feature: Feature; status: string }) {
+  return (
+    <AppLink href={feature.href} className="feature-tile group gap-4 p-5 sm:flex-row sm:items-center sm:gap-5">
+      <ViewTransition name={morphName(feature.id, "icon")} share="morph" default="none">
+        <FeatureBadge Icon={feature.Icon} />
+      </ViewTransition>
+      <div className="min-w-0 flex-1">
+        <ViewTransition name={morphName(feature.id, "title")} share="morph" default="none">
+          <h2 className="w-fit text-lg font-semibold tracking-[-0.02em]">{feature.title}</h2>
+        </ViewTransition>
+        <p className="mt-1 text-sm leading-relaxed text-muted">{feature.blurb}</p>
+      </div>
+      <p className="flex items-center gap-2 text-[13px] font-medium text-accent">
+        {status}
+        <ArrowRightIcon className="size-4 shrink-0 transition-transform duration-200 ease-out group-hover:translate-x-1" />
+      </p>
+    </AppLink>
   );
 }
 

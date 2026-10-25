@@ -10,6 +10,7 @@ import { SimilarPanel } from "@/components/similar-panel";
 import { TcgphPanel } from "@/components/tcgph-panel";
 import { PageTransition } from "@/components/theme/page-transition";
 import { reportSourceError } from "@/lib/sources/http";
+import { findUsdToPhp } from "@/lib/sources/fx";
 import { findCard } from "@/lib/sources/scryfall";
 
 export const metadata: Metadata = {
@@ -68,10 +69,13 @@ async function Results({ searchParams }: { searchParams: SearchParams }) {
     );
   }
 
+  // The US market price is shown in pesos at the day's exchange rate (cached for hours).
+  const rate = await findUsdToPhp();
+
   // 2 + 3. EDHREC and TCGph are looked up in parallel using that name; each streams in on its own.
   return (
     <div className="flex flex-col gap-8">
-      <CardOverview lookup={lookup} />
+      <CardOverview lookup={lookup} rate={rate} />
       <Suspense fallback={<PanelSkeleton title="Rulings" />}>
         <RulingsPanel card={lookup.card} />
       </Suspense>

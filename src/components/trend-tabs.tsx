@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { formatDate, formatPercent, formatUsd } from "@/lib/format";
+import { usdInPhp, type UsdRate } from "@/lib/fx";
 import { checkPrices } from "@/lib/price-queue";
 import type { MarketTrends, TrendWindow } from "@/lib/trends/types";
 import { CardTile } from "./card-tile";
@@ -17,7 +18,7 @@ const ORDER: TrendWindow[] = ["day", "week", "month"];
  * Philippine stores loads by itself for the cards on show, one at a time
  * through the shared price queue (so a busy TCGph is waited out).
  */
-export function TrendTabs({ trends }: { trends: MarketTrends }) {
+export function TrendTabs({ trends, rate }: { trends: MarketTrends; rate: UsdRate | null }) {
   const windows = ORDER.filter((w) => (trends.windows[w]?.cards.length ?? 0) > 0);
   const [tab, setTab] = useState<TrendWindow | undefined>(windows[0]);
   const current = tab ? trends.windows[tab] : undefined;
@@ -38,8 +39,9 @@ export function TrendTabs({ trends }: { trends: MarketTrends }) {
       )}
 
       <p className="text-xs text-muted">
-        Market prices on {formatDate(trends.pricesFrom)} compared with {formatDate(current.since)}, in US dollars. Under
-        each: the cheapest copy in Philippine stores right now.
+        Market prices on {formatDate(trends.pricesFrom)} compared with {formatDate(current.since)}
+        {rate ? ", in pesos at today’s exchange rate (hover a price for dollars)" : ", in US dollars"}. Under each: the cheapest copy in
+        Philippine stores right now.
       </p>
 
       {/* Keyed by the window, so the cards pop in when another is picked. */}
@@ -49,13 +51,13 @@ export function TrendTabs({ trends }: { trends: MarketTrends }) {
             <CardTile name={card.name} imageUrl={card.imageUrl}>
               <span className="block tabular-nums">
                 <span className="font-semibold text-emerald-700 dark:text-emerald-400">+{formatPercent(card.change)}</span>{" "}
-                <span className="text-muted">
-                  {formatUsd(card.fromUsd)} → {formatUsd(card.toUsd)}
+                <span className="text-muted" title={rate ? `${formatUsd(card.fromUsd)} → ${formatUsd(card.toUsd)} (US market)` : undefined}>
+                  {usdInPhp(card.fromUsd, rate)} → {usdInPhp(card.toUsd, rate)}
                 </span>
               </span>
               {card.history && card.history.length > 1 && (
                 <span className="mt-1 block">
-                  <Sparkline points={card.history} width={110} height={26} />
+                  <Sparkline points={card.history} width={110} height={26} rate={rate} />
                 </span>
               )}
               <span className="mt-0.5 block">

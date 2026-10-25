@@ -213,10 +213,16 @@ Other scripts:
 Run `npm run fixtures:update && npm test` now and then: if TCGph or EDHREC change
 their pages, the tests fail instead of the app quietly showing wrong prices.
 
-## Price trends
+## Market
 
-The front page lists cards whose market price (TCGplayer, in US dollars) jumped the most over the
-past day, week or month, with the cheapest copy in Philippine stores. Two sources, best first:
+The **Market** tab lists cards whose market price (TCGplayer) jumped the most over the past day,
+week or month, with the cheapest copy in Philippine stores. Market prices are US dollars; the app
+shows them **in pesos at the day's exchange rate** (hover a price for the dollars), and so does the
+"US market price" on each card page. The rate is the European Central Bank's reference rate via
+[Frankfurter](https://www.frankfurter.app), updated each working day, or ExchangeRate-API's open
+rate if Frankfurter can't be reached; the page names the rate, its day and its source. If neither
+answers, prices stay in dollars. These are a guide to a card's value; what Philippine stores
+actually charge is the TCGph price under each card. Two sources for the trends, best first:
 
 1. **A shared daily file.** `.github/workflows/market-trends.yml` runs every day on GitHub. It
    reads MTGJSON's 90-day price history as a stream (`scripts/build-market-trends.ts`) and
@@ -226,10 +232,10 @@ past day, week or month, with the cheapest copy in Philippine stores. Two source
    Scryfall's daily card file (about 25 MB) into `.data/price-history`. It compares against
    earlier days, so surges show from the second day it runs, and weekly ones after a week.
 
-Only Commander-legal cards that cost at least $2 and rose by at least 10% (and 50 cents) count.
+Only Commander-legal cards that cost at least $2 (about ₱127) and rose by at least 10% (and 50 cents) count.
 
 Below them, the **price history** explorer compares any two days the app has saved and lists the
-biggest rises or falls between them (by percentage or dollars, above a minimum price), each with
+biggest rises or falls between them (by percentage or amount, above a minimum price in pesos), each with
 its price line and the cheapest PH copy. The app keeps 90 days of prices in
 `.data/price-history` (one compressed file a day, about 65 MB in all), and keeps saving them even
 when the shared file is used.
@@ -265,6 +271,7 @@ same pages their own websites use, so the app is built to stay a light, polite v
 - Create Commander Deck reads the same EDHREC commander page as everything else (cached for a
   day). Card details for a binder are asked for 150 cards at a time and kept in the browser, so
   each card is looked up once.
+- The exchange rate is one request to Frankfurter (or ExchangeRate-API), cached for hours.
 - The Game Changers list comes from one Scryfall search, cached for a day on the server and in
   each browser. The land art behind Deck Synergy's networks is one Scryfall search per land, cached
   for a day, and its artist is credited on the page.

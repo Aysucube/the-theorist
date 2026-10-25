@@ -1,10 +1,11 @@
 import { formatCount, formatUsd } from "@/lib/format";
+import { describeRate, usdInPhp, type UsdRate } from "@/lib/fx";
 import type { ScryfallLookup } from "@/lib/types";
 import { AddToDeckButton } from "./deck-buttons";
 import { ArtBackground, CardImage } from "./card-display";
 import { CardLink } from "./card-link";
 
-export function CardOverview({ lookup }: { lookup: ScryfallLookup }) {
+export function CardOverview({ lookup, rate }: { lookup: ScryfallLookup; rate: UsdRate | null }) {
   const { card, alternatives } = lookup;
 
   return (
@@ -37,7 +38,11 @@ export function CardOverview({ lookup }: { lookup: ScryfallLookup }) {
           )}
           {card.edhrecRank && <Badge>EDHREC rank #{formatCount(card.edhrecRank)}</Badge>}
           {card.priceUsd !== undefined && (
-            <Badge>{formatUsd(card.priceUsd)} on Scryfall (US market)</Badge>
+            <Badge>
+              <span title={rate ? `${formatUsd(card.priceUsd)} on Scryfall, at ${describeRate(rate)} (${rate.source})` : undefined}>
+                {rate ? `${usdInPhp(card.priceUsd, rate)} US market price` : `${formatUsd(card.priceUsd)} on Scryfall (US market)`}
+              </span>
+            </Badge>
           )}
         </ul>
 

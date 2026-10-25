@@ -76,6 +76,17 @@ export function ShoppingIcon(props: IconProps) {
   );
 }
 
+/** Market: a price line climbing, with an arrowhead. */
+export function MarketIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M3.5 15.5h13" />
+      <path d="m4.5 12.5 3.6-3.8 2.8 2.4 4.6-5.3" />
+      <path d="M12.6 5.8h2.9v2.9" />
+    </Icon>
+  );
+}
+
 export function SearchIcon(props: IconProps) {
   return (
     <Icon {...props}>

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
-import { formatCount, formatDate, formatPercent, formatUsd } from "@/lib/format";
+import { formatCount, formatDate, formatPercent, formatPhp, formatUsd } from "@/lib/format";
+import { usdInPhp, type UsdRate } from "@/lib/fx";
 import { checkPrices } from "@/lib/price-queue";
 import { fetchJsonWithRetry } from "@/lib/retry";
 import type { HistoryResult, Mover } from "@/lib/trends/history";
@@ -13,15 +14,19 @@ type Filters = { from?: string; to?: string; direction: "up" | "down"; sort: "pc
 
 /** PH prices load by themselves for this many of the listed cards. */
 const AUTO_PRICES = 12;
+/** "At least" thresholds: in pesos when there's an exchange rate (converted to dollars for the search), else in dollars. */
+const PHP_STEPS = [25, 50, 100, 250, 500, 1000, 2500];
+const USD_STEPS = [0.5, 1, 2, 5, 10, 25, 50];
 
 /**
  * Explore the prices this app has saved: pick any two days and see the
- * biggest rises (or falls) between them, by percentage or by dollars, each
- * with its price line and the cheapest copy in Philippine stores.
+ * biggest rises (or falls) between them, by percentage or by amount, each
+ * with its price line and the cheapest copy in Philippine stores. Market
+ * prices are US dollars; with an exchange rate they're shown in pesos.
  */
-export function PriceHistoryExplorer() {
+export function PriceHistoryExplorer({ rate }: { rate: UsdRate | null }) {
   const id = useId();
-  const [filters, setFilters] = useState<Filters>({ direction: "up", sort: "pct", minUsd: 2 });
+  const [filters, setFilters] = useState<Filters>(() => ({ direction: "up", sort: "pct", minUsd: rate ? toUsd(100, rate) : 2 }));
   // The last answer and the query it was for; while a new query loads, the old answer stays on screen.
   const [loaded, setLoaded] = useState<{ query: string; result: HistoryResult | "error" } | null>(null);
   const [open, setOpen] = useState<string | null>(null);
@@ -105,19 +110,34 @@ export function PriceHistoryExplorer() {
           value={filters.sort}
           options={[
             ["pct", "%"],
-            ["usd", "$"],
+            ["usd", rate ? "₱" : "$"],
           ]}
           onChange={(sort) => set({ sort })}
         />
         <label className="flex flex-col gap-1 text-xs text-muted" htmlFor={`${id}-min`}>
           At least
-          <select id={`${id}-min`} className={select} value={filters.minUsd} onChange={(e) => set({ minUsd: Number(e.target.value) })}>
-            {[0.5, 1, 2, 5, 10, 25, 50].map((v) => (
-              <option key={v} value={v}>
-                {formatUsd(v)}
-              </option>
-            ))}
-          </select>
+          {rate ? (
+            <select
+              id={`${id}-min`}
+              className={select}
+              value={Math.round(filters.minUsd * rate.rate)}
+              onChange={(e) => set({ minUsd: toUsd(Number(e.target.value), rate) })}
+            >
+              {PHP_STEPS.map((php) => (
+                <option key={php} value={php}>
+                  {formatPhp(php)}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <select id={`${id}-min`} className={select} value={filters.minUsd} onChange={(e) => set({ minUsd: Number(e.target.value) })}>
+              {USD_STEPS.map((v) => (
+                <option key={v} value={v}>
+                  {formatUsd(v)}
+                </option>
+              ))}
+            </select>
+          )}
         </label>
         {state === "loading" && (
           <span className="flex h-9 items-center gap-2 text-xs text-muted">
@@ -134,7 +154,7 @@ export function PriceHistoryExplorer() {
       ) : (
         <ol className="flex flex-col divide-y divide-line rounded-xl border border-line">
           {result?.cards.map((card, i) => (
-            <Row key={card.id} rank={i + 1} card={card} open={open === card.id} onToggle={() => setOpen(open === card.id ? null : card.id)} />
+            <Row key={card.id} rank={i + 1} card={card} open={open === card.id} onToggle={() => setOpen(open === card.id ? null : card.id)} rate={rate} />
           ))}
         </ol>
       )}
@@ -178,7 +198,12 @@ function Toggle<T extends string>({
   );
 }
 
-function Row({ rank, card, open, onToggle }: { rank: number; card: Mover; open: boolean; onToggle: () => void }) {
+/** Pesos as the dollars the saved prices are in (kept to a few decimals for a tidy search). */
+function toUsd(php: number, rate: UsdRate) {
+  return Number((php / rate.rate).toFixed(4));
+}
+
+function Row({ rank, card, open, onToggle, rate }: { rank: number; card: Mover; open: boolean; onToggle: () => void; rate: UsdRate | null }) {
   const up = card.diffUsd >= 0;
   const tone = up ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400";
   return (
@@ -187,19 +212,19 @@ function Row({ rank, card, open, onToggle }: { rank: number; card: Mover; open: 
         <span className="text-xs text-muted tabular-nums">{rank}</span>
         <div className="min-w-0">
           <CardLink name={card.name} className="block truncate text-sm font-medium hover:underline" />
-          <p className="truncate text-xs text-muted">
-            {card.setCode} · {formatUsd(card.fromUsd)} → {formatUsd(card.toUsd)}
+          <p className="truncate text-xs text-muted" title={rate ? `${formatUsd(card.fromUsd)} → ${formatUsd(card.toUsd)} (US market)` : undefined}>
+            {card.setCode} · {usdInPhp(card.fromUsd, rate)} → {usdInPhp(card.toUsd, rate)}
           </p>
         </div>
         <button type="button" onClick={onToggle} aria-expanded={open} aria-label={`${open ? "Hide" : "Show"} ${card.name}'s price chart`} className="hidden sm:block">
-          <Sparkline points={card.history ?? []} width={130} height={34} />
+          <Sparkline points={card.history ?? []} width={130} height={34} rate={rate} />
         </button>
         <div className={`text-right text-sm font-semibold tabular-nums ${tone}`}>
           {up ? "+" : ""}
           {formatPercent(card.change)}
           <span className="block text-xs font-normal">
             {up ? "+" : "−"}
-            {formatUsd(Math.abs(card.diffUsd))}
+            {usdInPhp(Math.abs(card.diffUsd), rate)}
           </span>
         </div>
         <div className="col-span-3 flex items-center justify-end gap-3 sm:col-span-1">
@@ -211,7 +236,7 @@ function Row({ rank, card, open, onToggle }: { rank: number; card: Mover; open: 
       </div>
       {open && (
         <div className="reveal-fast mt-3 rounded-lg bg-surface p-2">
-          <PriceChart points={card.history ?? []} />
+          <PriceChart points={card.history ?? []} rate={rate} />
         </div>
       )}
     </li>
