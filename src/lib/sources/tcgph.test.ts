@@ -187,7 +187,32 @@ describe("summarizePrices", () => {
       stores: 0,
       listings: 0,
       byStore: [],
+      bySet: {},
     });
+  });
+
+  it("keeps each set's cheapest non-foil copy", () => {
+    const listing = (store: string, pricePhp: number) => ({ listingId: store + pricePhp, store, condition: "NM", pricePhp, url: "https://tcg.ph/x" });
+    const print = (printId: string, setCode: string, finish: string, listings: ReturnType<typeof listing>[]) => ({
+      printId,
+      setName: setCode,
+      setCode,
+      collectorNumber: "1",
+      finish,
+      url: "https://tcg.ph/p",
+      listings,
+    });
+    const { bySet } = summarizePrices({
+      url: SOL_RING,
+      prints: [
+        print("a", "CMM", "Nonfoil", [listing("Vault", 120), listing("Hero", 90)]),
+        print("b", "CMM", "Foil", [listing("Vault", 60)]),
+        print("c", "c21", "Nonfoil", [listing("GGH", 70)]),
+      ],
+    });
+    expect(Object.keys(bySet ?? {}).sort()).toEqual(["C21", "CMM"]);
+    expect(bySet?.CMM).toMatchObject({ pricePhp: 90, store: "Hero" });
+    expect(bySet?.C21).toMatchObject({ pricePhp: 70, store: "GGH" });
   });
 });
 

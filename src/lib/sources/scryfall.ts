@@ -365,6 +365,15 @@ const MAX_GAME_CHANGER_PAGES = 3;
  * brackets limit (none in Brackets 1–2, up to three in Bracket 3), as Scryfall
  * marks them. It changes a few times a year, so a day's cache is plenty.
  */
+/** Every set's full name by its code ("PTK" → "Portal Three Kingdoms"), from one request, cached for days. */
+export async function getSetNames(): Promise<Record<string, string>> {
+  "use cache: remote";
+  cacheLife("days");
+
+  const list = (await get("/sets")) as RawList<{ code: string; name: string }> | null;
+  return Object.fromEntries((list?.data ?? []).map((set) => [set.code.toUpperCase(), set.name]));
+}
+
 export async function getGameChangers(): Promise<CardDetails[]> {
   "use cache: remote";
   cacheLife("days");

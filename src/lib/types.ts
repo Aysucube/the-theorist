@@ -316,6 +316,12 @@ export interface TcgphSummary {
   listings: number;
   /** Each store's cheapest listing for the card, with its stock, cheapest store first. */
   byStore: StoreOffer[];
+  /**
+   * The cheapest non-foil copy in stock of each printing's set, keyed by set
+   * code ("PTK"), to compare a specific printing with its market price.
+   * Missing from prices saved by older versions of the app.
+   */
+  bySet?: Record<string, ListingBrief>;
 }
 
 /** What GET /api/preview returns: enough for a hover card. */

@@ -16,6 +16,8 @@ export interface TrendCard {
   imageUrl?: string;
   /** e.g. "MH3". */
   setCode?: string;
+  /** e.g. "Modern Horizons 3", when known. */
+  setName?: string;
   /** US dollars, TCGplayer market price. */
   fromUsd: number;
   toUsd: number;

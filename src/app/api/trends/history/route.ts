@@ -1,6 +1,7 @@
 import { connection, type NextRequest } from "next/server";
 import { MAX_LIMIT, priceHistory } from "@/lib/trends/history";
 import { reportSourceError } from "@/lib/sources/http";
+import { getSetNames } from "@/lib/sources/scryfall";
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -20,7 +21,11 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    return Response.json(await priceHistory({ from, to, direction, sort, minUsd, limit }));
+    const result = await priceHistory({ from, to, direction, sort, minUsd, limit });
+    // Full set names for the codes ("PTK" → "Portal Three Kingdoms"); codes alone if Scryfall can't be reached.
+    const names = await getSetNames().catch(() => ({}) as Record<string, string>);
+    const cards = result.cards.map((card) => (card.setCode && names[card.setCode] ? { ...card, setName: names[card.setCode] } : card));
+    return Response.json({ ...result, cards });
   } catch (error) {
     const detail = reportSourceError("api/trends/history", error);
     return Response.json({ error: "Couldn't read the saved price history.", detail }, { status: 500 });

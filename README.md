@@ -236,7 +236,11 @@ Only Commander-legal cards that cost at least $2 (about ₱127) and rose by at l
 
 Below them, the **price history** explorer compares any two days the app has saved and lists the
 biggest rises or falls between them (by percentage or amount, above a minimum price in pesos), each with
-its price line and the cheapest PH copy. The app keeps 90 days of prices in
+its full set name, price line and the cheapest PH copy. **PH deals** (next to "Rank by") tracks
+bargains: it checks Philippine stores for every listed card and keeps only the printings a store
+sells for **at least 20% under their market price**. It compares the same printing (a non-foil copy
+from the same set), so a cheaper reprint doesn't count; each deal shows the store, the price and how
+far under market it is, linking to the listing. The app keeps 90 days of prices in
 `.data/price-history` (one compressed file a day, about 65 MB in all), and keeps saving them even
 when the shared file is used.
 
@@ -271,7 +275,10 @@ same pages their own websites use, so the app is built to stay a light, polite v
 - Create Commander Deck reads the same EDHREC commander page as everything else (cached for a
   day). Card details for a binder are asked for 150 cards at a time and kept in the browser, so
   each card is looked up once.
-- The exchange rate is one request to Frankfurter (or ExchangeRate-API), cached for hours.
+- The exchange rate is one request to Frankfurter (or ExchangeRate-API), cached for hours. Full set
+  names come from Scryfall's set list, one request cached for days.
+- PH deals checks prices through the same one-card-at-a-time queue as "Check ₱", and only while
+  it's switched on.
 - The Game Changers list comes from one Scryfall search, cached for a day on the server and in
   each browser. The land art behind Deck Synergy's networks is one Scryfall search per land, cached
   for a day, and its artist is credited on the page.

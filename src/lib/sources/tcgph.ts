@@ -190,6 +190,14 @@ export function summarizePrices(prices: TcgphPrices): TcgphSummary {
     listings: enoughFor(listings, LISTED_COPIES_PER_STORE),
   });
 
+  // Each set's cheapest non-foil copy (rows are cheapest first, so the first seen wins).
+  const bySet: Record<string, ListingBrief> = {};
+  for (const row of rows) {
+    const set = row.print.setCode?.toUpperCase();
+    if (!set || (row.print.finish && row.print.finish !== "Nonfoil") || bySet[set]) continue;
+    bySet[set] = brief(row);
+  }
+
   return {
     url: prices.url,
     cheapest: rows[0] && brief(rows[0]),
@@ -197,5 +205,6 @@ export function summarizePrices(prices: TcgphPrices): TcgphSummary {
     stores: byStore.size,
     listings: rows.length,
     byStore: [...byStore.values()].map(offer),
+    bySet,
   };
 }

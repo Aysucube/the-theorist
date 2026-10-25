@@ -2,8 +2,9 @@
 
 import { useEffect, useId, useState } from "react";
 import { formatCount, formatDate, formatPercent, formatPhp, formatUsd } from "@/lib/format";
+import { DEAL_DISCOUNT, findDeal, type Deal } from "@/lib/deals";
 import { usdInPhp, type UsdRate } from "@/lib/fx";
-import { checkPrices } from "@/lib/price-queue";
+import { checkPrices, usePriceQueue } from "@/lib/price-queue";
 import { fetchJsonWithRetry } from "@/lib/retry";
 import type { HistoryResult, Mover } from "@/lib/trends/history";
 import { CardLink } from "./card-link";
@@ -22,7 +23,9 @@ const USD_STEPS = [0.5, 1, 2, 5, 10, 25, 50];
  * Explore the prices this app has saved: pick any two days and see the
  * biggest rises (or falls) between them, by percentage or by amount, each
  * with its price line and the cheapest copy in Philippine stores. Market
- * prices are US dollars; with an exchange rate they're shown in pesos.
+ * prices are US dollars; with an exchange rate they're shown in pesos, and
+ * "PH deals" narrows the list to printings a Philippine store sells for at
+ * least 20% under their market price.
  */
 export function PriceHistoryExplorer({ rate }: { rate: UsdRate | null }) {
   const id = useId();
@@ -30,6 +33,8 @@ export function PriceHistoryExplorer({ rate }: { rate: UsdRate | null }) {
   // The last answer and the query it was for; while a new query loads, the old answer stays on screen.
   const [loaded, setLoaded] = useState<{ query: string; result: HistoryResult | "error" } | null>(null);
   const [open, setOpen] = useState<string | null>(null);
+  const [track, setTrack] = useState<"all" | "deals">("all");
+  const priceOf = usePriceQueue();
 
   const query = new URLSearchParams({
     ...(filters.from ? { from: filters.from } : {}),
@@ -54,6 +59,22 @@ export function PriceHistoryExplorer({ rate }: { rate: UsdRate | null }) {
 
   const state = loaded?.query !== query ? "loading" : loaded.result === "error" ? "error" : "done";
   const result = loaded && loaded.result !== "error" ? loaded.result : null;
+
+  // Tracking deals: check every listed card's PH price, and keep the ones well under market.
+  const cards = result?.cards ?? [];
+  const namesKey = cards.map((c) => c.name).join("\n");
+  const tracking = track === "deals" && rate !== null;
+  useEffect(() => {
+    if (tracking && namesKey) checkPrices(namesKey.split("\n"));
+  }, [tracking, namesKey]);
+
+  const dealOf = (card: Mover): Deal | null => {
+    const state = priceOf(card.name);
+    return findDeal(card, state.status === "done" ? state.result : undefined, rate);
+  };
+  const ranked = cards.map((card, i) => ({ card, rank: i + 1, deal: dealOf(card) }));
+  const shown = tracking ? ranked.filter((r) => r.deal) : ranked;
+  const checked = cards.filter((c) => priceOf(c.name).status === "done").length;
 
   const dates = result?.dates ?? [];
   const set = (patch: Partial<Filters>) => setFilters((f) => ({ ...f, ...patch }));
@@ -114,6 +135,17 @@ export function PriceHistoryExplorer({ rate }: { rate: UsdRate | null }) {
           ]}
           onChange={(sort) => set({ sort })}
         />
+        {rate && (
+          <Toggle
+            label="PH deals"
+            value={track}
+            options={[
+              ["all", "All cards"],
+              ["deals", `${Math.round(DEAL_DISCOUNT * 100)}%+ under market`],
+            ]}
+            onChange={setTrack}
+          />
+        )}
         <label className="flex flex-col gap-1 text-xs text-muted" htmlFor={`${id}-min`}>
           At least
           {rate ? (
@@ -147,20 +179,32 @@ export function PriceHistoryExplorer({ rate }: { rate: UsdRate | null }) {
         )}
       </div>
 
+      {tracking && state === "done" && cards.length > 0 && <DealStatus total={cards.length} checked={checked} deals={shown.length} />}
+
       {state === "error" ? (
         <p className="text-sm text-muted">Couldn’t read the saved prices. Try another range.</p>
       ) : result && result.cards.length === 0 && state === "done" ? (
         <p className="text-sm text-muted">No card moved that much between these days. Try a longer range or a lower minimum.</p>
-      ) : (
+      ) : shown.length > 0 || !tracking ? (
         <ol className="flex flex-col divide-y divide-line rounded-xl border border-line">
-          {result?.cards.map((card, i) => (
-            <Row key={card.id} rank={i + 1} card={card} open={open === card.id} onToggle={() => setOpen(open === card.id ? null : card.id)} rate={rate} />
+          {shown.map(({ card, rank, deal }) => (
+            <Row
+              key={card.id}
+              rank={rank}
+              card={card}
+              deal={deal}
+              open={open === card.id}
+              onToggle={() => setOpen(open === card.id ? null : card.id)}
+              rate={rate}
+            />
           ))}
         </ol>
-      )}
+      ) : null}
       <p className="text-xs text-muted">
         Market prices: TCGplayer (US dollars), from Scryfall. Commander-legal cards only; each card’s biggest-moving printing
         is shown.
+        {rate &&
+          ` A PH deal is a non-foil copy of that same printing in a Philippine store at least ${Math.round(DEAL_DISCOUNT * 100)}% under its market price, so a cheaper reprint doesn’t count.`}
       </p>
     </div>
   );
@@ -203,7 +247,42 @@ function toUsd(php: number, rate: UsdRate) {
   return Number((php / rate.rate).toFixed(4));
 }
 
-function Row({ rank, card, open, onToggle, rate }: { rank: number; card: Mover; open: boolean; onToggle: () => void; rate: UsdRate | null }) {
+/** While tracking deals: how many of the listed cards have been checked, and how many are deals. */
+function DealStatus({ total, checked, deals }: { total: number; checked: number; deals: number }) {
+  const pct = `${Math.round(DEAL_DISCOUNT * 100)}%`;
+  if (checked < total) {
+    return (
+      <p role="status" className="flex items-center gap-2 text-sm text-muted">
+        <span aria-hidden className="size-4 spinner" />
+        Checking Philippine stores: {formatCount(checked)} of {formatCount(total)} cards.{" "}
+        {deals > 0 ? `${formatCount(deals)} at least ${pct} under market so far.` : "No deals yet."}
+      </p>
+    );
+  }
+  return (
+    <p role="status" className="text-sm text-muted">
+      {deals > 0
+        ? `${formatCount(deals)} of these ${formatCount(total)} cards ${deals === 1 ? "is" : "are"} at least ${pct} under market in a Philippine store.`
+        : `None of these ${formatCount(total)} cards is at least ${pct} under its market price in Philippine stores right now. Try another range or a lower minimum.`}
+    </p>
+  );
+}
+
+function Row({
+  rank,
+  card,
+  deal,
+  open,
+  onToggle,
+  rate,
+}: {
+  rank: number;
+  card: Mover;
+  deal: Deal | null;
+  open: boolean;
+  onToggle: () => void;
+  rate: UsdRate | null;
+}) {
   const up = card.diffUsd >= 0;
   const tone = up ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400";
   return (
@@ -213,8 +292,20 @@ function Row({ rank, card, open, onToggle, rate }: { rank: number; card: Mover; 
         <div className="min-w-0">
           <CardLink name={card.name} className="block truncate text-sm font-medium hover:underline" />
           <p className="truncate text-xs text-muted" title={rate ? `${formatUsd(card.fromUsd)} → ${formatUsd(card.toUsd)} (US market)` : undefined}>
-            {card.setCode} · {usdInPhp(card.fromUsd, rate)} → {usdInPhp(card.toUsd, rate)}
+            {card.setName ?? card.setCode} · {usdInPhp(card.fromUsd, rate)} → {usdInPhp(card.toUsd, rate)}
           </p>
+          {deal && (
+            <a
+              href={deal.listing.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={`Same printing, non-foil: ${deal.listing.conditionLabel ?? deal.listing.condition} at ${deal.listing.store}. Market price ${usdInPhp(card.toUsd, rate)}. Opens TCGph.`}
+              className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-emerald-500/12 px-2 py-0.5 text-xs font-medium text-emerald-400 ring-1 ring-emerald-500/30 hover:ring-emerald-400/60"
+            >
+              PH deal: {formatPhp(deal.listing.pricePhp)} at {deal.listing.store}
+              <span className="text-emerald-300/80">· {Math.round(deal.savings * 100)}% under market</span>
+            </a>
+          )}
         </div>
         <button type="button" onClick={onToggle} aria-expanded={open} aria-label={`${open ? "Hide" : "Show"} ${card.name}'s price chart`} className="hidden sm:block">
           <Sparkline points={card.history ?? []} width={130} height={34} rate={rate} />
