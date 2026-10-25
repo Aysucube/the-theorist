@@ -2,7 +2,8 @@
 
 import { motion, MotionConfig } from "motion/react";
 import NumberFlow from "@number-flow/react";
-import Link from "next/link";
+import { AppLink as Link } from "@/components/app-link";
+import { PageHeader } from "@/components/theme/page-header";
 import { useId, useState } from "react";
 import { toast } from "sonner";
 import { useCardDetails } from "@/lib/binder/card-cache";
@@ -58,16 +59,16 @@ export function BinderView() {
   return (
     <MotionConfig reducedMotion="user">
       <div className="flex flex-col gap-12">
-        <header className="flex flex-wrap items-end justify-between gap-6">
-          <div>
-            <p className="eyebrow">Your collection</p>
-            <h1 className="mt-1 text-3xl font-semibold tracking-[-0.03em]">Binder</h1>
-            <p className="mt-1 max-w-lg text-muted">Everything you own, in one place. Decks you create are built from it.</p>
-          </div>
-          <Link href="/decks/new" className="btn btn-primary btn-lg">
-            Create Commander Deck
-          </Link>
-        </header>
+        <PageHeader
+          feature="binder"
+          eyebrow="Your collection"
+          description="Everything you own, in one place. Decks you create are built from it."
+          actions={
+            <Link href="/decks/new" className="btn btn-primary btn-lg">
+              Create Commander Deck
+            </Link>
+          }
+        />
 
         {binder.cards.length > 0 && (
           <dl className="grid grid-cols-3 gap-6 border-y border-line py-6">
@@ -189,7 +190,7 @@ function BinderCard({
         )}
         <GameChangerTag name={name} compact className="absolute top-1 left-1" />
         {qty > 1 && (
-          <span className="absolute top-1.5 right-1.5 rounded-full bg-zinc-950/80 px-1.5 text-[11px] font-semibold text-white tabular-nums">×{qty}</span>
+          <span className="absolute top-1.5 right-1.5 rounded-full bg-background/85 px-1.5 text-[11px] font-semibold text-white tabular-nums">×{qty}</span>
         )}
       </div>
       {preview}
@@ -239,7 +240,7 @@ function ImportBox({ empty, onAdd, onReplace }: { empty: boolean; onAdd: (cards:
   }
 
   return (
-    <section className="surface flex flex-col gap-4 p-5 sm:p-6">
+    <section className="surface reveal flex flex-col gap-4 p-5 sm:p-6">
       <div>
         <label htmlFor={id} className="font-semibold">
           {empty ? "Add your collection" : "Add cards"}
@@ -257,11 +258,11 @@ function ImportBox({ empty, onAdd, onReplace }: { empty: boolean; onAdd: (cards:
         className="field font-mono text-[13px] leading-relaxed"
       />
       <div className="flex flex-wrap items-center gap-2">
-        <button type="button" onClick={() => apply("add")} disabled={!text.trim()} className="btn btn-primary">
+        <button type="button" onClick={() => apply("add")} disabled={!text.trim()} data-cast className="btn btn-primary">
           Add to binder
         </button>
         {!empty && (
-          <button type="button" onClick={() => apply("replace")} disabled={!text.trim()} className="btn btn-secondary">
+          <button type="button" onClick={() => apply("replace")} disabled={!text.trim()} data-cast className="btn btn-secondary">
             Replace binder
           </button>
         )}

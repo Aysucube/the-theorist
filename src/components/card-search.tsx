@@ -1,9 +1,9 @@
 "use client";
 
 import Form from "next/form";
-import { useRouter } from "next/navigation";
 import { useEffect, useId, useState } from "react";
 import { moveHighlight, splitMatch } from "@/lib/combobox";
+import { useAppRouter } from "./app-link";
 import { GameChangerTag } from "./game-changer-tag";
 
 // Matches AUTOCOMPLETE_MIN_LENGTH in lib/sources/scryfall.ts (a server-only module).
@@ -12,7 +12,7 @@ const MIN_LENGTH = 2;
 const DEBOUNCE_MS = 150;
 
 export function CardSearch({ defaultValue = "" }: { defaultValue?: string }) {
-  const router = useRouter();
+  const router = useAppRouter();
   // Generated ids: Next keeps the previous page mounted (hidden) for instant back
   // navigation, so two search boxes can be in the document at once.
   const inputId = useId();
@@ -74,7 +74,17 @@ export function CardSearch({ defaultValue = "" }: { defaultValue?: string }) {
   }
 
   return (
-    <Form action="/card" className="flex w-full gap-2" onSubmit={() => setOpen(false)}>
+    <Form
+      action="/card"
+      className="flex w-full gap-2"
+      onSubmit={(e) => {
+        setOpen(false);
+        // With JavaScript, search through the router so the page transition plays.
+        if (!query) return;
+        e.preventDefault();
+        choose(query);
+      }}
+    >
       <div className="relative min-w-0 flex-1">
         <label htmlFor={inputId} className="sr-only">
           Card name
@@ -101,14 +111,14 @@ export function CardSearch({ defaultValue = "" }: { defaultValue?: string }) {
           aria-expanded={showList}
           aria-controls={listId}
           aria-activedescendant={showList && highlight >= 0 ? `${listId}-${highlight}` : undefined}
-          className="h-12 w-full rounded-lg border border-line-strong bg-background px-4 text-base outline-none focus:border-foreground/40 focus:ring-4 focus:ring-foreground/5"
+          className="h-12 w-full rounded-xl border border-line-strong bg-surface/80 px-4 text-base backdrop-blur outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted/70 focus:border-accent/60 focus:ring-4 focus:ring-accent/15"
         />
         <ul
           id={listId}
           role="listbox"
           aria-label="Card name suggestions"
           hidden={!showList}
-          className="absolute top-full right-0 left-0 z-20 mt-1 max-h-80 overflow-auto rounded-lg border border-line bg-background py-1 shadow-lg"
+          className="pop-in absolute top-full right-0 left-0 z-20 mt-1.5 max-h-80 overflow-auto rounded-xl border border-line-strong bg-surface py-1 shadow-[0_16px_40px_-12px_rgb(0_0_0/0.7),0_0_32px_-12px_rgb(90_176_255/0.3)]"
         >
           {visible.map((name, i) => {
             const parts = splitMatch(name, query);
@@ -125,7 +135,7 @@ export function CardSearch({ defaultValue = "" }: { defaultValue?: string }) {
                 onClick={() => choose(name)}
                 onMouseEnter={() => setHighlight(i)}
                 className={`cursor-pointer px-4 py-2 text-sm ${
-                  i === highlight ? "bg-subtle" : ""
+                  i === highlight ? "bg-accent/12 text-foreground" : ""
                 }`}
               >
                 {parts ? (
@@ -145,7 +155,7 @@ export function CardSearch({ defaultValue = "" }: { defaultValue?: string }) {
       </div>
       <button
         type="submit"
-        className="h-12 rounded-lg bg-foreground px-5 font-medium text-background transition-colors hover:bg-foreground/85"
+        className="btn btn-primary h-12 rounded-xl px-5"
       >
         Search
       </button>

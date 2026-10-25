@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { AppLink as Link } from "@/components/app-link";
 import { useId, useState } from "react";
 import { hasCard, importCards, MAX_DECK_CARDS, type DeckCard } from "@/lib/deck";
 import { formatCount } from "@/lib/format";
@@ -41,14 +41,14 @@ export function AddToShopping({ deck, detailsFor }: { deck: DeckCard[]; detailsF
           setOpen(!open);
           setResult(null);
         }}
-        className="h-9 rounded-lg border border-line-strong px-3 text-sm font-medium hover:bg-subtle"
+        className="btn btn-secondary h-9 px-3"
       >
         Add to Shopping
       </button>
       {open && (
         <div
           id={panelId}
-          className="absolute top-full right-0 z-30 mt-2 flex w-72 flex-col gap-3 rounded-xl border border-line bg-background p-4 text-sm shadow-xl"
+          className={`pop-in absolute top-full right-0 z-30 mt-2 flex w-72 flex-col gap-3 rounded-xl border border-line-strong bg-surface shadow-[0_24px_60px_-16px_rgb(0_0_0/0.75),0_0_40px_-16px_rgb(90_176_255/0.3)] p-4 text-sm [--transform-origin:right_top]`}
         >
           {result ? (
             <>
@@ -71,7 +71,7 @@ export function AddToShopping({ deck, detailsFor }: { deck: DeckCard[]; detailsF
                 <input type="checkbox" checked={skipBasics} onChange={(e) => setSkipBasics(e.target.checked)} className="size-4 accent-foreground" />
                 Leave out basic lands
               </label>
-              <button type="button" onClick={add} disabled={cards.length === 0} className="h-9 rounded-lg bg-foreground px-3 font-medium text-background hover:bg-foreground/85 disabled:opacity-50">
+              <button type="button" onClick={add} disabled={cards.length === 0} className="btn btn-primary h-9 px-3 disabled:opacity-50">
                 Add {formatCount(copies)} {copies === 1 ? "card" : "cards"}
               </button>
             </>

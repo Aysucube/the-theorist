@@ -167,7 +167,7 @@ function DeckList({ cards, onRemove }: { cards: CardDetails[]; onRemove: (name: 
   const groups = new Map<string, CardDetails[]>();
   for (const card of cards) groups.set(groupOf(card), [...(groups.get(groupOf(card)) ?? []), card]);
   return (
-    <div className="mt-2 flex max-h-96 flex-col gap-3 overflow-y-auto pr-1">
+    <div className="reveal-fast mt-2 flex max-h-96 flex-col gap-3 overflow-y-auto pr-1">
       {[...GROUPS, "Other"]
         .filter((g) => groups.has(g))
         .map((g) => (
@@ -204,7 +204,7 @@ export function Meter({ value, color, className = "" }: { value: number; color?:
   return (
     <span className={`block h-1 overflow-hidden rounded-full bg-subtle ${className}`}>
       <span
-        className="block h-full origin-left rounded-full bg-foreground transition-transform duration-300 ease-out"
+        className="block h-full origin-left rounded-full bg-accent transition-transform duration-300 ease-out"
         style={{ transform: `scaleX(${Math.min(1, Math.max(0, value))})`, background: color }}
       />
     </span>

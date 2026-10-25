@@ -79,11 +79,11 @@ export function BracketSection({
               aria-checked={b === target}
               onClick={() => onTarget(b)}
               className={`rounded-lg border px-3 py-1.5 text-left text-sm ${
-                b === target ? "border-foreground bg-foreground text-background" : "border-line-strong hover:border-foreground/30 "
+                b === target ? "border-accent bg-accent text-on-accent shadow-[0_0_16px_-4px_rgb(90_176_255/0.6)]" : "border-line-strong hover:border-accent/50 "
               }`}
             >
-              <span className="font-semibold">Bracket {b}</span> <span className={b === target ? "text-zinc-800" : "text-muted"}>{BRACKET_INFO[b].name}</span>
-              {b === report.bracket && <span className={`ml-1 text-xs ${b === target ? "text-zinc-800" : "text-muted"}`}>(your deck)</span>}
+              <span className="font-semibold">Bracket {b}</span> <span className={b === target ? "text-on-accent/70" : "text-muted"}>{BRACKET_INFO[b].name}</span>
+              {b === report.bracket && <span className={`ml-1 text-xs ${b === target ? "text-on-accent/70" : "text-muted"}`}>(your deck)</span>}
             </button>
           ))}
         </div>
@@ -157,7 +157,7 @@ function NameChip({ name, onOpen }: { name: string; onOpen: (name: string) => vo
           trigger.onClick();
           onOpen(name);
         }}
-        className="inline-flex items-center gap-1 rounded-md border border-line bg-background px-2 py-0.5 text-xs hover:border-foreground/30"
+        className="inline-flex items-center gap-1 rounded-md border border-line bg-background px-2 py-0.5 text-xs hover:border-accent/50"
       >
         {name}
         <GameChangerTag name={name} compact />

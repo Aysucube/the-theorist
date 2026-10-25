@@ -18,7 +18,7 @@ export function AddToDeckButton({ name }: { name: string }) {
       className={`h-10 rounded-lg px-4 text-sm font-medium transition-colors disabled:opacity-50 ${
         inDeck
           ? "border border-emerald-600 bg-background text-emerald-700 hover:bg-emerald-50  dark:text-emerald-400 dark:hover:bg-emerald-950"
-          : "bg-foreground text-background hover:bg-foreground/85"
+          : "btn-primary"
       }`}
     >
       {inDeck ? "In shopping ✓" : full ? "Shopping list is full" : "Add to shopping"}
@@ -42,7 +42,7 @@ export function AddToDeckToggle({ name }: { name: string }) {
       className={`flex size-6 shrink-0 items-center justify-center rounded-full border text-xs font-semibold transition-colors ${
         inDeck
           ? "border-emerald-600 bg-emerald-600 text-white"
-          : "border-line-strong text-foreground/75 hover:border-foreground/30 hover:text-foreground  "
+          : "border-line-strong text-foreground/75 hover:border-accent/50 hover:text-foreground  "
       }`}
     >
       {inDeck ? "✓" : "+"}

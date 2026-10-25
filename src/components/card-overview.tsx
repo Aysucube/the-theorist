@@ -8,14 +8,14 @@ export function CardOverview({ lookup }: { lookup: ScryfallLookup }) {
   const { card, alternatives } = lookup;
 
   return (
-    <section className="grid gap-6 text-zinc-100 sm:grid-cols-[minmax(0,240px)_1fr]">
+    <section className="grid gap-6 text-foreground sm:grid-cols-[minmax(0,240px)_1fr]">
       <ArtBackground name={card.name} artUrl={card.artUrl} />
       <CardImage name={card.name} imageUrl={card.imageUrl} />
 
       <div className="flex min-w-0 flex-col gap-3 [text-shadow:0_1px_3px_rgb(0_0_0/0.6)]">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight text-white">{card.name}</h1>
-          <p className="mt-1 text-zinc-300">
+          <p className="mt-1 text-foreground/80">
             {card.typeLine}
             {card.manaCost && <span className="ml-2 font-mono text-sm">{card.manaCost}</span>}
           </p>
@@ -55,13 +55,13 @@ export function CardOverview({ lookup }: { lookup: ScryfallLookup }) {
 
         {alternatives.length > 0 && (
           <div className="mt-2 text-sm">
-            <p className="text-zinc-300">Not the card you meant? Other matches:</p>
+            <p className="text-foreground/80">Not the card you meant? Other matches:</p>
             <ul className="mt-1 flex flex-wrap gap-2 [text-shadow:none]">
               {alternatives.map((name) => (
                 <li key={name}>
                   <CardLink
                     name={name}
-                    className="inline-block rounded-full border border-zinc-500 bg-zinc-950/60 px-3 py-1 hover:border-foreground/30"
+                    className="inline-block rounded-full border border-line-strong bg-background/60 px-3 py-1 backdrop-blur hover:border-accent/50"
                   />
                 </li>
               ))}
@@ -80,12 +80,12 @@ function Badge({
   tone?: "neutral" | "good" | "bad" | "accent" | "gc";
   children: React.ReactNode;
 }) {
-  // Always the dark-theme colors: the badges sit on the darkened artwork.
+  // The badges sit on the darkened artwork.
   const tones = {
-    neutral: "bg-zinc-800 text-zinc-200",
+    neutral: "bg-subtle/90 text-foreground/90 ring-1 ring-line-strong",
     good: "bg-emerald-950 text-emerald-300",
     bad: "bg-red-950 text-red-300",
-    accent: "bg-amber-950 text-amber-300",
+    accent: "bg-accent/15 text-accent ring-1 ring-accent/30",
     gc: "bg-rose-600 text-white",
   };
   return <li className={`rounded-full px-2.5 py-1 ${tones[tone]}`}>{children}</li>;

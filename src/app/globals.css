@@ -1,30 +1,27 @@
 @import "tailwindcss";
 
-/* A quiet, monochrome palette: ink on paper, hairline borders, one warm accent
-   kept for small highlights. Each token switches with the system theme, so
-   components use bg-surface / border-line / text-muted instead of dark: pairs. */
-:root {
-  --background: #ffffff;
-  --foreground: #0a0a0a;
-  --surface: #fafafa;
-  --subtle: #f4f4f5;
-  --line: #e9e9eb;
-  --line-strong: #d4d4d8;
-  --muted: #71717a;
-  --accent: #d97706;
-}
+/* The site is always midnight, so any dark: variant left in a component applies everywhere. */
+@custom-variant dark (&:where(html, html *));
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0b;
-    --foreground: #f4f4f5;
-    --surface: #111113;
-    --subtle: #18181b;
-    --line: #232326;
-    --line-strong: #3f3f46;
-    --muted: #a1a1aa;
-    --accent: #fbbf24;
-  }
+/* Jace Beleren, the Theorist: midnight navy, moonlit silver text, and mind-blue
+   light for whatever is active or important. Components use the tokens
+   (bg-surface, border-line, text-muted, bg-accent…), never raw colors. */
+:root {
+  color-scheme: dark;
+  --background: #060a14;
+  --foreground: #e8eefb;
+  --surface: #0b1222;
+  --subtle: #111a2e;
+  --line: #1b2740;
+  --line-strong: #2a3a5c;
+  --muted: #8d9bb8;
+  /* Mind blue: selected states, primary actions, links. */
+  --accent: #5ab0ff;
+  --accent-strong: #2f7df6;
+  /* Telepathic cyan: glows and highlights only. */
+  --glow: #8fdcff;
+  /* Text on an accent fill. */
+  --on-accent: #03101f;
 }
 
 @theme inline {
@@ -36,6 +33,9 @@
   --color-line-strong: var(--line-strong);
   --color-muted: var(--muted);
   --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-glow: var(--glow);
+  --color-on-accent: var(--on-accent);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -48,6 +48,10 @@
   --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
+html {
+  scrollbar-color: var(--line-strong) transparent;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
@@ -55,7 +59,7 @@ body {
 }
 
 ::selection {
-  background: color-mix(in oklab, var(--accent) 28%, transparent);
+  background: color-mix(in oklab, var(--accent) 35%, transparent);
 }
 
 @layer base {
@@ -66,12 +70,12 @@ body {
     letter-spacing: -0.02em;
   }
   :focus-visible {
-    outline: 2px solid color-mix(in oklab, var(--foreground) 55%, transparent);
+    outline: 2px solid color-mix(in oklab, var(--accent) 75%, transparent);
     outline-offset: 2px;
   }
   /* Every button answers a press: a small, quick scale-down. */
   button {
-    transition-property: transform, color, background-color, border-color, opacity, box-shadow;
+    transition-property: transform, color, background-color, border-color, opacity, box-shadow, filter;
     transition-duration: 160ms;
     transition-timing-function: var(--ease-out);
   }
@@ -87,6 +91,9 @@ body {
 
 @layer components {
   .btn {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -99,17 +106,25 @@ body {
     white-space: nowrap;
     border: 1px solid transparent;
     cursor: pointer;
+    transition-property: transform, color, background-color, border-color, opacity, box-shadow, filter;
+    transition-duration: 160ms;
+    transition-timing-function: var(--ease-out);
   }
   .btn:disabled {
     opacity: 0.45;
     cursor: default;
   }
+  /* A lit rune: luminous blue with dark ink, glowing a little. */
   .btn-primary {
-    background: var(--foreground);
-    color: var(--background);
+    color: var(--on-accent);
+    background: linear-gradient(180deg, #8ccbff 0%, #4aa3f7 100%);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.45),
+      0 0 0 1px rgb(90 176 255 / 0.55),
+      0 6px 20px -8px rgb(90 176 255 / 0.7);
   }
   .btn-secondary {
-    background: var(--background);
+    background: var(--surface);
     border-color: var(--line-strong);
   }
   .btn-ghost {
@@ -117,9 +132,16 @@ body {
   }
   @media (hover: hover) and (pointer: fine) {
     .btn-primary:not(:disabled):hover {
-      background: color-mix(in oklab, var(--foreground) 86%, var(--background));
+      filter: brightness(1.08);
+      box-shadow:
+        inset 0 1px 0 rgb(255 255 255 / 0.5),
+        0 0 0 1px rgb(143 220 255 / 0.7),
+        0 8px 28px -8px rgb(90 176 255 / 0.85);
     }
-    .btn-secondary:not(:disabled):hover,
+    .btn-secondary:not(:disabled):hover {
+      background: var(--subtle);
+      border-color: color-mix(in oklab, var(--accent) 45%, var(--line-strong));
+    }
     .btn-ghost:not(:disabled):hover {
       background: var(--subtle);
     }
@@ -140,33 +162,41 @@ body {
     padding-inline: 1.25rem;
     font-size: 0.9375rem;
   }
+  /* A panel: navy glass with a faint light along its top edge. */
   .surface {
     border: 1px solid var(--line);
     border-radius: 1rem;
-    background: var(--background);
+    background:
+      linear-gradient(180deg, rgb(143 220 255 / 0.035), transparent 45%),
+      var(--surface);
   }
   .field {
     width: 100%;
     border: 1px solid var(--line-strong);
     border-radius: 0.625rem;
-    background: var(--background);
+    background: var(--surface);
     padding: 0.5rem 0.75rem;
     font-size: 0.875rem;
     outline: none;
-    transition: border-color 150ms ease, box-shadow 150ms ease;
+    transition:
+      border-color 150ms ease,
+      box-shadow 150ms ease;
   }
   .field:focus {
-    border-color: color-mix(in oklab, var(--foreground) 45%, transparent);
-    box-shadow: 0 0 0 4px color-mix(in oklab, var(--foreground) 7%, transparent);
+    border-color: color-mix(in oklab, var(--accent) 65%, transparent);
+    box-shadow: 0 0 0 4px color-mix(in oklab, var(--accent) 15%, transparent);
   }
   .link {
     text-decoration-line: underline;
-    text-decoration-color: var(--line-strong);
+    text-decoration-color: color-mix(in oklab, var(--accent) 45%, transparent);
     text-underline-offset: 3px;
-    transition: text-decoration-color 150ms ease;
+    transition:
+      text-decoration-color 150ms ease,
+      color 150ms ease;
   }
   @media (hover: hover) and (pointer: fine) {
     .link:hover {
+      color: var(--glow);
       text-decoration-color: currentColor;
     }
   }
@@ -175,46 +205,343 @@ body {
     font-weight: 500;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--muted);
+    color: color-mix(in oklab, var(--accent) 75%, var(--muted));
   }
-  /* A pill toggle: tabs, filters, choices. Selected ones turn to ink. */
+  /* A pill toggle: tabs, filters, choices. Selected ones light up. */
   .pill {
     display: inline-flex;
     align-items: center;
     gap: 0.375rem;
-    border: 1px solid var(--line);
+    border: 1px solid var(--line-strong);
     border-radius: 9999px;
     padding: 0.3125rem 0.75rem;
     font-size: 0.8125rem;
     font-weight: 500;
     color: var(--muted);
-    background: var(--background);
+    background: var(--surface);
     white-space: nowrap;
   }
   @media (hover: hover) and (pointer: fine) {
     .pill:hover {
       color: var(--foreground);
-      border-color: var(--line-strong);
+      border-color: color-mix(in oklab, var(--accent) 45%, var(--line-strong));
     }
   }
   .pill[aria-selected="true"],
   .pill[aria-pressed="true"],
   .pill[aria-checked="true"] {
-    background: var(--foreground);
-    border-color: var(--foreground);
-    color: var(--background);
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--on-accent);
+    box-shadow: 0 0 16px -4px rgb(90 176 255 / 0.6);
   }
+  /* A rune ring: a slow dashed circle with a fast arc turning inside it. */
   .spinner {
+    position: relative;
+    display: inline-block;
+    flex-shrink: 0;
     border-radius: 9999px;
-    border: 2px solid var(--line-strong);
-    border-top-color: var(--foreground);
-    animation: theorist-spinner 0.7s linear infinite;
+    border: 1.5px dashed color-mix(in oklab, var(--accent) 50%, transparent);
+    animation: theorist-spinner 2.4s linear infinite;
+  }
+  .spinner::after {
+    content: "";
+    position: absolute;
+    inset: 15%;
+    border-radius: inherit;
+    border: 1.5px solid transparent;
+    border-top-color: var(--glow);
+    border-left-color: var(--glow);
+    animation: theorist-spinner 0.7s linear infinite reverse;
+  }
+  /* A loading placeholder with a blue shimmer passing over it. */
+  .skeleton {
+    position: relative;
+    overflow: hidden;
+    background: var(--subtle);
+  }
+  .skeleton::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, rgb(90 176 255 / 0.1), transparent);
+    animation: theorist-shimmer 1.4s var(--ease-in-out) infinite;
+  }
+  /* The big tiles on the front page that open each part of the app. */
+  .feature-tile {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--line);
+    border-radius: 1.25rem;
+    background:
+      radial-gradient(120% 80% at 0% 0%, rgb(90 176 255 / 0.08), transparent 60%),
+      var(--surface);
+    transition:
+      transform 200ms var(--ease-out),
+      border-color 200ms ease,
+      box-shadow 200ms ease;
+  }
+  .feature-tile:active {
+    transform: scale(0.98);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .feature-tile:hover {
+      transform: translateY(-2px);
+      border-color: color-mix(in oklab, var(--accent) 45%, var(--line));
+      box-shadow: 0 16px 40px -20px rgb(90 176 255 / 0.45);
+    }
+    .feature-tile:active {
+      transform: translateY(-1px) scale(0.98);
+    }
   }
 }
 
 @keyframes theorist-spinner {
   to {
     transform: rotate(360deg);
+  }
+}
+@keyframes theorist-shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+/* Features pop in when they open: they rise a little and settle with a slight
+   spring. --i staggers a group (capped, so long lists don't wait). Fill mode is
+   backwards so no transform lingers afterwards (it would trap fixed children). */
+@keyframes theorist-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+}
+@keyframes theorist-reveal-fast {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+@keyframes theorist-fade {
+  from {
+    opacity: 0;
+  }
+}
+.reveal {
+  animation: theorist-reveal 260ms cubic-bezier(0.23, 1, 0.32, 1) backwards;
+  animation-delay: calc(min(var(--i, 0), 5) * 35ms);
+}
+.reveal-fast {
+  animation: theorist-reveal-fast 160ms cubic-bezier(0.23, 1, 0.32, 1) backwards;
+}
+@supports (animation-timing-function: linear(0, 1)) {
+  .reveal {
+    animation-timing-function: linear(
+      0,
+      0.0047,
+      0.0192 1.8%,
+      0.0785 3.8%,
+      0.3993 11.1%,
+      0.6197 16.3%,
+      0.7864 21.5%,
+      0.8996 27%,
+      0.9681 32.6%,
+      1.0047 38.3%,
+      1.021 44.2%,
+      1.0252 50.9%,
+      1.0179 61.6%,
+      1.0053 77.1%,
+      1
+    );
+  }
+}
+
+/* Disclosures: what opens rises into place; the marker turns. */
+details[open] > :not(summary) {
+  animation: theorist-reveal-fast 160ms cubic-bezier(0.23, 1, 0.32, 1) backwards;
+}
+
+/* Dialogs grow out of the middle of the screen over a blurred navy scrim. */
+dialog[open] {
+  animation: theorist-dialog 200ms cubic-bezier(0.23, 1, 0.32, 1) backwards;
+}
+dialog[open]::backdrop {
+  background: rgb(3 8 20 / 0.72);
+  backdrop-filter: blur(6px);
+  animation: theorist-fade 200ms ease backwards;
+}
+@keyframes theorist-dialog {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+/* Popovers scale out of where they were opened from. */
+.pop-in {
+  transform-origin: var(--transform-origin, top center);
+  animation: theorist-pop-in 160ms cubic-bezier(0.23, 1, 0.32, 1) backwards;
+}
+@keyframes theorist-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+/* The ring a button marked data-cast casts where it's pressed (cast-effects.tsx). */
+.cast-ring {
+  position: absolute;
+  z-index: -1;
+  width: var(--r);
+  height: var(--r);
+  margin: calc(var(--r) / -2) 0 0 calc(var(--r) / -2);
+  border-radius: 9999px;
+  border: 1px solid rgb(225 245 255 / 0.9);
+  box-shadow:
+    0 0 12px rgb(143 220 255 / 0.65),
+    inset 0 0 10px rgb(143 220 255 / 0.45);
+  pointer-events: none;
+}
+
+/* The original sigil turning slowly; the backdrop's glow breathing. */
+@keyframes theorist-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.sigil-turn {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: theorist-turn 90s linear infinite;
+}
+.sigil-turn-back {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: theorist-turn 140s linear infinite reverse;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal,
+  .reveal-fast,
+  details[open] > :not(summary),
+  dialog[open],
+  .pop-in {
+    animation-name: theorist-fade;
+    animation-duration: 150ms;
+  }
+  .sigil-turn,
+  .sigil-turn-back,
+  .skeleton::after {
+    animation: none;
+  }
+}
+
+/* Page transitions (React's <ViewTransition>, see page-transition.tsx). The
+   header stays put while the page slides: left going forward, right coming
+   back. The old page leaves quickly; the new one arrives a beat later. */
+::view-transition {
+  pointer-events: none;
+}
+::view-transition-old(root) {
+  display: none;
+}
+::view-transition-new(root) {
+  animation: none;
+}
+::view-transition-group(site-header),
+::view-transition-group(site-tabbar) {
+  animation: none;
+  z-index: 100;
+}
+::view-transition-old(site-header),
+::view-transition-old(site-tabbar) {
+  display: none;
+}
+::view-transition-new(site-header),
+::view-transition-new(site-tabbar) {
+  animation: none;
+}
+::view-transition-old(.nav-forward),
+::view-transition-old(.nav-back) {
+  animation:
+    120ms cubic-bezier(0.23, 1, 0.32, 1) both theorist-vt-fade reverse,
+    260ms cubic-bezier(0.23, 1, 0.32, 1) both theorist-vt-slide reverse;
+}
+::view-transition-new(.nav-forward),
+::view-transition-new(.nav-back) {
+  animation:
+    180ms cubic-bezier(0.23, 1, 0.32, 1) 60ms both theorist-vt-fade,
+    260ms cubic-bezier(0.23, 1, 0.32, 1) both theorist-vt-slide;
+}
+::view-transition-old(.nav-forward) {
+  --slide-offset: -28px;
+}
+::view-transition-new(.nav-forward) {
+  --slide-offset: 28px;
+}
+::view-transition-old(.nav-back) {
+  --slide-offset: 28px;
+}
+::view-transition-new(.nav-back) {
+  --slide-offset: -28px;
+}
+/* Same page, new content (another card, another theme): a quick crossfade. */
+::view-transition-old(.nav-fade) {
+  animation: 100ms ease-out both theorist-opacity reverse;
+}
+::view-transition-new(.nav-fade) {
+  animation: 150ms ease-out 40ms both theorist-opacity;
+}
+/* A tile or header moving between pages: blur hides the in-between frames. */
+::view-transition-group(.morph) {
+  animation-duration: 300ms;
+  animation-timing-function: cubic-bezier(0.77, 0, 0.175, 1);
+}
+::view-transition-image-pair(.morph) {
+  animation-name: theorist-vt-blur;
+}
+@keyframes theorist-vt-fade {
+  from {
+    opacity: 0;
+    filter: blur(3px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+@keyframes theorist-vt-slide {
+  from {
+    translate: var(--slide-offset);
+  }
+  to {
+    translate: 0;
+  }
+}
+@keyframes theorist-opacity {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes theorist-vt-blur {
+  30% {
+    filter: blur(3px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
   }
 }
 
@@ -324,12 +651,13 @@ body {
 .menu-popup {
   min-width: 14rem;
   padding: 0.25rem;
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-strong);
   border-radius: 0.75rem;
-  background: var(--background);
+  background: var(--surface);
   box-shadow:
-    0 16px 40px -12px rgb(0 0 0 / 0.28),
-    0 2px 6px rgb(0 0 0 / 0.06);
+    0 16px 40px -12px rgb(0 0 0 / 0.6),
+    0 0 0 1px rgb(90 176 255 / 0.06),
+    0 0 32px -12px rgb(90 176 255 / 0.25);
   transform-origin: var(--transform-origin);
   transition:
     opacity 150ms var(--ease-out),
@@ -340,6 +668,9 @@ body {
 .menu-popup[data-ending-style] {
   opacity: 0;
   transform: scale(0.96);
+}
+.menu-popup[data-ending-style] {
+  transition-duration: 100ms;
 }
 .menu-item {
   display: flex;
@@ -354,7 +685,7 @@ body {
   user-select: none;
 }
 .menu-item[data-highlighted] {
-  background: var(--subtle);
+  background: color-mix(in oklab, var(--accent) 14%, var(--subtle));
 }
 .menu-item[data-disabled] {
   opacity: 0.45;
@@ -368,6 +699,50 @@ body {
   .menu-popup[data-starting-style],
   .menu-popup[data-ending-style] {
     transform: none;
+  }
+}
+
+/* Tabs (tabs.tsx): the lit pill glides to the selected tab; the tabs sit
+   above it, transparent, and only their text color changes. */
+.tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  border-radius: 9999px;
+  padding: 0.375rem 0.875rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--muted);
+  white-space: nowrap;
+  transition: color 160ms ease;
+}
+.tab[data-active] {
+  color: var(--on-accent);
+}
+@media (hover: hover) and (pointer: fine) {
+  .tab:not([data-active]):hover {
+    color: var(--foreground);
+  }
+}
+.tabs-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: -1;
+  height: var(--active-tab-height);
+  width: var(--active-tab-width);
+  translate: var(--active-tab-left) var(--active-tab-top);
+  border-radius: 9999px;
+  background: var(--accent);
+  box-shadow: 0 0 16px -4px rgb(90 176 255 / 0.6);
+  transition:
+    translate 220ms var(--ease-out),
+    width 220ms var(--ease-out);
+}
+@media (prefers-reduced-motion: reduce) {
+  .tabs-indicator {
+    transition: none;
   }
 }
 

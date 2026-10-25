@@ -18,7 +18,7 @@ import { NetworkGraph, type GraphLink, type GraphNode } from "./network-graph";
 /** Playstyle hub colors, then combo colors. */
 export const HUB_COLORS = ["#8b5cf6", "#0ea5e9", "#f43f5e", "#14b8a6", "#eab308", "#f97316"];
 export const COMBO_COLORS = ["#22c55e", "#ec4899", "#06b6d4", "#facc15", "#a855f7", "#fb7185", "#4ade80", "#38bdf8"];
-const COMMANDER_COLOR = "#f59e0b";
+const COMMANDER_COLOR = "#8fdcff";
 /** Combos a card or more away drawn with their missing cards as shaded nodes. */
 const MAX_GHOST_COMBOS = 12;
 
@@ -246,7 +246,7 @@ export function DeckNetwork({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="relative overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950">
+      <div className="relative overflow-hidden rounded-xl border border-line bg-[#04070f]">
         {mode === "map" && <LandBackdrop colors={colors} seed={commander?.name ?? ""} />}
         {mode === "map" ? (
           <NetworkGraph
@@ -279,7 +279,7 @@ export function DeckNetwork({
             onOpen={open}
           />
         )}
-        <div role="radiogroup" aria-label="Network view" className="absolute top-2 left-2 flex gap-1 rounded-lg border border-zinc-700 bg-zinc-900/90 p-0.5 text-xs">
+        <div role="radiogroup" aria-label="Network view" className="absolute top-2 left-2 flex gap-1 rounded-lg border border-line-strong bg-surface/90 backdrop-blur p-0.5 text-xs">
           {(["map", "sphere"] as const).map((m) => (
             <button
               key={m}
@@ -287,7 +287,7 @@ export function DeckNetwork({
               role="radio"
               aria-checked={mode === m}
               onClick={() => setMode(m)}
-              className={`rounded-md px-2.5 py-1 font-medium ${mode === m ? "bg-foreground text-background" : "text-zinc-300 hover:text-white"}`}
+              className={`rounded-md px-2.5 py-1 font-medium ${mode === m ? "bg-accent text-on-accent" : "text-muted hover:text-foreground"}`}
             >
               {m === "map" ? "2D map" : "3D sphere"}
             </button>
@@ -350,8 +350,8 @@ export function DeckNetwork({
                   onBlur={() => setShownCombo(null)}
                   onClick={() => onWalk(walkId === combo.id ? null : combo.id)}
                   aria-pressed={walkId === combo.id}
-                  className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 hover:border-foreground/30 ${
-                    walkId === combo.id ? "border-foreground bg-subtle" : "border-line "
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 hover:border-accent/50 ${
+                    walkId === combo.id ? "border-accent bg-accent/10" : "border-line "
                   } ${ghost ? "border-dashed" : ""}`}
                   title={`${combo.cards.join(" + ")}: click to walk through it`}
                 >
@@ -409,9 +409,9 @@ function SelectionBar({
   onWalk: (comboId: string) => void;
   onClose: () => void;
 }) {
-  const small = "h-8 rounded-lg border border-line-strong px-3 text-xs font-medium hover:border-foreground/30 ";
+  const small = "btn btn-secondary h-8 px-3 text-xs ";
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-line px-3 py-2 text-sm">
+    <div className="reveal-fast flex flex-wrap items-center gap-2 rounded-xl border border-line bg-surface px-3 py-2 text-sm">
       <span aria-hidden className={`size-2.5 rounded-full ${node.kind === "ghost" ? "border border-dashed" : ""}`} style={{ background: node.color }} />
       {node.kind === "hub" || node.id === "__deck" ? (
         <span className="font-medium">{node.label}</span>
@@ -431,7 +431,7 @@ function SelectionBar({
             type="button"
             disabled={inDeck(missingCard.name)}
             onClick={() => onAdd(missingCard)}
-            className="h-8 rounded-lg bg-foreground px-3 text-xs font-medium text-background hover:bg-foreground/85 disabled:bg-transparent disabled:text-emerald-600"
+            className="btn btn-primary h-8 px-3 text-xs disabled:bg-transparent disabled:text-emerald-600 disabled:bg-none disabled:shadow-none disabled:opacity-100"
           >
             {inDeck(missingCard.name) ? "In deck ✓" : `+ Add ${missingCard.name}`}
           </button>

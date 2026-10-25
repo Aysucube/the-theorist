@@ -66,10 +66,10 @@ export function DeckLibrary({ deck, commander }: { deck: DeckCard[]; commander?:
                   onChange={(e) => setName(e.target.value)}
                   maxLength={80}
                   placeholder={commander || "My deck"}
-                  className="h-10 min-w-0 rounded-lg border border-line-strong bg-background px-3 text-sm text-foreground outline-none focus:border-foreground/40 focus:ring-4 focus:ring-foreground/5"
+                  className="h-10 min-w-0 rounded-lg border border-line-strong bg-background px-3 text-sm text-foreground outline-none focus:border-accent/60 focus:ring-4 focus:ring-accent/15"
                 />
               </label>
-              <button type="submit" className="h-10 rounded-lg bg-foreground px-4 text-sm font-medium text-background hover:bg-foreground/85">
+              <button type="submit" className="btn btn-primary h-10 px-4 text-sm">
                 Save deck
               </button>
             </form>
@@ -120,7 +120,7 @@ export function DeckLibrary({ deck, commander }: { deck: DeckCard[]; commander?:
                 <button
                   type="button"
                   onClick={() => onLoad(d)}
-                  className="h-8 rounded-lg border border-line-strong px-3 text-xs font-medium hover:border-foreground/30"
+                  className="btn btn-secondary h-8 px-3 text-xs"
                 >
                   Load
                 </button>
@@ -155,7 +155,7 @@ function CopyButton({ label, text }: { label: string; text: () => Promise<string
       <button
         type="button"
         onClick={copy}
-        className="h-8 rounded-lg border border-line-strong px-3 text-xs font-medium hover:border-foreground/30"
+        className="btn btn-secondary h-8 px-3 text-xs"
       >
         <span aria-live="polite">{status === "copied" ? "Copied ✓" : label}</span>
       </button>
@@ -260,7 +260,7 @@ export function SharedDeckBanner() {
           loadWholeDeck(shared.cards, shared.commander);
           clearHash();
         }}
-        className="h-8 rounded-lg bg-foreground px-3 text-xs font-medium text-background hover:bg-foreground/85"
+        className="btn btn-primary h-8 px-3 text-xs"
       >
         Load it
       </button>
@@ -270,7 +270,7 @@ export function SharedDeckBanner() {
           save(title, shared.commander, shared.cards);
           clearHash();
         }}
-        className="h-8 rounded-lg border border-line-strong px-3 text-xs font-medium hover:border-foreground/40"
+        className="btn btn-secondary h-8 px-3 text-xs"
       >
         Save for later
       </button>

@@ -51,13 +51,13 @@ export function PriceChart({ points, height = 180 }: { points: PricePoint[]; hei
     <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Price history" className="h-auto w-full">
       <line x1={24} x2={width - 24} y1={24} y2={24} className="stroke-line" strokeDasharray="3 4" />
       <line x1={24} x2={width - 24} y1={height - 24} y2={height - 24} className="stroke-line" strokeDasharray="3 4" />
-      <text x={24} y={16} fontSize={11} className="fill-zinc-500">
+      <text x={24} y={16} fontSize={11} className="fill-muted">
         high {formatUsd(high)}
       </text>
-      <text x={24} y={height - 8} fontSize={11} className="fill-zinc-500">
+      <text x={24} y={height - 8} fontSize={11} className="fill-muted">
         low {formatUsd(low)}
       </text>
-      <text x={width - 24} y={height - 8} fontSize={11} textAnchor="end" className="fill-zinc-500">
+      <text x={width - 24} y={height - 8} fontSize={11} textAnchor="end" className="fill-muted">
         {formatDate(points[0].date)} – {formatDate(points.at(-1)!.date)}
       </text>
       <polyline points={scaled.map((p) => `${p.x},${p.y}`).join(" ")} fill="none" stroke={color} strokeWidth={2.2} strokeLinejoin="round" />

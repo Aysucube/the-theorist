@@ -37,6 +37,8 @@ import { LazyCardImage } from "./lazy-card-image";
 import { PlaystylePanel } from "./playstyle-panel";
 import { RecommendationsPanel } from "./recommendations-panel";
 import { SynergyMap } from "./synergy-map";
+import { PageHeader } from "../theme/page-header";
+import { TabBar } from "../theme/tabs";
 
 /** One line of the deck: the name as pasted, and Scryfall's details once loaded. */
 export interface Entry {
@@ -186,18 +188,19 @@ export function DeckBeta() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <h1 className="flex items-center gap-2 text-3xl font-semibold tracking-tight">
-              Deck Synergy
-              <span className="rounded-full bg-subtle px-2 py-0.5 text-xs font-semibold tracking-normal text-muted uppercase">
-                Beta
-              </span>
-            </h1>
+      <PageHeader
+        feature="synergy"
+        eyebrow="Analysis"
+        aside={
+          <>
+            <span className="rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 text-xs font-semibold tracking-normal text-accent uppercase">
+              Beta
+            </span>
             {loaded.length > 0 && <BracketBadge report={report} checking={checking} onClick={() => setView("recommend")} />}
-          </div>
-          <p className="mt-1 flex flex-wrap items-center gap-x-2 text-sm text-muted">
+          </>
+        }
+        description={
+          <p className="flex flex-wrap items-center gap-x-2 text-sm text-muted">
             <span>
               {formatCount(totalCards)} {totalCards === 1 ? "card" : "cards"} · saved in this browser only
             </span>
@@ -207,14 +210,16 @@ export function DeckBeta() {
               </span>
             )}
           </p>
-        </div>
-        {deck.length > 0 && (
-          <div className="flex items-center gap-2">
-            <AddToShopping deck={deck} detailsFor={detailsFor} />
-            <ClearButton onClear={clear} />
-          </div>
-        )}
-      </div>
+        }
+        actions={
+          deck.length > 0 && (
+            <>
+              <AddToShopping deck={deck} detailsFor={detailsFor} />
+              <ClearButton onClear={clear} />
+            </>
+          )
+        }
+      />
 
       <p className="text-sm text-muted">
         An early test, kept separate from the rest of the app: this deck isn’t your Shopping list, and nothing here
@@ -260,67 +265,51 @@ export function DeckBeta() {
             )}
           </div>
 
-          <div role="tablist" aria-label="Deck Synergy view" className="flex flex-wrap gap-2 border-b border-line pb-3">
-            {VIEWS.map((v) => (
-              <button
-                key={v.id}
-                type="button"
-                role="tab"
-                aria-selected={view === v.id}
-                onClick={() => setView(v.id)}
-                className={`rounded-full border px-3.5 py-1.5 text-sm font-medium ${
-                  view === v.id ? "border-foreground bg-foreground text-background" : "border-line-strong hover:border-foreground/30 "
-                }`}
-              >
-                {v.label}
-                {v.id === "combos" && comboCount !== undefined && <span className="ml-1 tabular-nums">({formatCount(comboCount)})</span>}
-              </button>
-            ))}
-          </div>
+          <TabBar
+            label="Deck Synergy view"
+            value={view}
+            onValueChange={setView}
+            className="no-scrollbar overflow-x-auto"
+            items={VIEWS.map((v) => ({
+              value: v.id,
+              label: (
+                <>
+                  {v.label}
+                  {v.id === "combos" && comboCount !== undefined && <span className="tabular-nums">({formatCount(comboCount)})</span>}
+                </>
+              ),
+            }))}
+          />
 
-          {view === "network" && (
-            <DeckNetwork
-              commander={commander}
-              cards={loaded}
-              analysis={analysis}
-              combos={combos?.included ?? []}
-              almost={nearCombos}
-              missing={result?.missing ?? {}}
-              walkId={walkId}
-              onWalk={setWalkId}
-              inDeck={inDeck}
-              onAdd={add}
-              onOpen={openCard}
-            />
-          )}
+          {/* Keyed by the view, so each one pops in when its tab is picked. */}
+          <div key={view} className="reveal-fast flex flex-col gap-6">
+            {view === "network" && (
+              <DeckNetwork
+                commander={commander}
+                cards={loaded}
+                analysis={analysis}
+                combos={combos?.included ?? []}
+                almost={nearCombos}
+                missing={result?.missing ?? {}}
+                walkId={walkId}
+                onWalk={setWalkId}
+                inDeck={inDeck}
+                onAdd={add}
+                onOpen={openCard}
+              />
+            )}
 
-          {view === "recommend" && (
-            <RecommendationsPanel
-              commander={commander}
-              deckCards={deckCards}
-              profile={profile}
-              report={report}
-              checking={checking}
-              analysis={analysis}
-              colors={analysis.colors}
-              combos={deckCombos}
-              odds={odds}
-              missing={result?.missing ?? {}}
-              inDeck={inDeck}
-              onAdd={add}
-              onOpen={openCard}
-              onWalk={(combo) => {
-                setWalkId(combo.id);
-                setView("network");
-              }}
-            />
-          )}
-
-          {view === "combos" &&
-            (combos ? (
-              <CombosPanel
-                combos={combos}
-                deck={odds}
+            {view === "recommend" && (
+              <RecommendationsPanel
+                commander={commander}
+                deckCards={deckCards}
+                profile={profile}
+                report={report}
+                checking={checking}
+                analysis={analysis}
+                colors={analysis.colors}
+                combos={deckCombos}
+                odds={odds}
                 missing={result?.missing ?? {}}
                 inDeck={inDeck}
                 onAdd={add}
@@ -330,36 +319,53 @@ export function DeckBeta() {
                   setView("network");
                 }}
               />
-            ) : (
-              <WaitingFor what="combos" commander={commander} state={remote} failed={combos === null} />
-            ))}
+            )}
 
-          {view === "playstyle" &&
-            (commander && result ? (
-              <PlaystylePanel
-                commander={commander}
-                themes={result.themes}
-                commanderUrl={result.commanderUrl}
-                hubs={hubs}
-                analysis={analysis}
-                cards={loaded}
-                inDeck={inDeck}
-                onAdd={add}
-                onOpen={openCard}
-              />
-            ) : (
-              <WaitingFor what="playstyles" commander={commander} state={remote} />
-            ))}
+            {view === "combos" &&
+              (combos ? (
+                <CombosPanel
+                  combos={combos}
+                  deck={odds}
+                  missing={result?.missing ?? {}}
+                  inDeck={inDeck}
+                  onAdd={add}
+                  onOpen={openCard}
+                  onWalk={(combo) => {
+                    setWalkId(combo.id);
+                    setView("network");
+                  }}
+                />
+              ) : (
+                <WaitingFor what="combos" commander={commander} state={remote} failed={combos === null} />
+              ))}
 
-          {view === "cards" && (
-            <>
-              <p className="text-sm text-muted">
-                <strong>Click</strong> a card to see what it interacts with in your deck.{" "}
-                <strong>Double-click</strong> it for its network, combos and recommendations.
-              </p>
-              <Gallery entries={entries} selected={preview?.name ?? mapFocus} onTileClick={onTileClick} />
-            </>
-          )}
+            {view === "playstyle" &&
+              (commander && result ? (
+                <PlaystylePanel
+                  commander={commander}
+                  themes={result.themes}
+                  commanderUrl={result.commanderUrl}
+                  hubs={hubs}
+                  analysis={analysis}
+                  cards={loaded}
+                  inDeck={inDeck}
+                  onAdd={add}
+                  onOpen={openCard}
+                />
+              ) : (
+                <WaitingFor what="playstyles" commander={commander} state={remote} />
+              ))}
+
+            {view === "cards" && (
+              <>
+                <p className="text-sm text-muted">
+                  <strong>Click</strong> a card to see what it interacts with in your deck.{" "}
+                  <strong>Double-click</strong> it for its network, combos and recommendations.
+                </p>
+                <Gallery entries={entries} selected={preview?.name ?? mapFocus} onTileClick={onTileClick} />
+              </>
+            )}
+          </div>
 
           {notFound.length > 0 && (
             <p className="text-sm text-muted">
@@ -554,13 +560,13 @@ function Tile({
     <>
       <div
         className={`relative aspect-[488/680] overflow-hidden rounded-[4.75%] bg-subtle  ${
-          selected ? "ring-3 ring-foreground/60" : ""
+          selected ? "ring-3 ring-accent/70" : ""
         }`}
       >
         {card ? <LazyCardImage url={card.imageUrl} alt={name} /> : <ImageNote text="Loading card details…" spinner />}
         <GameChangerTag name={name} className="absolute top-1.5 left-1.5 shadow" />
         {entry.qty > 1 && (
-          <span className="absolute top-1.5 right-1.5 rounded-full bg-zinc-950/80 px-1.5 text-xs font-semibold text-white tabular-nums">
+          <span className="absolute top-1.5 right-1.5 rounded-full bg-background/85 px-1.5 text-xs font-semibold text-white tabular-nums">
             ×{entry.qty}
           </span>
         )}
@@ -580,7 +586,7 @@ function Tile({
       type="button"
       onClick={(e) => onClick(e, card.name)}
       aria-label={`${name}: click for what it interacts with, double-click for its synergy map`}
-      className="group block w-full min-w-0 text-left select-none focus-visible:outline-none [&:focus-visible>div]:ring-3 [&:focus-visible>div]:ring-foreground/60"
+      className="group block w-full min-w-0 text-left select-none focus-visible:outline-none [&:focus-visible>div]:ring-3 [&:focus-visible>div]:ring-accent/70"
     >
       {body}
     </button>
@@ -645,24 +651,24 @@ function ImportBox({
           onChange={(e) => setText(e.target.value)}
           rows={8}
           placeholder={"1 Lathril, Blade of the Elves\n1 Elvish Archdruid\n1 Llanowar Elves\n1 Sol Ring\n30 Forest"}
-          className="w-full rounded-lg border border-line-strong bg-background p-3 font-mono text-sm outline-none focus:border-foreground/40 focus:ring-4 focus:ring-foreground/5"
+          className="w-full rounded-lg border border-line-strong bg-background p-3 font-mono text-sm outline-none focus:border-accent/60 focus:ring-4 focus:ring-accent/15"
         />
         <div className="flex flex-wrap items-center gap-3">
           {hasDeck ? (
             <>
-              <button type="submit" className="h-10 rounded-lg bg-foreground px-4 text-sm font-medium text-background hover:bg-foreground/85">
+              <button type="submit" className="btn btn-primary h-10 px-4 text-sm">
                 Add to deck
               </button>
               <button
                 type="button"
                 onClick={() => void submit("replace")}
-                className="h-10 rounded-lg border border-line-strong px-4 text-sm font-medium hover:border-foreground/30"
+                className="btn btn-secondary h-10 px-4 text-sm"
               >
                 Replace deck
               </button>
             </>
           ) : (
-            <button type="submit" className="h-10 rounded-lg bg-foreground px-4 text-sm font-medium text-background hover:bg-foreground/85">
+            <button type="submit" className="btn btn-primary h-10 px-4 text-sm">
               Import deck
             </button>
           )}

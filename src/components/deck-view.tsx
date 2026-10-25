@@ -1,6 +1,7 @@
 "use client";
 
-import Link from "next/link";
+import { AppLink as Link } from "@/components/app-link";
+import { PageHeader } from "@/components/theme/page-header";
 import { useEffect, useRef, useState } from "react";
 import { MAX_DECK_CARDS, parseDeckList, priceDeck, type DeckCard, type StoreCoverage } from "@/lib/deck";
 import { formatCount, formatPhp } from "@/lib/format";
@@ -86,15 +87,16 @@ export function DeckView() {
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Shopping</h1>
-          <p className="text-sm text-muted">
+      <PageHeader
+        feature="shopping"
+        eyebrow="Philippine prices"
+        description={
+          <p className="text-sm">
             {formatCount(totalCards)} {totalCards === 1 ? "card" : "cards"} · saved in this browser only
           </p>
-        </div>
-        {deck.length > 0 && <ClearButton onClear={clear} />}
-      </div>
+        }
+        actions={deck.length > 0 && <ClearButton onClear={clear} />}
+      />
 
       <ImportBox open={deck.length === 0} onImport={importCards} />
 
@@ -109,13 +111,14 @@ export function DeckView() {
         </p>
       ) : (
         <>
-          <section className="flex flex-col gap-4 rounded-xl border border-line p-4 sm:p-6">
+          <section className="surface flex flex-col gap-4 rounded-2xl p-4 sm:p-6">
             <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
                 disabled={progress !== null}
                 onClick={() => priceCards(deck.map((c) => c.name))}
-                className="h-11 rounded-lg bg-foreground px-5 font-medium text-background transition-colors hover:bg-foreground/85 disabled:cursor-wait disabled:opacity-60"
+                data-cast
+                className="btn btn-primary h-11 px-5 disabled:cursor-wait disabled:opacity-60"
               >
                 {progress
                   ? `Pricing ${progress.done} of ${progress.total}…`
@@ -127,7 +130,7 @@ export function DeckView() {
                 <button
                   type="button"
                   onClick={() => priceCards(pricing.unpriced)}
-                  className="h-11 rounded-lg border border-line-strong px-4 text-sm font-medium hover:border-foreground/30"
+                  className="btn btn-secondary h-11 px-4 text-sm"
                 >
                   Price {pricing.unpriced.length} unchecked
                 </button>
@@ -157,7 +160,7 @@ export function DeckView() {
                 className="h-1.5 overflow-hidden rounded-full bg-subtle"
               >
                 <div
-                  className="h-full bg-foreground transition-[width]"
+                  className="h-full bg-accent transition-[width]"
                   style={{ width: `${(progress.done / Math.max(progress.total, 1)) * 100}%` }}
                 />
               </div>
@@ -245,12 +248,12 @@ function ImportBox({ open, onImport }: { open: boolean; onImport: (cards: DeckCa
           onChange={(e) => setText(e.target.value)}
           rows={8}
           placeholder={"1 Atraxa, Praetors' Voice\n1 Sol Ring\n1 Arcane Signet\n10 Forest"}
-          className="w-full rounded-lg border border-line-strong bg-background p-3 font-mono text-sm outline-none focus:border-foreground/40 focus:ring-4 focus:ring-foreground/5"
+          className="w-full rounded-lg border border-line-strong bg-background p-3 font-mono text-sm outline-none focus:border-accent/60 focus:ring-4 focus:ring-accent/15"
         />
         <div className="flex flex-wrap items-center gap-3">
           <button
             type="submit"
-            className="h-10 rounded-lg bg-foreground px-4 text-sm font-medium text-background hover:bg-foreground/85"
+            className="btn btn-primary h-10 px-4 text-sm"
           >
             Add to list
           </button>
@@ -390,7 +393,7 @@ function CardsTable({
 }
 
 function LinePrice({ qty, lookup }: { qty: number; lookup: Lookup | undefined }) {
-  if (!lookup) return <span className="text-zinc-400">—</span>;
+  if (!lookup) return <span className="text-muted">—</span>;
   if (lookup === "error") return <span className="text-red-600 dark:text-red-400">Failed</span>;
   if (!lookup.found) return <span className="text-muted">Not on TCGph</span>;
   // The cheapest copies anywhere, which for several copies may span listings and stores.

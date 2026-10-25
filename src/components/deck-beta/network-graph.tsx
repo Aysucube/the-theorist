@@ -273,7 +273,7 @@ export function NetworkGraph({
 
   const zoomed = view.w < width - 1;
   const button =
-    "flex size-8 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-900/90 text-sm text-zinc-200 shadow-sm hover:border-amber-500";
+    "flex size-8 items-center justify-center rounded-lg border border-line-strong bg-surface/90 text-sm text-foreground backdrop-blur shadow-sm hover:border-accent";
 
   return (
     <div className="relative">
@@ -344,7 +344,7 @@ export function NetworkGraph({
           {nodes.map((n, i) => {
             const p = pos(n.id);
             if (!p) return null;
-            const color = n.color ?? "#a1a1aa";
+            const color = n.color ?? "#8d9bb8";
             const big = isBig(n);
             const r = dotRadius(n);
             const image = n.imageUrl ? (scryfallImageAs(n.imageUrl, "art_crop") ?? n.imageUrl) : undefined;
@@ -425,12 +425,12 @@ export function NetworkGraph({
                       )}
                     </>
                   ) : (
-                    <circle r={r} className="fill-zinc-900" stroke={color} strokeWidth={1.75} />
+                    <circle r={r} className="fill-[#0b1222]" stroke={color} strokeWidth={1.75} />
                   )}
 
                   {big && n.kind !== "center" && (
                     <g className="net-node" style={{ animationDuration: "180ms" }}>
-                      <circle r={EXPANDED + 2} className="fill-zinc-950" stroke={color} strokeWidth={2} strokeDasharray={n.kind === "ghost" ? "4 3" : undefined} />
+                      <circle r={EXPANDED + 2} className="fill-[#060a14]" stroke={color} strokeWidth={2} strokeDasharray={n.kind === "ghost" ? "4 3" : undefined} />
                       {image && (
                         <image
                           href={image}
@@ -463,16 +463,16 @@ export function NetworkGraph({
                       fontWeight={n.kind === "card" && !big ? 500 : 650}
                       letterSpacing={n.kind === "hub" ? 0.6 : undefined}
                       fill={n.kind === "hub" || n.kind === "result" ? color : undefined}
-                      className={n.kind === "hub" || n.kind === "result" ? undefined : "fill-zinc-100"}
+                      className={n.kind === "hub" || n.kind === "result" ? undefined : "fill-[#e8eefb]"}
                       paintOrder="stroke"
-                      stroke="#09090b"
+                      stroke="#04070f"
                       strokeWidth={3}
                     >
                       {shorten(n.kind === "hub" ? n.label.toUpperCase() : n.label, big || n.kind === "center" ? 30 : 20)}
                     </text>
                   )}
                   {n.sublabel && (n.kind === "hub" || n.kind === "result" || big) && (
-                    <text y={labelY + 12} textAnchor="middle" fontSize={9.5} className="fill-zinc-400" paintOrder="stroke" stroke="#09090b" strokeWidth={3}>
+                    <text y={labelY + 12} textAnchor="middle" fontSize={9.5} className="fill-[#8d9bb8]" paintOrder="stroke" stroke="#04070f" strokeWidth={3}>
                       {n.sublabel}
                     </text>
                   )}

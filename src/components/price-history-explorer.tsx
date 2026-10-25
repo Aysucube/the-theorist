@@ -168,7 +168,7 @@ function Toggle<T extends string>({
             role="radio"
             aria-checked={v === value}
             onClick={() => onChange(v)}
-            className={`px-3 text-sm ${v === value ? "bg-foreground font-medium text-background" : "bg-background text-foreground/80 hover:bg-subtle   "}`}
+            className={`px-3 text-sm ${v === value ? "bg-accent font-medium text-on-accent" : "bg-background text-foreground/80 hover:bg-subtle   "}`}
           >
             {text}
           </button>
@@ -210,7 +210,7 @@ function Row({ rank, card, open, onToggle }: { rank: number; card: Mover; open: 
         </div>
       </div>
       {open && (
-        <div className="mt-3 rounded-lg bg-surface p-2">
+        <div className="reveal-fast mt-3 rounded-lg bg-surface p-2">
           <PriceChart points={card.history ?? []} />
         </div>
       )}

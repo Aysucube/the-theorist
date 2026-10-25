@@ -257,17 +257,17 @@ export function DysonSphere({
       b.beginPath();
       b.arc(cx, cy, rim, 0, Math.PI * 2);
       b.fill();
-      for (const lat of LATITUDES) line(Array.from({ length: 49 }, (_, i) => fromLatLon(lat, (i / 48) * Math.PI * 2)), "#ffffff", 0.8, [0.05, 0.13]);
-      for (const lon of MERIDIANS) line(Array.from({ length: 49 }, (_, i) => fromLatLon((i / 48) * Math.PI * 2, lon)), "#ffffff", 0.8, [0.05, 0.13]);
+      for (const lat of LATITUDES) line(Array.from({ length: 49 }, (_, i) => fromLatLon(lat, (i / 48) * Math.PI * 2)), "#bcd9ff", 0.8, [0.05, 0.13]);
+      for (const lon of MERIDIANS) line(Array.from({ length: 49 }, (_, i) => fromLatLon((i / 48) * Math.PI * 2, lon)), "#bcd9ff", 0.8, [0.05, 0.13]);
 
       // Orbits and the asteroid belt.
-      for (const orbit of scene.orbits) line(orbitRing(orbit), "#e4e4e7", 0.8, [0.08, 0.2], [2, 5]);
+      for (const orbit of scene.orbits) line(orbitRing(orbit), "#c9dcff", 0.8, [0.08, 0.2], [2, 5]);
       for (const rock of asteroids) {
         const a = rock.angle + time * 0.03;
         const p = project({ x: Math.sin(a) * rock.radius, y: rock.y, z: Math.cos(a) * rock.radius });
         const ctx = p.z >= 0 ? f : b;
         ctx.globalAlpha = p.z >= 0 ? 0.55 : 0.3;
-        ctx.fillStyle = "#a8a29e";
+        ctx.fillStyle = "#7d8db0";
         ctx.beginPath();
         ctx.arc(p.x, p.y, 1.1 * p.s, 0, Math.PI * 2);
         ctx.fill();
@@ -319,7 +319,7 @@ export function DysonSphere({
         f.textAlign = "center";
         f.lineWidth = 3;
         f.strokeStyle = "rgba(9, 9, 11, 0.85)";
-        f.fillStyle = "#fafafa";
+        f.fillStyle = "#f2f6ff";
         f.strokeText(commander.node.label, cx, cy + starR * 1.05 + 14);
         f.fillText(commander.node.label, cx, cy + starR * 1.05 + 14);
       }
@@ -361,7 +361,7 @@ export function DysonSphere({
   }
 
   const button =
-    "flex size-8 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-900/90 text-sm text-zinc-200 shadow-sm hover:border-amber-500";
+    "flex size-8 items-center justify-center rounded-lg border border-line-strong bg-surface/90 text-sm text-foreground backdrop-blur shadow-sm hover:border-accent";
   const starWidth = Math.min(size.w, size.h) * 0.3 * zoom * 0.42;
   const commander = scene.nodes.find((n) => n.place === "star")?.node;
 
@@ -446,7 +446,7 @@ function drawNode(
   image: HTMLImageElement | undefined,
   font: string,
 ): number {
-  const color = node.color ?? "#a1a1aa";
+  const color = node.color ?? "#8d9bb8";
   const behind = p.z < 0 && place !== "orbit";
   ctx.globalAlpha = (lit ? 1 : 0.18) * (behind ? 0.55 : 1);
 
@@ -471,7 +471,7 @@ function drawNode(
   ctx.save();
   ctx.beginPath();
   ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-  ctx.fillStyle = "#18181b";
+  ctx.fillStyle = "#0b1222";
   ctx.fill();
   if (image?.complete && image.naturalWidth > 0) {
     ctx.clip();
@@ -500,7 +500,7 @@ function drawNode(
     ctx.textAlign = "center";
     ctx.fillText(flag, p.x + r * 0.45 + 8.5, p.y - r * 1.15 + 8);
   }
-  if (big) label(ctx, node.label, p.x, p.y + r + 13, "#fafafa", font, 11);
+  if (big) label(ctx, node.label, p.x, p.y + r + 13, "#f2f6ff", font, 11);
   return r;
 }
 

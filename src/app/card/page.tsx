@@ -8,6 +8,7 @@ import { PrintingsPanel } from "@/components/printings-panel";
 import { RulingsPanel } from "@/components/rulings-panel";
 import { SimilarPanel } from "@/components/similar-panel";
 import { TcgphPanel } from "@/components/tcgph-panel";
+import { PageTransition } from "@/components/theme/page-transition";
 import { reportSourceError } from "@/lib/sources/http";
 import { findCard } from "@/lib/sources/scryfall";
 
@@ -18,15 +19,17 @@ export const metadata: Metadata = {
 // Static shell renders immediately; everything that reads searchParams streams in.
 export default function CardPage(props: PageProps<"/card">) {
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-4 py-8 sm:px-6">
-      <Suspense fallback={<CardSearch />}>
-        <SearchWithQuery searchParams={props.searchParams} />
-      </Suspense>
+    <PageTransition>
+      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-4 py-8 sm:px-6">
+        <Suspense fallback={<CardSearch />}>
+          <SearchWithQuery searchParams={props.searchParams} />
+        </Suspense>
 
-      <Suspense fallback={<p className="text-muted">Looking up card…</p>}>
-        <Results searchParams={props.searchParams} />
-      </Suspense>
-    </main>
+        <Suspense fallback={<p className="text-muted">Looking up card…</p>}>
+          <Results searchParams={props.searchParams} />
+        </Suspense>
+      </main>
+    </PageTransition>
   );
 }
 

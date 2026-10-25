@@ -8,6 +8,7 @@ import { useCardDetails } from "@/lib/binder/card-cache";
 import { QUADRANT_INFO } from "@/lib/deck-beta/roles";
 import { fetchJsonWithRetry } from "@/lib/retry";
 import type { CardDetails } from "@/lib/types";
+import { TabBar } from "../theme/tabs";
 import { BuildCard } from "./build-card";
 
 const TABS = ["Next up", "Quadrants", "Consistency", "Combos", "Playstyle", "Lands", "Binder", "Search"] as const;
@@ -59,86 +60,96 @@ export function BuildStep({
         {leftOut > 0 && <p className="text-xs text-muted">{leftOut} strong cards left out for Bracket {bracket}</p>}
       </div>
 
-      <div role="tablist" aria-label="Recommendations" className="no-scrollbar -mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1">
-        {TABS.map((t) => (
-          <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className="pill">
-            {t}
-            {counts[t] ? <span className="text-[11px] tabular-nums opacity-60">{counts[t]}</span> : null}
-          </button>
-        ))}
-      </div>
+      <TabBar
+        label="Recommendations"
+        value={tab}
+        onValueChange={setTab}
+        className="no-scrollbar overflow-x-auto"
+        items={TABS.map((t) => ({
+          value: t,
+          label: (
+            <>
+              {t}
+              {counts[t] ? <span className="text-[11px] tabular-nums opacity-60">{counts[t]}</span> : null}
+            </>
+          ),
+        }))}
+      />
 
-      {tab === "Next up" && (
-        <>
-          <Group title="Next up" note="The cards that would help the deck most right now: its biggest gaps first." picks={groups.next} ownedFor={ownedFor} onAdd={onAdd} />
-          <Group
-            title={bracket >= 4 ? "Stronger cards" : "Game Changers you have room for"}
-            note={bracket >= 4 ? "Game Changers, tutors, fast mana and free spells." : "Bracket 3 allows up to three."}
-            picks={groups.power}
-            ownedFor={ownedFor}
-            onAdd={onAdd}
-          />
-        </>
-      )}
-      {tab === "Quadrants" && (
-        <>
-          <Group title="Flexible" note="Cards that fit two or more quadrants: good in more of your games." picks={groups.flexible} ownedFor={ownedFor} onAdd={onAdd} />
-          {groups.quadrants.map((g) => (
+      {/* Keyed by the tab, so each group pops in when its tab is picked. */}
+      <div key={tab} className="reveal-fast flex flex-col gap-6">
+        {tab === "Next up" && (
+          <>
+            <Group title="Next up" note="The cards that would help the deck most right now: its biggest gaps first." picks={groups.next} ownedFor={ownedFor} onAdd={onAdd} />
             <Group
-              key={g.quadrant}
-              title={`${QUADRANT_INFO[g.quadrant].label} · ${g.short} short`}
-              dot={QUADRANT_COLORS[g.quadrant]}
-              note={`${QUADRANT_INFO[g.quadrant].question} ${QUADRANT_INFO[g.quadrant].examples}.`}
-              picks={g.picks}
+              title={bracket >= 4 ? "Stronger cards" : "Game Changers you have room for"}
+              note={bracket >= 4 ? "Game Changers, tutors, fast mana and free spells." : "Bracket 3 allows up to three."}
+              picks={groups.power}
               ownedFor={ownedFor}
               onAdd={onAdd}
             />
+          </>
+        )}
+        {tab === "Quadrants" && (
+          <>
+            <Group title="Flexible" note="Cards that fit two or more quadrants: good in more of your games." picks={groups.flexible} ownedFor={ownedFor} onAdd={onAdd} />
+            {groups.quadrants.map((g) => (
+              <Group
+                key={g.quadrant}
+                title={`${QUADRANT_INFO[g.quadrant].label} · ${g.short} short`}
+                dot={QUADRANT_COLORS[g.quadrant]}
+                note={`${QUADRANT_INFO[g.quadrant].question} ${QUADRANT_INFO[g.quadrant].examples}.`}
+                picks={g.picks}
+                ownedFor={ownedFor}
+                onAdd={onAdd}
+              />
+            ))}
+            {groups.quadrants.length === 0 && <p className="text-sm text-muted">Every quadrant is covered.</p>}
+          </>
+        )}
+        {tab === "Consistency" && (
+          <>
+            <Group title="Card draw and tutors" note="See more of your deck and find the card you need." picks={groups.consistency} ownedFor={ownedFor} onAdd={onAdd} />
+            <Group title="Ramp" note="Get ahead on mana: about ten is a good start." picks={groups.ramp} ownedFor={ownedFor} onAdd={onAdd} />
+          </>
+        )}
+        {tab === "Combos" && (
+          <Group
+            title="Complete a combo"
+            note="Each of these completes a combo with cards already in the deck, within your bracket. EDHREC’s combos for the commander come first."
+            picks={groups.combos.map((g) => g.pick)}
+            ownedFor={ownedFor}
+            onAdd={onAdd}
+            empty="No combo is one card away yet. Add more of the commander’s key cards and check back."
+          />
+        )}
+        {tab === "Playstyle" &&
+          (themeName ? (
+            <Group title={themeName} note={`EDHREC’s best cards for ${themeName} decks, the ones you own first.`} picks={groups.playstyle} ownedFor={ownedFor} onAdd={onAdd} />
+          ) : (
+            <p className="text-sm text-muted">
+              You’re building a balanced deck.{" "}
+              <button type="button" onClick={onPickTheme} className="link text-foreground">
+                Pick a playstyle
+              </button>{" "}
+              to see the cards that suit it.
+            </p>
           ))}
-          {groups.quadrants.length === 0 && <p className="text-sm text-muted">Every quadrant is covered.</p>}
-        </>
-      )}
-      {tab === "Consistency" && (
-        <>
-          <Group title="Card draw and tutors" note="See more of your deck and find the card you need." picks={groups.consistency} ownedFor={ownedFor} onAdd={onAdd} />
-          <Group title="Ramp" note="Get ahead on mana: about ten is a good start." picks={groups.ramp} ownedFor={ownedFor} onAdd={onAdd} />
-        </>
-      )}
-      {tab === "Combos" && (
-        <Group
-          title="Complete a combo"
-          note="Each of these completes a combo with cards already in the deck, within your bracket. EDHREC’s combos for the commander come first."
-          picks={groups.combos.map((g) => g.pick)}
-          ownedFor={ownedFor}
-          onAdd={onAdd}
-          empty="No combo is one card away yet. Add more of the commander’s key cards and check back."
-        />
-      )}
-      {tab === "Playstyle" &&
-        (themeName ? (
-          <Group title={themeName} note={`EDHREC’s best cards for ${themeName} decks, the ones you own first.`} picks={groups.playstyle} ownedFor={ownedFor} onAdd={onAdd} />
-        ) : (
-          <p className="text-sm text-muted">
-            You’re building a balanced deck.{" "}
-            <button type="button" onClick={onPickTheme} className="link text-foreground">
-              Pick a playstyle
-            </button>{" "}
-            to see the cards that suit it.
-          </p>
-        ))}
-      {tab === "Lands" && (
-        <Group title="Lands" note="Lands beyond the basics: EDHREC’s for the commander and any in your binder. Basics fill the rest." picks={groups.lands} ownedFor={ownedFor} onAdd={onAdd} />
-      )}
-      {tab === "Binder" && (
-        <Group
-          title="From your binder"
-          note="Cards you own that do a job here, whether or not EDHREC lists them."
-          picks={groups.binder}
-          ownedFor={ownedFor}
-          onAdd={onAdd}
-          empty="Nothing in your binder fits this commander yet."
-        />
-      )}
-      {tab === "Search" && <AnySearch ownedFor={ownedFor} onAdd={onAdd} has={has} />}
+        {tab === "Lands" && (
+          <Group title="Lands" note="Lands beyond the basics: EDHREC’s for the commander and any in your binder. Basics fill the rest." picks={groups.lands} ownedFor={ownedFor} onAdd={onAdd} />
+        )}
+        {tab === "Binder" && (
+          <Group
+            title="From your binder"
+            note="Cards you own that do a job here, whether or not EDHREC lists them."
+            picks={groups.binder}
+            ownedFor={ownedFor}
+            onAdd={onAdd}
+            empty="Nothing in your binder fits this commander yet."
+          />
+        )}
+        {tab === "Search" && <AnySearch ownedFor={ownedFor} onAdd={onAdd} has={has} />}
+      </div>
     </div>
   );
 }

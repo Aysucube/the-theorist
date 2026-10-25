@@ -14,7 +14,7 @@ type Gallery =
   | { status: "error" };
 
 const button =
-  "rounded-full border border-line-strong px-3 py-1 text-xs font-medium hover:border-foreground/30 disabled:cursor-default disabled:opacity-60 ";
+  "rounded-full border border-line-strong px-3 py-1 text-xs font-medium hover:border-accent/50 disabled:cursor-default disabled:opacity-60 ";
 
 /**
  * "Load All Prices" and "Load Gallery" for one EDHREC list. Prices go through
@@ -67,7 +67,7 @@ export function ListTools({ names }: { names: string[] }) {
       </div>
 
       {showGallery && gallery && (
-        <div className="mt-3">
+        <div className="reveal-fast mt-3">
           {gallery.status === "loading" && (
             <p className="text-xs text-muted">
               {gallery.waiting

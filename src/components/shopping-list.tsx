@@ -139,7 +139,7 @@ function StopCard({
                 aria-label={`Bought ${item.name}`}
                 className="size-4 shrink-0 accent-emerald-600"
               />
-              <div className={`min-w-0 flex-1 ${bought ? "text-zinc-400 line-through" : ""}`}>
+              <div className={`min-w-0 flex-1 ${bought ? "text-muted line-through" : ""}`}>
                 <div className="flex min-w-0 items-center gap-2">
                   <span className="min-w-0 truncate">
                     {item.qty > 1 && <span className="tabular-nums">{item.qty}× </span>}
@@ -212,7 +212,7 @@ function CopyOrderButton({ text, store }: { text: string; store: string }) {
         type="button"
         onClick={copy}
         aria-label={`Copy order text for ${store}`}
-        className="rounded-full border border-line-strong px-3 py-1 text-xs font-medium hover:border-foreground/30"
+        className="rounded-full border border-line-strong px-3 py-1 text-xs font-medium hover:border-accent/50"
       >
         <span aria-live="polite">{status === "copied" ? "Copied ✓" : "Copy order"}</span>
       </button>

@@ -3,8 +3,7 @@
 import { ContextMenu } from "@base-ui/react/context-menu";
 import { Menu } from "@base-ui/react/menu";
 import { motion, MotionConfig } from "motion/react";
-import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
 import { useCardDetails } from "@/lib/binder/card-cache";
@@ -15,6 +14,7 @@ import { deckToText, encodeDeck } from "@/lib/deck-beta/deck-code";
 import { loadWholeDeck, useDeckLibrary, type SavedDeck } from "@/lib/deck-beta/store";
 import { formatCount } from "@/lib/format";
 import { useDeck } from "@/lib/use-deck";
+import { AppLink as Link, useAppRouter } from "../app-link";
 import { RetryingImage } from "../retrying-image";
 
 const savedDate = new Intl.DateTimeFormat("en-PH", { dateStyle: "medium" });
@@ -25,7 +25,7 @@ const savedDate = new Intl.DateTimeFormat("en-PH", { dateStyle: "medium" });
  * missing from the binder to Shopping, copy it, or delete it.
  */
 export function MyDecks() {
-  const router = useRouter();
+  const router = useAppRouter();
   const params = useSearchParams();
   const fresh = params.get("new");
   const { decks, remove, restore } = useDeckLibrary();
@@ -88,7 +88,7 @@ export function MyDecks() {
         <li>
           <Link
             href="/decks/new"
-            className="group flex aspect-[488/680] flex-col items-center justify-center gap-3 rounded-[4.75%] border border-dashed border-line-strong text-center text-sm text-muted transition-colors duration-150 hover:border-foreground/40 hover:text-foreground"
+            className="group flex aspect-[488/680] flex-col items-center justify-center gap-3 rounded-[4.75%] border border-dashed border-line-strong text-center text-sm text-muted transition-colors duration-150 hover:border-accent/50 hover:text-foreground"
           >
             <span className="flex size-10 items-center justify-center rounded-full bg-subtle text-xl text-foreground">+</span>
             {draft.commander ? (
@@ -127,7 +127,7 @@ export function MyDecks() {
                 >
                   <span
                     className={`block aspect-[488/680] overflow-hidden rounded-[4.75%] bg-subtle shadow-[0_10px_30px_-14px_rgb(0_0_0/0.5)] transition-transform duration-200 ease-out group-hover:-translate-y-0.5 ${
-                      deck.id === fresh ? "ring-2 ring-foreground ring-offset-4 ring-offset-background" : ""
+                      deck.id === fresh ? "ring-2 ring-accent ring-offset-4 ring-offset-background" : ""
                     }`}
                   >
                     {image && <RetryingImage url={image} alt={deck.commander ?? deck.name} />}
@@ -136,7 +136,7 @@ export function MyDecks() {
                   <span className="mt-0.5 block truncate text-xs text-muted">
                     {[`${formatCount(total)} cards`, deck.bracket ? `Bracket ${deck.bracket}` : null, savedDate.format(deck.savedAt)].filter(Boolean).join(" · ")}
                   </span>
-                  <span className={`mt-1.5 inline-block rounded-full px-2 py-0.5 text-[11px] ${missing > 0 ? "bg-subtle text-foreground/80" : "bg-foreground text-background"}`}>
+                  <span className={`mt-1.5 inline-block rounded-full px-2 py-0.5 text-[11px] ${missing > 0 ? "bg-subtle text-foreground/80" : "bg-accent text-on-accent"}`}>
                     {missing > 0 ? `${formatCount(missing)} to buy` : "All in your binder"}
                   </span>
                 </ContextMenu.Trigger>

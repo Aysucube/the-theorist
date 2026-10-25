@@ -183,7 +183,7 @@ export function CombosList({
                 <button
                   type="button"
                   onClick={() => onWalk(combo)}
-                  className="h-7 rounded-lg border border-line-strong px-2.5 text-xs font-medium hover:border-foreground/30"
+                  className="btn btn-secondary h-7 px-2.5 text-xs"
                 >
                   ▶ Walk through
                 </button>
@@ -225,7 +225,7 @@ export function CombosList({
                       type="button"
                       disabled={inDeck(card.name)}
                       onClick={() => onAdd(card)}
-                      className="h-7 rounded-lg bg-foreground px-2.5 text-xs font-medium text-background hover:bg-foreground/85 disabled:border disabled:border-emerald-600 disabled:bg-transparent disabled:text-emerald-700 dark:disabled:text-emerald-400"
+                      className="btn btn-primary h-7 px-2.5 text-xs disabled:border disabled:border-emerald-600 disabled:bg-transparent disabled:text-emerald-700 dark:disabled:text-emerald-400 disabled:bg-none disabled:shadow-none disabled:opacity-100"
                     >
                       {inDeck(card.name) ? `${name} in deck ✓` : `+ Add ${name}`}
                     </button>
@@ -267,7 +267,7 @@ function PieceChip({ name, lacking, onOpen }: { name: string; lacking: boolean; 
   const className = `inline-flex items-center rounded-md border px-2 py-0.5 text-xs ${
     lacking
       ? "border-dashed border-accent text-accent"
-      : "border-line bg-background hover:border-foreground/30  "
+      : "border-line bg-background hover:border-accent/50  "
   }`;
   return (
     <>

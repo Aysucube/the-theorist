@@ -37,12 +37,12 @@ export function CardImage({ name, imageUrl }: { name: string; imageUrl?: string 
           className="h-auto w-full rounded-[4.75%] shadow-lg shadow-black/50"
         />
       ) : (
-        <div className="flex aspect-[488/680] items-center justify-center rounded-xl bg-zinc-800 text-sm text-zinc-400">
+        <div className="flex aspect-[488/680] items-center justify-center rounded-xl bg-subtle text-sm text-muted">
           No image
         </div>
       )}
       {printing && (
-        <p className="mt-2 text-center text-xs text-zinc-300 [text-shadow:0_1px_3px_rgb(0_0_0/0.6)]">
+        <p className="mt-2 text-center text-xs text-foreground/80 [text-shadow:0_1px_3px_rgb(0_0_0/0.6)]">
           Showing {printing.label}.{" "}
           <button type="button" onClick={() => showPrinting(name, null)} className="link">
             Show default
@@ -54,8 +54,9 @@ export function CardImage({ name, imageUrl }: { name: string; imageUrl?: string 
 }
 
 /**
- * The card's artwork behind the whole page, in grayscale and darkened so the
- * text on top stays readable (like EDHREC's card headers). Follows the
+ * The card's artwork behind the whole page, in grayscale, darkened and washed
+ * in midnight blue (like a memory Jace is reading) so the text on top stays
+ * readable. Follows the
  * printing chosen in the Printings section when it has its own artwork.
  */
 export function ArtBackground({ name, artUrl }: { name: string; artUrl?: string }) {
@@ -63,9 +64,10 @@ export function ArtBackground({ name, artUrl }: { name: string; artUrl?: string 
   const url = printing?.artUrl ?? artUrl;
   if (!url) return null;
   return (
-    <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10 overflow-hidden bg-zinc-950">
-      <Image key={url} src={url} alt="" fill unoptimized sizes="100vw" className="object-cover object-top brightness-[0.4] grayscale" />
-      <div className="absolute inset-0 bg-linear-to-b from-zinc-950/20 via-zinc-950/55 to-zinc-950/90" />
+    <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10 overflow-hidden bg-background">
+      <Image key={url} src={url} alt="" fill unoptimized sizes="100vw" className="object-cover object-top brightness-[0.5] grayscale" />
+      <div className="absolute inset-0 bg-[#1d4f9e]/40 mix-blend-color" />
+      <div className="absolute inset-0 bg-linear-to-b from-background/10 via-background/50 to-background" />
     </div>
   );
 }

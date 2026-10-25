@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { AppLink as Link } from "@/components/app-link";
 import { useId, useState } from "react";
 import { formatCount } from "@/lib/format";
 import type { EdhrecTheme } from "@/lib/types";
@@ -37,7 +37,7 @@ export function ThemePicker({ themes, selected }: { themes: EdhrecTheme[]; selec
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           placeholder={`Filter ${formatCount(themes.length)} themes, e.g. “elves” or “landfall”`}
-          className="h-10 w-full max-w-sm rounded-lg border border-line-strong bg-background px-3 text-sm outline-none focus:border-foreground/40 focus:ring-4 focus:ring-foreground/5"
+          className="h-10 w-full max-w-sm rounded-lg border border-line-strong bg-background px-3 text-sm outline-none focus:border-accent/60 focus:ring-4 focus:ring-accent/15"
         />
         {!query && (
           <button
@@ -65,12 +65,12 @@ export function ThemePicker({ themes, selected }: { themes: EdhrecTheme[]; selec
                   aria-current={active ? "page" : undefined}
                   className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm ${
                     active
-                      ? "border-foreground bg-foreground text-background"
-                      : "border-line-strong hover:border-foreground/30 "
+                      ? "border-accent bg-accent text-on-accent shadow-[0_0_16px_-4px_rgb(90_176_255/0.6)]"
+                      : "border-line-strong hover:border-accent/50 "
                   }`}
                 >
                   {theme.name}
-                  <span className={`text-xs tabular-nums ${active ? "text-zinc-800" : "text-muted"}`}>
+                  <span className={`text-xs tabular-nums ${active ? "text-on-accent/70" : "text-muted"}`}>
                     {formatCount(theme.numDecks)}
                   </span>
                 </Link>

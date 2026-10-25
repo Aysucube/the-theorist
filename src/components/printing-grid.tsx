@@ -48,7 +48,7 @@ export function PrintingGrid({ tiles, label, cardName }: { tiles: PrintingTile[]
         <button
           type="button"
           onClick={() => setShown((n) => n + STEP)}
-          className="mt-3 rounded-full border border-line-strong px-4 py-1.5 text-sm hover:border-foreground/30"
+          className="mt-3 rounded-full border border-line-strong px-4 py-1.5 text-sm hover:border-accent/50"
         >
           Show {formatCount(Math.min(STEP, remaining))} more {label}
           <span className="text-muted"> ({formatCount(remaining)} left)</span>
@@ -65,7 +65,7 @@ function Tile({ tile: t, cardName, selected }: { tile: PrintingTile; cardName: s
     <>
       <div
         className={`aspect-[146/204] overflow-hidden rounded-[4.75%] bg-subtle  ${
-          selected ? "ring-3 ring-foreground/60" : ""
+          selected ? "ring-3 ring-accent/70" : ""
         }`}
       >
         {t.imageUrl && (

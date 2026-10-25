@@ -23,9 +23,9 @@ export function LandBackdrop({ colors, seed }: { colors: string[]; seed: string 
           sizes="100vw"
           className="scale-105 object-cover blur-[1px] brightness-[0.38] saturate-[0.8]"
         />
-        <div className="absolute inset-0 bg-radial from-zinc-950/10 via-zinc-950/45 to-zinc-950/85" />
+        <div className="absolute inset-0 bg-radial from-[#04070f]/10 via-[#04070f]/50 to-[#04070f]/90" />
       </div>
-      <p className="pointer-events-none absolute bottom-1.5 left-2.5 text-[10px] text-zinc-400/80">
+      <p className="pointer-events-none absolute bottom-1.5 left-2.5 text-[10px] text-muted/80">
         {art.name}
         {art.artist && ` · art by ${art.artist}`}
       </p>

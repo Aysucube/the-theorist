@@ -98,9 +98,24 @@ It keeps its own deck. **Add to Shopping** copies the deck as it is into the Sho
 lands left out unless you ask) so you can price it in Philippine stores; nothing else changes the
 Shopping list.
 
-The look is quiet on purpose: ink on paper (or paper on ink, following the system's dark mode),
-hairline borders, and short animations that use strong ease-out curves and only move or fade
-things, so they stay smooth. They're switched off when the system asks for reduced motion.
+The look is themed on **Jace Beleren, the Theorist**: always midnight navy, with moonlit text and
+mind-blue light on whatever is active. The graphics are original: a sigil (rune rings around a
+diamond "mind's eye") and a faint thought lattice behind every page. On phones the sections move
+to a tab bar along the bottom.
+
+Things move with purpose, briefly, using strong ease-out curves:
+
+- **Between pages**, the page slides left as you go forward (right along the nav, or deeper) and
+  right as you come back, while the header stays put. A front-page tile's icon and title morph
+  into the header of the page it opens. These use the browser's View Transitions (React's
+  `<ViewTransition>`); browsers without them just change page.
+- **Opening a feature** makes it pop in: panels as their data arrives, each tab's content (the
+  lit tab pill glides across), disclosures, popovers, the card preview and menus.
+- **Main actions** (Add to binder, Continue, Price this list) send a ring of light from where you
+  pressed.
+
+Animations only move, scale and fade, so they stay smooth. They're switched off when the system
+asks for reduced motion.
 
 ## Running it on a Windows computer (no setup)
 

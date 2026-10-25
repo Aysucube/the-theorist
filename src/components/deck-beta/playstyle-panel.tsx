@@ -115,11 +115,11 @@ export function PlaystylePanel({
                   aria-selected={t.slug === theme}
                   onClick={() => setTheme(t.slug)}
                   className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm ${
-                    t.slug === theme ? "border-foreground bg-foreground text-background" : "border-line-strong hover:border-foreground/30 "
+                    t.slug === theme ? "border-accent bg-accent text-on-accent shadow-[0_0_16px_-4px_rgb(90_176_255/0.6)]" : "border-line-strong hover:border-accent/50 "
                   }`}
                 >
                   {t.name}
-                  <span className={`text-xs tabular-nums ${t.slug === theme ? "text-zinc-800" : "text-muted"}`}>{formatCount(t.numDecks)}</span>
+                  <span className={`text-xs tabular-nums ${t.slug === theme ? "text-on-accent/70" : "text-muted"}`}>{formatCount(t.numDecks)}</span>
                 </button>
               ))}
             </div>
@@ -128,7 +128,7 @@ export function PlaystylePanel({
       </section>
 
       {theme && (
-        <section className="flex flex-col gap-4">
+        <section key={theme} className="reveal-fast flex flex-col gap-4">
           {!state || state.state === "loading" || state.state === "waiting" ? (
             <p className="flex items-center gap-2 text-sm text-muted">
               <span aria-hidden className="size-4 spinner" />
@@ -229,7 +229,7 @@ function PickRow({ pick, card, added, onAdd }: { pick: PlaystyleCard; card: Card
         onClick={() => onAdd(card)}
         aria-label={added ? `${card.name} is in your deck` : `Add ${card.name} to deck`}
         className={`h-8 shrink-0 self-center rounded-lg px-2.5 text-xs font-medium ${
-          added ? "border border-emerald-600 text-emerald-700 dark:text-emerald-400" : "bg-foreground text-background hover:bg-foreground/85"
+          added ? "border border-emerald-600 text-emerald-700 dark:text-emerald-400" : "btn-primary"
         }`}
       >
         {added ? "In deck ✓" : "+ Add"}
@@ -246,7 +246,7 @@ function NameList({ names, onOpen }: { names: string[]; onOpen: (name: string) =
           key={name}
           type="button"
           onClick={() => onOpen(name)}
-          className="rounded-md border border-line bg-background px-2 py-0.5 text-xs hover:border-foreground/30"
+          className="rounded-md border border-line bg-background px-2 py-0.5 text-xs hover:border-accent/50"
         >
           {name}
         </button>

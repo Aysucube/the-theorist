@@ -58,7 +58,7 @@ export function BuildCard({
         <GameChangerTag name={card.name} className="absolute top-1.5 left-1.5 shadow" />
         <span
           aria-hidden
-          className="absolute right-1.5 bottom-1.5 flex size-7 items-center justify-center rounded-full bg-foreground text-base leading-none text-background opacity-0 shadow-lg transition-[opacity,transform] duration-150 ease-out group-hover:opacity-100 group-focus-within:opacity-100"
+          className="absolute right-1.5 bottom-1.5 flex size-7 items-center justify-center rounded-full bg-accent text-base leading-none text-on-accent opacity-0 shadow-lg transition-[opacity,transform] duration-150 ease-out group-hover:opacity-100 group-focus-within:opacity-100"
         >
           +
         </span>

@@ -100,7 +100,7 @@ export function SynergyMap({
       onClose={onClose}
       onClick={(e) => e.target === dialog.current && dialog.current?.close()}
       aria-label={`Synergy map for ${focus.name}`}
-      className="m-auto h-[94vh] max-h-none w-[min(1200px,96vw)] max-w-none overflow-hidden rounded-2xl border border-line bg-background p-0 text-foreground backdrop:bg-black/70"
+      className="m-auto h-[94vh] max-h-none w-[min(1200px,96vw)] max-w-none overflow-hidden rounded-2xl border border-line-strong bg-surface p-0 text-foreground backdrop:bg-black/70"
     >
       <div className="flex h-full flex-col">
         <header className="flex flex-wrap items-center gap-3 border-b border-line px-4 py-3">
@@ -108,7 +108,7 @@ export function SynergyMap({
             <button
               type="button"
               onClick={() => setTrail(trail.slice(0, -1))}
-              className="rounded-lg border border-line-strong px-2.5 py-1 text-sm hover:border-foreground/30"
+              className="rounded-lg border border-line-strong px-2.5 py-1 text-sm hover:border-accent/50"
             >
               ← Back
             </button>
@@ -119,7 +119,7 @@ export function SynergyMap({
           <button
             type="button"
             onClick={() => dialog.current?.close()}
-            className="rounded-lg border border-line-strong px-2.5 py-1 text-sm hover:border-foreground/30"
+            className="rounded-lg border border-line-strong px-2.5 py-1 text-sm hover:border-accent/50"
           >
             Close
           </button>
@@ -134,7 +134,7 @@ export function SynergyMap({
               role="tab"
               aria-selected={tab === t}
               onClick={() => setTab(t)}
-              className={`flex-1 px-3 py-2 text-sm font-medium ${tab === t ? "border-b-2 border-foreground" : "text-muted"}`}
+              className={`flex-1 px-3 py-2 text-sm font-medium ${tab === t ? "border-b-2 border-accent" : "text-muted"}`}
             >
               {t === "map" ? "Synergies" : t === "rulings" ? "Rulings" : `Recommendations${found ? ` (${recommendations.length})` : ""}`}
             </button>
@@ -142,7 +142,7 @@ export function SynergyMap({
         </div>
 
         <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(0,1fr)_360px]">
-          <div className={`min-h-0 overflow-y-auto p-4 sm:p-6 ${tab === "map" ? "" : "hidden lg:block"}`}>
+          <div className={`reveal-fast min-h-0 overflow-y-auto p-4 sm:p-6 ${tab === "map" ? "" : "hidden lg:block"}`}>
             <div role="tablist" aria-label="View" className="mb-4 flex gap-2">
               {(["network", "breakdown"] as const).map((v) => (
                 <button
@@ -152,7 +152,7 @@ export function SynergyMap({
                   aria-selected={view === v}
                   onClick={() => setView(v)}
                   className={`rounded-full border px-3 py-1 text-sm font-medium ${
-                    view === v ? "border-foreground bg-foreground text-background" : "border-line-strong hover:border-foreground/30 "
+                    view === v ? "border-accent bg-accent text-on-accent shadow-[0_0_16px_-4px_rgb(90_176_255/0.6)]" : "border-line-strong hover:border-accent/50 "
                   }`}
                 >
                   {v === "network" ? "Network" : "Breakdown"}
@@ -254,14 +254,14 @@ export function SynergyMap({
             }`}
           >
             {/* Phones show one section per tab; wide screens show both. */}
-            <section className={`mb-6 ${tab === "rulings" ? "" : "hidden lg:block"}`}>
+            <section className={`reveal-fast mb-6 ${tab === "rulings" ? "" : "hidden lg:block"}`}>
               <h3 className="mb-2 font-semibold">
                 Rulings: <HoverName name={focus.name} />
               </h3>
               <BetaRulings key={focus.name} card={focus} />
             </section>
 
-            <section className={tab === "others" ? "" : "hidden lg:block"}>
+            <section className={`reveal-fast ${tab === "others" ? "" : "hidden lg:block"}`}>
               <h3 className="font-semibold">Other recommendations</h3>
               <p className="mt-1 text-xs text-muted">
                 Not in your deck: cards EDHREC decks play with {focus.name}, and cards that do a similar job.{" "}
@@ -497,7 +497,7 @@ function RecommendationRow({ rec, added, onAdd }: { rec: Recommendation; added: 
         className={`h-8 shrink-0 self-center rounded-lg px-2.5 text-xs font-medium ${
           added
             ? "border border-emerald-600 text-emerald-700 dark:text-emerald-400"
-            : "bg-foreground text-background hover:bg-foreground/85"
+            : "btn-primary"
         }`}
       >
         {added ? "In deck ✓" : "+ Add"}

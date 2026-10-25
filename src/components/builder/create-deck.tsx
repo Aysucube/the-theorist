@@ -1,9 +1,7 @@
 "use client";
 
 import { AnimatePresence, LayoutGroup, motion, MotionConfig } from "motion/react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState, ViewTransition } from "react";
 import { toast } from "sonner";
 import { BRACKET_STYLE } from "@/components/deck-beta/bracket-badge";
 import { useBinder } from "@/lib/binder/store";
@@ -16,6 +14,9 @@ import { cardKey } from "@/lib/deck-beta/recommend";
 import { retryBuilderData, useBuilderData, useDeckAnalysis, useDeckLibrary, usePlaystyle } from "@/lib/deck-beta/store";
 import { useGameChangers } from "@/lib/use-game-changers";
 import type { CardDetails } from "@/lib/types";
+import { AppLink as Link, useAppRouter } from "../app-link";
+import { FEATURES, morphName } from "../theme/features";
+import { FeatureBadge } from "../theme/page-header";
 import { BuildStep } from "./build-step";
 import { DeckRail } from "./deck-rail";
 import { BracketStep, CommanderStep, LandsStep, SynergyStep } from "./steps";
@@ -40,7 +41,7 @@ const ease = [0.23, 1, 0.32, 1] as const;
  * and grows as cards go in; cards not in the binder stay grayed out.
  */
 export function CreateDeck() {
-  const router = useRouter();
+  const router = useAppRouter();
   const { draft, ready, update, chooseCommander, addCard, removeCard, reset } = useBuilderDraft();
   const binder = useBinder();
   const library = useDeckLibrary();
@@ -192,20 +193,26 @@ export function CreateDeck() {
         <div className="flex flex-col gap-10">
           <header className="flex flex-col gap-6">
             <div className="flex flex-wrap items-end justify-between gap-4">
-              <div>
-                <p className="eyebrow">Create Commander Deck</p>
-                <AnimatePresence mode="wait" initial={false}>
-                  <motion.div
-                    key={step}
-                    initial={{ opacity: 0, filter: "blur(4px)" }}
-                    animate={{ opacity: 1, filter: "blur(0px)" }}
-                    exit={{ opacity: 0, filter: "blur(4px)", transition: { duration: 0.12 } }}
-                    transition={{ duration: 0.25, ease }}
-                  >
-                    <h1 className="mt-1 text-3xl font-semibold tracking-[-0.03em]">{HEADINGS[step].title}</h1>
-                    <p className="mt-1 max-w-xl text-muted">{HEADINGS[step].note}</p>
-                  </motion.div>
-                </AnimatePresence>
+              <div className="flex min-w-0 items-start gap-4">
+                {/* The front page's tile morphs into this badge; the title changes per step, so it doesn't morph. */}
+                <ViewTransition name={morphName("create", "icon")} share="morph" default="none">
+                  <FeatureBadge Icon={FEATURES.create.Icon} />
+                </ViewTransition>
+                <div className="min-w-0">
+                  <p className="eyebrow">Create Commander Deck</p>
+                  <AnimatePresence mode="wait" initial={false}>
+                    <motion.div
+                      key={step}
+                      initial={{ opacity: 0, filter: "blur(4px)" }}
+                      animate={{ opacity: 1, filter: "blur(0px)" }}
+                      exit={{ opacity: 0, filter: "blur(4px)", transition: { duration: 0.12 } }}
+                      transition={{ duration: 0.25, ease }}
+                    >
+                      <h1 className="mt-1 text-3xl font-semibold tracking-[-0.03em]">{HEADINGS[step].title}</h1>
+                      <p className="mt-1 max-w-xl text-muted">{HEADINGS[step].note}</p>
+                    </motion.div>
+                  </AnimatePresence>
+                </div>
               </div>
               {(draft.commander || draft.cards.length > 0) && <StartOver onReset={reset} />}
             </div>
@@ -317,7 +324,7 @@ export function CreateDeck() {
                       My Decks
                     </Link>
                   )}
-                  <button type="button" disabled={!canContinue} onClick={() => go(step + 1)} className="btn btn-primary btn-lg">
+                  <button type="button" disabled={!canContinue} onClick={() => go(step + 1)} data-cast className="btn btn-primary btn-lg">
                     {step === 4 ? "Finish" : "Continue"}
                   </button>
                 </div>
@@ -353,7 +360,7 @@ function Stepper({ step, reached, onGo }: { step: number; reached: number; onGo:
           >
             <span
               className={`flex size-5 items-center justify-center rounded-full text-[10px] font-semibold tabular-nums transition-colors duration-200 ${
-                i === step ? "bg-foreground text-background" : i < step ? "bg-subtle text-foreground" : "border border-line"
+                i === step ? "bg-accent text-on-accent" : i < step ? "bg-subtle text-foreground" : "border border-line"
               }`}
             >
               {i < step ? "✓" : i + 1}
@@ -362,7 +369,7 @@ function Stepper({ step, reached, onGo }: { step: number; reached: number; onGo:
           </button>
           {i < STEPS.length - 1 && (
             <span aria-hidden className="block h-px w-6 overflow-hidden bg-line">
-              <span className="block h-full origin-left bg-foreground transition-transform duration-300 ease-out" style={{ transform: `scaleX(${i < step ? 1 : 0})` }} />
+              <span className="block h-full origin-left bg-accent transition-transform duration-300 ease-out" style={{ transform: `scaleX(${i < step ? 1 : 0})` }} />
             </span>
           )}
         </li>

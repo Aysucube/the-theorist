@@ -405,7 +405,7 @@ function CardChip({ name, quadrants, onOpen }: { name: string; quadrants: Quadra
           onOpen(name);
         }}
         title={quadrants.map((q) => QUADRANT_INFO[q].label).join(", ")}
-        className="inline-flex items-center gap-1.5 rounded-md border border-line bg-background px-2 py-0.5 text-xs hover:border-foreground/30"
+        className="inline-flex items-center gap-1.5 rounded-md border border-line bg-background px-2 py-0.5 text-xs hover:border-accent/50"
       >
         {name}
         <GameChangerTag name={name} compact />
@@ -500,7 +500,7 @@ function JobMeters({ profile, onOpen }: { profile: DeckProfile; onOpen: (name: s
               <details className="group">
                 <summary className="cursor-pointer list-none rounded-md py-1 pl-4 hover:bg-subtle [&::-webkit-details-marker]:hidden">
                   <span className="relative block">
-                    <span aria-hidden className="absolute top-1/2 -left-3.5 -translate-y-1/2 text-[10px] text-zinc-400 transition-transform group-open:rotate-90">
+                    <span aria-hidden className="absolute top-1/2 -left-3.5 -translate-y-1/2 text-[10px] text-muted transition-transform group-open:rotate-90">
                       ▶
                     </span>
                     {row}
@@ -599,7 +599,7 @@ function UpgradeRow({ pick, added, onAdd }: { pick: Pick; added: boolean; onAdd:
         onClick={() => onAdd(card)}
         aria-label={added ? `${card.name} is in your deck` : `Add ${card.name} to deck`}
         className={`h-8 shrink-0 self-center rounded-lg px-2.5 text-xs font-medium ${
-          added ? "border border-emerald-600 text-emerald-700 dark:text-emerald-400" : "bg-foreground text-background hover:bg-foreground/85"
+          added ? "border border-emerald-600 text-emerald-700 dark:text-emerald-400" : "btn-primary"
         }`}
       >
         {added ? "In deck ✓" : "+ Add"}

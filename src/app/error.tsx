@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { AppLink as Link } from "@/components/app-link";
 import { useEffect } from "react";
 
 // Shown when a page throws. Source outages are handled inside each panel, so
@@ -20,13 +20,13 @@ export default function Error({ error, retry }: { error: unknown; retry: () => v
         <button
           type="button"
           onClick={() => retry()}
-          className="h-10 rounded-lg bg-foreground px-4 text-sm font-medium text-background hover:bg-foreground/85"
+          className="btn btn-primary h-10 px-4 text-sm"
         >
           Try again
         </button>
         <Link
           href="/"
-          className="flex h-10 items-center rounded-lg border border-line-strong px-4 text-sm font-medium hover:border-foreground/30"
+          className="btn btn-secondary h-10 px-4"
         >
           Go to search
         </Link>

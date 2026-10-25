@@ -56,12 +56,12 @@ export function WalkthroughPanel({
   const current = steps[step];
   if (!current) return null;
   const control =
-    "h-8 rounded-lg border border-line-strong px-3 text-sm font-medium hover:border-foreground/30 disabled:opacity-40 ";
+    "btn btn-secondary h-8 px-3 text-sm disabled:opacity-40 ";
   return (
     <div
       role="region"
       aria-label={`How ${combo.results[0] ?? "this combo"} works`}
-      className={`rounded-xl border border-line bg-background/95 p-3   ${
+      className={`pop-in rounded-xl border border-line-strong bg-surface/95 p-3 [--transform-origin:left_bottom] ${
         floating ? "absolute inset-x-2 bottom-2 shadow-lg backdrop-blur sm:right-auto sm:max-w-md" : ""
       }`}
     >
@@ -96,7 +96,7 @@ export function WalkthroughPanel({
         <button type="button" className={control} onClick={() => (step + 1 >= steps.length ? setStep(0) : setPlaying(!playing))}>
           {step + 1 >= steps.length ? "Replay" : playing ? "Pause" : "Play"}
         </button>
-        <button type="button" className={`${control} border-foreground bg-foreground text-background hover:bg-foreground/85`} onClick={() => setStep(step + 1)} disabled={step + 1 >= steps.length}>
+        <button type="button" className="btn btn-primary h-8 px-3 text-sm disabled:opacity-40" onClick={() => setStep(step + 1)} disabled={step + 1 >= steps.length}>
           Next ›
         </button>
         <span className="ml-auto flex gap-1" aria-hidden>
@@ -107,7 +107,7 @@ export function WalkthroughPanel({
               tabIndex={-1}
               onClick={() => setStep(i)}
               title={s.title}
-              className={`size-2 rounded-full ${i === step ? "bg-foreground" : "bg-line-strong"}`}
+              className={`size-2 rounded-full ${i === step ? "bg-accent" : "bg-line-strong"}`}
             />
           ))}
         </span>

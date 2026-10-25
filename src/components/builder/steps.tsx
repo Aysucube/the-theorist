@@ -2,7 +2,7 @@
 
 import NumberFlow from "@number-flow/react";
 import { motion } from "motion/react";
-import Link from "next/link";
+import { AppLink as Link } from "@/components/app-link";
 import { useEffect, useId, useMemo, useState } from "react";
 import type { BuilderResponse } from "@/lib/deck-beta/api";
 import { BRACKET_INFO, BRACKETS, type Bracket } from "@/lib/deck-beta/bracket";
@@ -133,7 +133,7 @@ export function CommanderStep({
               >
                 <span
                   className={`block aspect-[488/680] overflow-hidden rounded-[4.75%] bg-subtle ring-offset-4 ring-offset-background transition-shadow duration-200 ${
-                    selected === card.name ? "ring-2 ring-foreground" : ""
+                    selected === card.name ? "ring-2 ring-accent" : ""
                   }`}
                 >
                   <LazyCardImage url={card.imageUrl} alt={card.name} />
@@ -253,19 +253,19 @@ export function BracketStep({
                 aria-checked={selected === b}
                 onClick={() => onChoose(b)}
                 className={`flex h-full w-full flex-col gap-3 rounded-2xl border p-5 text-left transition-colors duration-150 ${
-                  selected === b ? "border-foreground bg-foreground text-background" : "border-line hover:border-line-strong"
+                  selected === b ? "border-accent bg-accent text-on-accent shadow-[0_0_16px_-4px_rgb(90_176_255/0.6)]" : "border-line hover:border-line-strong"
                 }`}
               >
                 <span className="flex items-baseline justify-between gap-2">
                   <span className="text-lg font-semibold tracking-tight">Bracket {b}</span>
-                  <span className={`text-sm ${selected === b ? "text-background/70" : "text-muted"}`}>{BRACKET_INFO[b].name}</span>
+                  <span className={`text-sm ${selected === b ? "text-on-accent/70" : "text-muted"}`}>{BRACKET_INFO[b].name}</span>
                 </span>
-                <span className={`text-[13px] leading-relaxed ${selected === b ? "text-background/80" : "text-muted"}`}>{BRACKET_INFO[b].rules}</span>
+                <span className={`text-[13px] leading-relaxed ${selected === b ? "text-on-accent/80" : "text-muted"}`}>{BRACKET_INFO[b].rules}</span>
                 {share !== undefined && (
                   <span className="mt-auto flex items-center gap-2 text-[11px] tabular-nums">
                     <span className={`block h-1 flex-1 overflow-hidden rounded-full ${selected === b ? "bg-background/20" : "bg-subtle"}`}>
                       <span
-                        className={`block h-full origin-left rounded-full ${selected === b ? "bg-background" : "bg-foreground/60"}`}
+                        className={`block h-full origin-left rounded-full ${selected === b ? "bg-on-accent/70" : "bg-accent/60"}`}
                         style={{ transform: `scaleX(${share})` }}
                       />
                     </span>

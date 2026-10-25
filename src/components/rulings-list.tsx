@@ -16,7 +16,7 @@ export function RulingsList({ rulings, size = "md" }: { rulings: Ruling[]; size?
       aria-label="Rulings"
       className={`${
         size === "sm" ? "max-h-44" : "max-h-80"
-      } divide-y divide-line overflow-y-auto overscroll-contain rounded-lg border border-line bg-surface outline-none focus-visible:ring-2 focus-visible:ring-foreground/60   `}
+      } divide-y divide-line overflow-y-auto overscroll-contain rounded-lg border border-line bg-surface outline-none focus-visible:ring-2 focus-visible:ring-accent/70   `}
     >
       {rulings.map((ruling, i) => (
         <li key={i} className="px-3 py-2.5">

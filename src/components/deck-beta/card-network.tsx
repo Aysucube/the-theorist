@@ -17,7 +17,7 @@ import { NetworkGraph, type GraphLink, type GraphNode } from "./network-graph";
 const MAX_PARTNERS = 14;
 const MAX_COMBOS = 5;
 const MAX_ALMOST = 5;
-const COMMANDER_COLOR = "#f59e0b";
+const COMMANDER_COLOR = "#8fdcff";
 const KIND_COLOR = { type: "#a1a1aa", subtype: "#38bdf8", theme: "#a78bfa" } as const;
 
 /** The combos drawn in a card's network, in the order (and colours) they're drawn. */
@@ -221,7 +221,7 @@ export function CardNetwork({
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="relative overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950">
+      <div className="relative overflow-hidden rounded-xl border border-line bg-[#04070f]">
         <LandBackdrop colors={commander?.colorIdentity ?? focus.colorIdentity} seed={commander?.name ?? focus.name} />
         <NetworkGraph
           nodes={nodes}
@@ -270,7 +270,7 @@ export function CardNetwork({
             {drawn.all
               .filter((c) => comboNodes.get(c.id)?.includes(selectedNode.id))
               .map((c) => (
-                <button key={c.id} type="button" onClick={() => onWalk(c.id)} className="h-8 rounded-lg border border-line-strong px-3 text-xs font-medium hover:border-foreground/30">
+                <button key={c.id} type="button" onClick={() => onWalk(c.id)} className="btn btn-secondary h-8 px-3 text-xs">
                   Walk through {c.results[0] ?? "combo"}
                 </button>
               ))}
@@ -279,13 +279,13 @@ export function CardNetwork({
                 type="button"
                 disabled={inDeck(ghostCard.name)}
                 onClick={() => onAdd(ghostCard)}
-                className="h-8 rounded-lg bg-foreground px-3 text-xs font-medium text-background hover:bg-foreground/85 disabled:bg-transparent disabled:text-emerald-600"
+                className="btn btn-primary h-8 px-3 text-xs disabled:bg-transparent disabled:text-emerald-600 disabled:bg-none disabled:shadow-none disabled:opacity-100"
               >
                 {inDeck(ghostCard.name) ? "In deck ✓" : `+ Add ${ghostCard.name}`}
               </button>
             )}
             {selectedNode.kind === "card" && (
-              <button type="button" onClick={() => onOpen(selectedNode.id)} className="h-8 rounded-lg border border-line-strong px-3 text-xs font-medium hover:border-foreground/30">
+              <button type="button" onClick={() => onOpen(selectedNode.id)} className="btn btn-secondary h-8 px-3 text-xs">
                 Open its network
               </button>
             )}

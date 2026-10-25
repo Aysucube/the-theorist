@@ -42,7 +42,7 @@ export function PriceCheck({ name }: { name: string }) {
         disabled={busy}
         title={state.status === "waiting" ? `Waiting because ${state.reason}` : undefined}
         aria-label={`Check Philippine price for ${name}`}
-        className="rounded-full border border-line-strong px-2 py-0.5 text-xs font-medium whitespace-nowrap text-foreground/80 transition-colors hover:border-foreground/30 hover:text-foreground disabled:cursor-wait disabled:opacity-60"
+        className="rounded-full border border-line-strong px-2 py-0.5 text-xs font-medium whitespace-nowrap text-foreground/80 transition-colors hover:border-accent/50 hover:text-foreground disabled:cursor-wait disabled:opacity-60"
       >
         {label}
       </button>

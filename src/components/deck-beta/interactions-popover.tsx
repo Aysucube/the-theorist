@@ -82,8 +82,8 @@ export function InteractionsPopover({
       aria-label={`${card.name}: interactions`}
       tabIndex={-1}
       style={{ left: position?.left ?? 0, top: position?.top ?? 0, width: `min(${WIDTH}px, calc(100vw - 24px))` }}
-      className={`absolute z-40 flex max-h-[80vh] flex-col overflow-hidden rounded-xl border border-line bg-background text-sm shadow-2xl outline-none   ${
-        position ? "" : "invisible"
+      className={`absolute z-40 flex max-h-[80vh] flex-col overflow-hidden rounded-xl border border-line-strong bg-surface shadow-[0_24px_60px_-16px_rgb(0_0_0/0.75),0_0_40px_-16px_rgb(90_176_255/0.3)] text-sm outline-none ${
+        position ? "pop-in" : "invisible"
       }`}
     >
       <div className="flex gap-3 border-b border-line p-3">
@@ -116,7 +116,7 @@ export function InteractionsPopover({
             role="tab"
             aria-selected={view === v}
             onClick={() => setView(v)}
-            className={`flex-1 px-3 py-2 text-sm font-medium ${view === v ? "border-b-2 border-foreground" : "text-muted hover:text-foreground"}`}
+            className={`flex-1 px-3 py-2 text-sm font-medium ${view === v ? "border-b-2 border-accent" : "text-muted hover:text-foreground"}`}
           >
             {v === "interactions"
               ? "Interacts with"
@@ -126,11 +126,11 @@ export function InteractionsPopover({
       </div>
 
       {view === "rulings" ? (
-        <div className="p-3">
+        <div key="rulings" className="reveal-fast p-3">
           <BetaRulings card={card} />
         </div>
       ) : (
-        <div className="flex flex-col gap-4 overflow-y-auto p-3">
+        <div key="interactions" className="reveal-fast flex flex-col gap-4 overflow-y-auto p-3">
           <section>
             <h3 className="mb-2 font-semibold">Interacts with</h3>
             {links.uses.length > 0 ? (
@@ -181,7 +181,7 @@ export function InteractionsPopover({
       )}
 
       <div className="flex flex-wrap items-center gap-3 border-t border-line p-3">
-        <button type="button" onClick={onOpenMap} className="h-9 rounded-lg bg-foreground px-3 text-sm font-medium text-background hover:bg-foreground/85">
+        <button type="button" onClick={onOpenMap} className="btn btn-primary h-9 px-3 text-sm">
           Open synergy map
         </button>
         <button type="button" onClick={onRemove} className="text-xs text-muted hover:text-red-700 hover:underline dark:hover:text-red-400">

@@ -5,6 +5,7 @@ import { formatDate, formatPercent, formatUsd } from "@/lib/format";
 import { checkPrices } from "@/lib/price-queue";
 import type { MarketTrends, TrendWindow } from "@/lib/trends/types";
 import { CardTile } from "./card-tile";
+import { TabBar } from "./theme/tabs";
 import { Sparkline } from "./price-chart";
 import { PriceCheck } from "./price-check";
 
@@ -32,25 +33,8 @@ export function TrendTabs({ trends }: { trends: MarketTrends }) {
 
   return (
     <div className="flex flex-col gap-4">
-      {windows.length > 1 && (
-        <div role="tablist" aria-label="Time window" className="flex flex-wrap gap-2">
-          {windows.map((w) => (
-            <button
-              key={w}
-              type="button"
-              role="tab"
-              aria-selected={w === tab}
-              onClick={() => setTab(w)}
-              className={`rounded-full border px-3 py-1 text-sm font-medium ${
-                w === tab
-                  ? "border-foreground bg-foreground text-background"
-                  : "border-line-strong hover:border-foreground/30 "
-              }`}
-            >
-              {LABELS[w]}
-            </button>
-          ))}
-        </div>
+      {windows.length > 1 && tab && (
+        <TabBar label="Time window" value={tab} onValueChange={setTab} items={windows.map((w) => ({ value: w, label: LABELS[w] }))} />
       )}
 
       <p className="text-xs text-muted">
@@ -58,7 +42,8 @@ export function TrendTabs({ trends }: { trends: MarketTrends }) {
         each: the cheapest copy in Philippine stores right now.
       </p>
 
-      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
+      {/* Keyed by the window, so the cards pop in when another is picked. */}
+      <ul key={tab} className="reveal-fast grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
         {current.cards.map((card) => (
           <li key={card.name}>
             <CardTile name={card.name} imageUrl={card.imageUrl}>

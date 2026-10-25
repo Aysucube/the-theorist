@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { AppLink as Link } from "@/components/app-link";
 import {
   useEffect,
   useId,
@@ -255,7 +255,7 @@ function HoverCard({
       id={id}
       role="tooltip"
       style={{ left: position.left, top, width: CARD_SIZE.width, maxWidth: "calc(100vw - 24px)" }}
-      className="pointer-events-none fixed z-50 grid grid-cols-[300px_1fr] gap-4 rounded-xl border border-line bg-background p-4 text-foreground shadow-xl"
+      className={`pop-in pointer-events-none fixed z-50 grid grid-cols-[300px_1fr] gap-4 rounded-xl border border-line-strong bg-surface shadow-[0_24px_60px_-16px_rgb(0_0_0/0.75),0_0_40px_-16px_rgb(90_176_255/0.3)] p-4 text-foreground [--transform-origin:left_top]`}
     >
       <div className="aspect-[488/680] self-start overflow-hidden rounded-[4.75%] bg-subtle">
         {loaded?.imageUrl ? (
