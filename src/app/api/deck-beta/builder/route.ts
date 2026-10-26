@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import type { BuilderCard, BuilderResponse } from "@/lib/deck-beta/api";
 import { getCommanderStats } from "@/lib/sources/edhrec";
+import { getCommanderArticles } from "@/lib/sources/edhrec-articles";
 import { reportSourceError } from "@/lib/sources/http";
 import { getCardDetails } from "@/lib/sources/scryfall";
 import { edhrecSlug } from "@/lib/slugs";
@@ -41,7 +42,11 @@ export async function GET(request: NextRequest) {
     const cards = [...byName.values()];
     const weight = (c: BuilderCard) => (c.inclusion ?? 0) + Math.max(0, c.synergy ?? 0) + (c.lists.some((l) => /new/i.test(l)) ? 1 : 0);
     const toDetail = [...cards].sort((a, b) => weight(b) - weight(a)).slice(0, DETAILED);
-    const details = await getCardDetails(toDetail.map((c) => c.name));
+    const [details, articles] = await Promise.all([
+      getCardDetails(toDetail.map((c) => c.name)),
+      // Further reading on how it's played; the builder works without it.
+      getCommanderArticles(commander).catch(() => []),
+    ]);
 
     const body: BuilderResponse = {
       found: true,
@@ -50,6 +55,8 @@ export async function GET(request: NextRequest) {
       themes: stats.themes ?? [],
       averages: stats.averages,
       bracketCounts: stats.bracketCounts,
+      curveAverage: stats.curveAverage,
+      articles,
       cards,
       details,
     };

@@ -1,23 +1,24 @@
 "use client";
 
-import { useId, useMemo, useRef, useState, type MouseEvent } from "react";
-import { parseDeckList, MAX_DECK_CARDS } from "@/lib/deck";
+import { useCallback, useId, useMemo, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import { parseDeckList, MAX_DECK_CARDS, type DeckCard } from "@/lib/deck";
 import type { AnalysisResponse } from "@/lib/deck-beta/api";
-import { estimateDeckBracket } from "@/lib/deck-beta/bracket";
+import { estimateDeckBracket, type BracketReport } from "@/lib/deck-beta/bracket";
 import { commanderOptions } from "@/lib/deck-beta/combos";
 import { decodeDeck, isDeckCode } from "@/lib/deck-beta/deck-code";
+import { commanderGamePlan, planInDeck } from "@/lib/deck-beta/game-plan";
 import { deckHubs } from "@/lib/deck-beta/playstyle";
 import { cardKey } from "@/lib/deck-beta/recommend";
 import { deckProfile } from "@/lib/deck-beta/roles";
-import { analyzeDeck, parseTypeLine } from "@/lib/deck-beta/synergy";
+import { analyzeDeck, cardTraits, interactionsOf, parseTypeLine, partnersOf } from "@/lib/deck-beta/synergy";
 import {
   latestAnalysisFor,
-  loadWholeDeck,
   requestAnalysis,
-  useBetaDeck,
   useBetaDetails,
-  useChosenCommander,
+  useCommanderPlan,
   useDeckAnalysis,
+  usePastedDeckSource,
+  type DeckSource,
   type LoadStatus,
   type RemoteState,
 } from "@/lib/deck-beta/store";
@@ -27,18 +28,18 @@ import type { CardDetails } from "@/lib/types";
 import { GameChangerTag } from "../game-changer-tag";
 import { ColorIdentity, ManaCost } from "../mana";
 import { ImageNote } from "../retrying-image";
+import { PageHeader } from "../theme/page-header";
+import { TabBar } from "../theme/tabs";
 import { AddToShopping } from "./add-to-shopping";
 import { BracketBadge } from "./bracket-badge";
 import { CombosPanel, type DeckForOdds } from "./combos-panel";
 import { DeckLibrary, SharedDeckBanner } from "./deck-library";
 import { DeckNetwork } from "./deck-network";
+import { DeckOverview } from "./deck-overview";
 import { InteractionsPopover } from "./interactions-popover";
 import { LazyCardImage } from "./lazy-card-image";
 import { PlaystylePanel } from "./playstyle-panel";
-import { RecommendationsPanel } from "./recommendations-panel";
 import { SynergyMap } from "./synergy-map";
-import { PageHeader } from "../theme/page-header";
-import { TabBar } from "../theme/tabs";
 
 /** One line of the deck: the name as pasted, and Scryfall's details once loaded. */
 export interface Entry {
@@ -66,32 +67,102 @@ function groupOf(card: CardDetails): string {
 /** Waits this long after a click for a second one, so a double-click doesn't flash the preview. */
 const DOUBLE_CLICK_MS = 250;
 
-type View = "network" | "recommend" | "combos" | "playstyle" | "cards";
+type View = "overview" | "network" | "combos" | "playstyle" | "cards";
 const VIEWS: { id: View; label: string }[] = [
-  { id: "network", label: "Network" },
-  { id: "recommend", label: "Recommendations" },
+  { id: "overview", label: "Overview" },
+  { id: "network", label: "Synergies" },
   { id: "combos", label: "Combos" },
   { id: "playstyle", label: "Playstyle" },
   { id: "cards", label: "Cards" },
 ];
 
+/** What a deck view's header can show: the deck's bracket, size and colors. */
+export interface DeckHeaderInfo {
+  report: BracketReport;
+  checking: boolean;
+  totalCards: number;
+  colors: string[];
+  /** Cards Scryfall has loaded (the bracket shows once there are some). */
+  loaded: number;
+  /** Opens the Overview, where the bracket is explained. */
+  showBracket: () => void;
+  detailsFor: (name: string) => CardDetails | null | undefined;
+}
+
 /**
- * Deck Synergy (beta): paste a deck and pick its commander to see the deck as
- * an animated network of playstyles, synergies and combos, how consistently it
- * assembles those combos, and what to add to lean into one of the commander's
- * playstyles, and recommendations built from what the deck has (Quadrant
- * Theory, ramp, consistency, combos, the bracket to build toward), with the
- * deck's own bracket by its title. Decks can be saved and shared as codes, and
- * copied into Shopping.
- * Click a card for what it interacts with; double-click (or click
- * it in the network) for its own network. Kept apart from the rest of the app:
- * its deck and data are its own, and it only touches Shopping when asked to.
+ * The Check a Deck page: paste any list and pick its commander to see it by
+ * the deckbuilding template and its synergies and combos, without saving it
+ * (or save it to My Decks from here).
  */
 export function DeckBeta() {
-  const { deck, ready, replace, addList, add, remove, clear } = useBetaDeck();
+  const source = usePastedDeckSource();
+  return (
+    <DeckWorkspace
+      source={source}
+      header={(info) => (
+        <PageHeader
+          feature="synergy"
+          eyebrow="Check any list"
+          aside={info.loaded > 0 && <BracketBadge report={info.report} checking={info.checking} onClick={info.showBracket} />}
+          description={
+            <p className="flex flex-wrap items-center gap-x-2 text-sm text-muted">
+              <span>
+                {formatCount(info.totalCards)} {info.totalCards === 1 ? "card" : "cards"} · not saved until you save it to My Decks
+              </span>
+              {info.colors.length > 0 && (
+                <span className="inline-flex items-center gap-1">
+                  · <ColorIdentity colors={info.colors} />
+                </span>
+              )}
+            </p>
+          }
+          actions={
+            source.deck.length > 0 && (
+              <>
+                <AddToShopping deck={source.deck} detailsFor={info.detailsFor} />
+                <ClearButton onClear={source.clear} />
+              </>
+            )
+          }
+        />
+      )}
+      intro={(commander) => (
+        <>
+          <p className="text-sm text-muted">
+            Paste a deck to see it by the deckbuilding template (lands, ramp, card advantage, disruption and its plan), its mana curve,
+            synergies and combos. Your own decks have all of this on their page in My Decks. Read from rules text and EDHREC’s data, so treat it
+            as a guide.
+          </p>
+          <SharedDeckBanner />
+          <ImportBox hasDeck={source.deck.length > 0} onReplace={source.replace} onAdd={source.addList} />
+          <DeckLibrary deck={source.deck} commander={commander} />
+        </>
+      )}
+    />
+  );
+}
+
+/**
+ * A deck by the deckbuilding template and its synergies: the Overview (the
+ * commander's game plan, the template, the mana curve and mana base, upgrades
+ * and cuts), the deck as a network of playstyles and combos, its combos, its
+ * playstyles on EDHREC, and its cards. Works on the pasted deck or a saved
+ * one. Click a card for what it interacts with; double-click it (or click it
+ * in the network) for its own network.
+ */
+export function DeckWorkspace({
+  source,
+  header,
+  intro,
+}: {
+  source: DeckSource;
+  header: (info: DeckHeaderInfo) => ReactNode;
+  /** Shown between the header and the deck (the paste box, saving and sharing). */
+  intro?: (commander: string | undefined) => ReactNode;
+}) {
+  const { deck, ready, add, remove } = source;
   const { detailsFor, status } = useBetaDetails(deck);
-  const [chosenCommander, setChosenCommander] = useChosenCommander();
-  const [view, setView] = useState<View>("network");
+  const [view, setView] = useState<View>("overview");
   const [walkId, setWalkId] = useState<string | null>(null);
   const commanderSelect = useId();
   const [preview, setPreview] = useState<{ name: string; anchor: DOMRect } | null>(null);
@@ -107,12 +178,22 @@ export function DeckBeta() {
   const analysis = useMemo(() => analyzeDeck(loaded), [loadedKey]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const options = useMemo(() => commanderOptions(loaded, analysis.colors), [loadedKey, analysis]);
-  const commander = options.find((c) => c.name === chosenCommander) ?? options[0];
+  const commander = options.find((c) => c.name === source.commander) ?? options[0];
   const deckNames = loaded.map((c) => c.name);
   const remote = useDeckAnalysis(commander, deckNames);
   // While a changed deck is re-analyzed, keep showing the last analysis rather than a loading message.
   const result = remote?.state === "done" ? remote.result : latestAnalysisFor(commander);
   const hubs = useMemo(() => deckHubs(analysis), [analysis]);
+
+  // The deck's plan: its main playstyles' cards and the cards that work with the commander.
+  const planSet = useMemo(() => {
+    const set = new Set<string>();
+    for (const hub of hubs.slice(0, 4)) for (const name of hub.cards) set.add(name);
+    const traits = commander ? analysis.traits.get(commander.name) : undefined;
+    if (commander && traits) for (const name of partnersOf(interactionsOf(traits, analysis.traits, commander.name))) set.add(name);
+    return set;
+  }, [hubs, analysis, commander]);
+  const isPlan = useCallback((name: string) => planSet.has(name), [planSet]);
 
   const libraryKey = entries.map((e) => `${e.details?.name}×${e.qty}`).join("\n") + commander?.name;
   const odds: DeckForOdds = useMemo(
@@ -124,7 +205,7 @@ export function DeckBeta() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [libraryKey],
   );
-  // Each card once with its copies, for counting jobs and lands, and what jobs they do.
+  // Each card once with its copies, for the template, the curve and the lands.
   const { deckCards, profile } = useMemo(() => {
     const counted = new Map<string, { card: CardDetails; qty: number }>();
     for (const e of entries) {
@@ -133,10 +214,10 @@ export function DeckBeta() {
       counted.set(e.details.name, { card: e.details, qty: (seen?.qty ?? 0) + e.qty });
     }
     const cards = [...counted.values()];
-    return { deckCards: cards, profile: deckProfile(cards, analysis.colors) };
-    // The library key captures the deck's cards and copies (and so its colors).
+    return { deckCards: cards, profile: deckProfile(cards, { commander: commander?.name, isPlan }) };
+    // The library key captures the deck's cards and copies (and its commander).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [libraryKey]);
+  }, [libraryKey, isPlan]);
   const gameChangers = useGameChangers();
   // undefined while Commander Spellbook hasn't answered; null if it couldn't be reached.
   const deckCombos = result ? result.combos : remote?.state === "error" ? null : undefined;
@@ -156,6 +237,25 @@ export function DeckBeta() {
   const checking = Boolean(commander) && deckCombos === undefined;
   // Combos a card away, then the wider ones EDHREC lists for the commander.
   const nearCombos = useMemo(() => [...(deckCombos?.almostIncluded ?? []), ...(deckCombos?.wider ?? [])], [deckCombos]);
+
+  // The commander's game plan, from its card and how EDHREC's decks build it.
+  const planState = useCommanderPlan(commander ? { name: commander.name, layout: commander.layout } : undefined);
+  const planData = planState?.state === "done" && planState.result.found ? planState.result : undefined;
+  const gamePlan = useMemo(
+    () =>
+      commander
+        ? commanderGamePlan({
+            commander,
+            traits: analysis.traits.get(commander.name) ?? cardTraits(commander, analysis.vocabulary),
+            themes: planData?.themes,
+            numDecks: planData?.numDecks,
+            averages: planData?.averages,
+            curveAverage: planData?.curveAverage,
+          })
+        : undefined,
+    [commander, analysis, planData],
+  );
+  const planCards = useMemo(() => (gamePlan ? planInDeck(gamePlan, analysis.traits) : undefined), [gamePlan, analysis]);
 
   if (!ready) return <p className="text-muted">Loading your deck…</p>;
 
@@ -188,50 +288,9 @@ export function DeckBeta() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        feature="synergy"
-        eyebrow="Analysis"
-        aside={
-          <>
-            <span className="rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 text-xs font-semibold tracking-normal text-accent uppercase">
-              Beta
-            </span>
-            {loaded.length > 0 && <BracketBadge report={report} checking={checking} onClick={() => setView("recommend")} />}
-          </>
-        }
-        description={
-          <p className="flex flex-wrap items-center gap-x-2 text-sm text-muted">
-            <span>
-              {formatCount(totalCards)} {totalCards === 1 ? "card" : "cards"} · saved in this browser only
-            </span>
-            {analysis.colors.length > 0 && (
-              <span className="inline-flex items-center gap-1">
-                · <ColorIdentity colors={analysis.colors} />
-              </span>
-            )}
-          </p>
-        }
-        actions={
-          deck.length > 0 && (
-            <>
-              <AddToShopping deck={deck} detailsFor={detailsFor} />
-              <ClearButton onClear={clear} />
-            </>
-          )
-        }
-      />
+      {header({ report, checking, totalCards, colors: analysis.colors, loaded: loaded.length, showBracket: () => setView("overview"), detailsFor })}
 
-      <p className="text-sm text-muted">
-        An early test, kept separate from the rest of the app: this deck isn’t your Shopping list, and nothing here
-        changes it unless you click Add to Shopping. Synergies are read from each card’s types and rules text plus EDHREC’s data, combos come from
-        Commander Spellbook and EDHREC, so treat them as hints.
-      </p>
-
-      <SharedDeckBanner />
-
-      <ImportBox hasDeck={deck.length > 0} onReplace={replace} onAdd={addList} />
-
-      <DeckLibrary deck={deck} commander={commander?.name} />
+      {intro?.(commander?.name)}
 
       {deck.length > 0 && (
         <>
@@ -246,7 +305,7 @@ export function DeckBeta() {
                 <select
                   id={commanderSelect}
                   value={commander?.name ?? ""}
-                  onChange={(e) => setChosenCommander(e.target.value)}
+                  onChange={(e) => source.setCommander(e.target.value)}
                   className="h-9 min-w-0 max-w-full rounded-lg border border-line-strong bg-background px-2 text-sm"
                 >
                   {options.map((c) => (
@@ -266,7 +325,7 @@ export function DeckBeta() {
           </div>
 
           <TabBar
-            label="Deck Synergy view"
+            label="Deck view"
             value={view}
             onValueChange={setView}
             className="no-scrollbar overflow-x-auto"
@@ -283,6 +342,34 @@ export function DeckBeta() {
 
           {/* Keyed by the view, so each one pops in when its tab is picked. */}
           <div key={view} className="reveal-fast flex flex-col gap-6">
+            {view === "overview" && (
+              <DeckOverview
+                commander={commander}
+                deckCards={deckCards}
+                profile={profile}
+                isPlan={isPlan}
+                report={report}
+                checking={checking}
+                analysis={analysis}
+                colors={analysis.colors}
+                combos={deckCombos}
+                odds={odds}
+                missing={result?.missing ?? {}}
+                gamePlan={gamePlan}
+                planInDeck={planCards}
+                articles={planData?.articles}
+                edhrecUrl={planData?.url}
+                planLoading={planState?.state === "loading" || planState?.state === "waiting"}
+                inDeck={inDeck}
+                onAdd={add}
+                onOpen={openCard}
+                onWalk={(combo) => {
+                  setWalkId(combo.id);
+                  setView("network");
+                }}
+              />
+            )}
+
             {view === "network" && (
               <DeckNetwork
                 commander={commander}
@@ -296,28 +383,6 @@ export function DeckBeta() {
                 inDeck={inDeck}
                 onAdd={add}
                 onOpen={openCard}
-              />
-            )}
-
-            {view === "recommend" && (
-              <RecommendationsPanel
-                commander={commander}
-                deckCards={deckCards}
-                profile={profile}
-                report={report}
-                checking={checking}
-                analysis={analysis}
-                colors={analysis.colors}
-                combos={deckCombos}
-                odds={odds}
-                missing={result?.missing ?? {}}
-                inDeck={inDeck}
-                onAdd={add}
-                onOpen={openCard}
-                onWalk={(combo) => {
-                  setWalkId(combo.id);
-                  setView("network");
-                }}
               />
             )}
 
@@ -593,14 +658,18 @@ function Tile({
   );
 }
 
-function ImportBox({
+/** Paste a list (or a deck code) to start the deck, add to it, or replace it. */
+export function ImportBox({
   hasDeck,
   onReplace,
   onAdd,
+  addOnly = false,
 }: {
   hasDeck: boolean;
-  onReplace: (cards: ReturnType<typeof parseDeckList>) => void;
-  onAdd: (cards: ReturnType<typeof parseDeckList>) => void;
+  onReplace: (cards: DeckCard[], commander?: string) => void;
+  onAdd: (cards: DeckCard[]) => void;
+  /** Only adding (a saved deck's page): no replacing the whole deck. */
+  addOnly?: boolean;
 }) {
   const id = useId();
   const [text, setText] = useState("");
@@ -613,7 +682,7 @@ function ImportBox({
         setMessage("That deck code looks damaged. Copy it again from where you got it.");
         return;
       }
-      if (mode === "replace") loadWholeDeck(shared.cards, shared.commander);
+      if (mode === "replace") onReplace(shared.cards, shared.commander);
       else onAdd(shared.cards);
       const total = shared.cards.reduce((sum, c) => sum + c.qty, 0);
       setMessage(`${mode === "replace" ? "Loaded" : "Added"} ${shared.name ? `“${shared.name}”, ` : ""}${formatCount(total)} ${total === 1 ? "card" : "cards"}.`);
@@ -625,7 +694,8 @@ function ImportBox({
       setMessage("No card names found. Put one card per line, like “1 Sol Ring”.");
       return;
     }
-    (mode === "replace" ? onReplace : onAdd)(cards);
+    if (mode === "replace") onReplace(cards);
+    else onAdd(cards);
     const total = cards.reduce((sum, c) => sum + c.qty, 0);
     setMessage(`${mode === "replace" ? "Imported" : "Added"} ${formatCount(total)} ${total === 1 ? "card" : "cards"}.`);
     setText("");
@@ -633,12 +703,12 @@ function ImportBox({
 
   return (
     <details open={!hasDeck} className="rounded-xl border border-line">
-      <summary className="cursor-pointer px-4 py-3 font-medium">{hasDeck ? "Import another list" : "Paste a deck list"}</summary>
+      <summary className="cursor-pointer px-4 py-3 font-medium">{addOnly ? "Add cards to this deck" : hasDeck ? "Import another list" : "Paste a deck list"}</summary>
       <form
         className="flex flex-col gap-3 px-4 pb-4"
         onSubmit={(e) => {
           e.preventDefault();
-          void submit(hasDeck ? "add" : "replace");
+          void submit(hasDeck || addOnly ? "add" : "replace");
         }}
       >
         <label htmlFor={id} className="text-sm text-muted">
@@ -654,18 +724,16 @@ function ImportBox({
           className="w-full rounded-lg border border-line-strong bg-background p-3 font-mono text-sm outline-none focus:border-accent/60 focus:ring-4 focus:ring-accent/15"
         />
         <div className="flex flex-wrap items-center gap-3">
-          {hasDeck ? (
+          {hasDeck || addOnly ? (
             <>
               <button type="submit" className="btn btn-primary h-10 px-4 text-sm">
                 Add to deck
               </button>
-              <button
-                type="button"
-                onClick={() => void submit("replace")}
-                className="btn btn-secondary h-10 px-4 text-sm"
-              >
-                Replace deck
-              </button>
+              {!addOnly && (
+                <button type="button" onClick={() => void submit("replace")} className="btn btn-secondary h-10 px-4 text-sm">
+                  Replace deck
+                </button>
+              )}
             </>
           ) : (
             <button type="submit" className="btn btn-primary h-10 px-4 text-sm">

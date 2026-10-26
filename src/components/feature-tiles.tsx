@@ -36,7 +36,7 @@ export function FeatureTiles() {
         : "Start from any commander",
     binder: binder.cards.length > 0 ? plural(binder.cards.length, "card") : "Import your collection",
     decks: decks.length > 0 ? `${plural(decks.length, "deck")} saved` : "No decks yet",
-    synergy: "Beta",
+    synergy: "Paste a list",
     market: "Surging cards, in pesos",
     shopping: toBuy > 0 ? `${plural(toBuy, "card")} to buy` : "Your list is empty",
   };

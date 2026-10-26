@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CardDetails, Combo } from "@/lib/types";
-import { builderRecommendations, fitsIdentity, recommendLands, splitBasics, type BuilderCandidate } from "./plan";
+import { builderRecommendations, fitsIdentity, predictedAverage, recommendLands, splitBasics, type BuilderCandidate } from "./plan";
 
 const card = (name: string, typeLine: string, oracleText: string, extra: Partial<CardDetails> = {}): CardDetails => ({
   name,
@@ -14,17 +14,19 @@ const card = (name: string, typeLine: string, oracleText: string, extra: Partial
 });
 
 describe("recommendLands", () => {
-  it("starts from EDHREC's average and takes one off for high brackets", () => {
-    expect(recommendLands({ average: 36.4, commanderCmc: 3, bracket: 3, commander: "Lathril" })).toMatchObject({ count: 36 });
-    const fast = recommendLands({ average: 36.4, commanderCmc: 3, bracket: 4, commander: "Lathril" });
-    expect(fast.count).toBe(35);
-    expect(fast.why).toMatch(/Lathril decks on EDHREC run 36/);
+  it("follows the curve: 38 at mid-range, fewer for a low curve, more for a high one", () => {
+    expect(recommendLands({})).toMatchObject({ count: 38 });
+    expect(recommendLands({ curveAverage: 3.3 }).count).toBe(38);
+    expect(recommendLands({ curveAverage: 2.4 }).count).toBe(34);
+    expect(recommendLands({ curveAverage: 4.5 }).count).toBe(40);
+    expect(recommendLands({ curveAverage: 2.4 }).why).toMatch(/2.4 mana/);
   });
 
-  it("falls back to 36, nudged by the commander's cost, and stays in range", () => {
-    expect(recommendLands({ commanderCmc: 7, bracket: 2, commander: "X" }).count).toBe(37);
-    expect(recommendLands({ commanderCmc: 1, bracket: 2, commander: "X" }).count).toBe(35);
-    expect(recommendLands({ average: 50, commanderCmc: 3, bracket: 2, commander: "X" }).count).toBe(42);
+  it("predicts the curve from the commander's most-played cards on EDHREC", () => {
+    const spell = (cmc: number, inclusion: number) => ({ card: card(`Card ${cmc}-${inclusion}`, "Instant", "", { cmc }), inclusion });
+    const cards = [...Array.from({ length: 12 }, (_, i) => spell(2, 0.9 - i * 0.01)), spell(9, 0.01)];
+    expect(predictedAverage(cards, 12)).toBe(2);
+    expect(predictedAverage(cards.slice(0, 3))).toBeUndefined();
   });
 });
 
@@ -87,10 +89,17 @@ describe("builderRecommendations", () => {
   });
 
   it("puts owned cards ahead when asked", () => {
-    const ramp = run(3).ramp.map((p) => p.card.name);
-    expect(ramp.indexOf("Llanowar Elves")).toBeLessThan(ramp.indexOf("Elvish Mystic"));
-    const notPreferred = run(3, false).ramp.map((p) => p.card.name);
+    const curve = run(3).curve.map((p) => p.card.name);
+    expect(curve.indexOf("Llanowar Elves")).toBeLessThan(curve.indexOf("Elvish Mystic"));
+    const notPreferred = run(3, false).curve.map((p) => p.card.name);
     expect(notPreferred.indexOf("Elvish Mystic")).toBeLessThan(notPreferred.indexOf("Llanowar Elves"));
+  });
+
+  it("secures the curve with cheap ramp and card advantage, and plans the mana base by colors", () => {
+    const three = run(3);
+    expect(three.curve.map((p) => p.card.name)).toEqual(expect.arrayContaining(["Llanowar Elves", "Elvish Mystic"]));
+    expect(three.manaBase.colors).toBe(2);
+    expect(three.lands[0].reason).toBeDefined();
   });
 
   it("offers combo pieces the bracket allows, and lands and next picks", () => {

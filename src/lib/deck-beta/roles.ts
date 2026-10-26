@@ -1,53 +1,63 @@
-// Deck Synergy: what job each card does (ramp, card draw, removal...), read
-// from its rules text, and where that puts it in Quadrant Theory, a way of
-// rating cards by the part of the game they're good in:
-//   Developing: building up early (ramp, card draw, tutors)
-//   Behind: catching up to the table (removal, board wipes, lifegain, big creatures)
-//   Parity: breaking a board stalemate (one-sided wipes, anthems, evasion)
-//   Ahead: closing out a game you're winning (counterspells, protection, finishers)
-// The more quadrants a card fits, the better. These are heuristics, not rules.
+// What job each card does (ramp, card advantage, removal...), read from its
+// rules text, and which parts of the deckbuilding template it fills. The
+// template (The Command Zone's) for a 100-card Commander deck:
+//   38 lands, 10–12 ramp, 12 card advantage, 12 targeted disruption,
+//   6 mass disruption, and about 30 cards for the deck's plan (its enablers,
+//   payoffs and enhancers).
+// The categories add up to more than 99 on purpose: the best cards fill
+// several at once (a creature that ramps and draws), which is what makes them
+// flexible. These are heuristics read from rules text, not rules.
 import type { CardDetails } from "@/lib/types";
 import { tutorTarget } from "./combos";
+import { manaCurve, type CurveReport } from "./curve";
 
 export type Role =
   | "ramp"
   | "draw"
   | "tutor"
   | "removal"
+  | "counter"
   | "wipe"
   | "onesidedwipe"
-  | "lifegain"
-  | "bigbody"
-  | "anthem"
-  | "evasion"
-  | "counter"
+  | "fog"
+  | "tax"
   | "protection"
-  | "finisher";
+  | "finisher"
+  | "enhancer";
 
-export type Quadrant = "developing" | "behind" | "parity" | "ahead";
-export const QUADRANTS: Quadrant[] = ["developing", "behind", "parity", "ahead"];
-
-export const QUADRANT_INFO: Record<Quadrant, { label: string; question: string; examples: string }> = {
-  developing: { label: "Developing", question: "Good while everyone is building up?", examples: "Ramp, card draw, tutors" },
-  behind: { label: "Behind", question: "Good when you're catching up to the table?", examples: "Removal, board wipes, lifegain, big blockers" },
-  parity: { label: "Parity", question: "Good at breaking a stalemate on the board?", examples: "One-sided wipes, anthems, evasion" },
-  ahead: { label: "Ahead", question: "Good at closing out a game you're winning?", examples: "Counterspells, protection, finishers" },
+export const ROLE_LABEL: Record<Role, string> = {
+  ramp: "Ramp",
+  draw: "Card advantage",
+  tutor: "Tutor",
+  removal: "Removal",
+  counter: "Counterspell",
+  wipe: "Board wipe",
+  onesidedwipe: "One-sided wipe",
+  fog: "Fog",
+  tax: "Tax",
+  protection: "Protection",
+  finisher: "Finisher",
+  enhancer: "Enhancer",
 };
 
-export const ROLE_INFO: Record<Role, { label: string; quadrant: Quadrant }> = {
-  ramp: { label: "Ramp", quadrant: "developing" },
-  draw: { label: "Card draw", quadrant: "developing" },
-  tutor: { label: "Tutor", quadrant: "developing" },
-  removal: { label: "Removal", quadrant: "behind" },
-  wipe: { label: "Board wipe", quadrant: "behind" },
-  lifegain: { label: "Lifegain", quadrant: "behind" },
-  bigbody: { label: "Big creature", quadrant: "behind" },
-  onesidedwipe: { label: "One-sided wipe", quadrant: "parity" },
-  anthem: { label: "Anthem", quadrant: "parity" },
-  evasion: { label: "Evasion", quadrant: "parity" },
-  counter: { label: "Counterspell", quadrant: "ahead" },
-  protection: { label: "Protection", quadrant: "ahead" },
-  finisher: { label: "Finisher", quadrant: "ahead" },
+/** The template's categories (lands are counted on their own). */
+export type Category = "ramp" | "advantage" | "targeted" | "mass" | "plan";
+export const CATEGORIES: Category[] = ["ramp", "advantage", "targeted", "mass", "plan"];
+
+export const CATEGORY_INFO: Record<Category, { label: string; target: number; about: string }> = {
+  ramp: { label: "Ramp", target: 10, about: "Mana beyond a land a turn: 10 to 12, the cheap ones first." },
+  advantage: { label: "Card advantage", target: 12, about: "Cards that net you extra cards, not just selection." },
+  targeted: { label: "Targeted disruption", target: 12, about: "One-for-one removal and counterspells for the threat that matters." },
+  mass: { label: "Mass disruption", target: 6, about: "Board wipes, fogs and taxes that reset or slow the table." },
+  plan: { label: "Plan", target: 30, about: "What the deck does: enablers, payoffs and enhancers." },
+};
+
+/** The roles that put a card in each category. Plan cards also come from the deck's playstyle. */
+const CATEGORY_ROLES: Record<Exclude<Category, "plan">, Role[]> = {
+  ramp: ["ramp"],
+  advantage: ["draw"],
+  targeted: ["removal", "counter"],
+  mass: ["wipe", "onesidedwipe", "fog", "tax"],
 };
 
 /** The card's rules text, lower-cased, with its own name (and reminder text) taken out. */
@@ -68,9 +78,8 @@ export function cardRoles(card: CardDetails): Set<Role> {
   const type = card.typeLine.split(" // ")[0];
   if (/\bLand\b/.test(type)) return roles;
   const t = text(card);
-  const keywords = new Set(card.keywords.map((k) => k.toLowerCase()));
+  const spell = /\b(?:Instant|Sorcery)\b/.test(type);
 
-  // Developing
   if (
     has(
       t,
@@ -85,12 +94,27 @@ export function cardRoles(card: CardDetails): Set<Role> {
   ) {
     roles.add("ramp");
   }
-  if (has(t, /\bdraw (?:a|an|one|two|three|four|five|six|seven|x|that many) (?:additional )?cards?/, /\bdraw cards equal/, /exile the top [^.]*(?:you may play|you may cast)/)) {
+
+  // Card advantage nets cards: drawing two or more, drawing again and again, a
+  // permanent that draws as it arrives (a body and a card), or playing cards off
+  // the top. A spell that only draws one ("Draw a card" after a scry) just
+  // replaces itself, which is selection, not advantage.
+  if (
+    has(
+      t,
+      /\bdraws? (?:two|three|four|five|six|seven|x|that many) (?:additional )?cards?/,
+      /\bdraw cards equal/,
+      /\bdraws? (?:a|an|one) card for each\b/,
+      /(?:whenever|at the beginning of)[^.]*\bdraws? (?:a|an|one|an additional) card/,
+      /\}[^:.]*: [^.]*\bdraw (?:a|an|one) card/,
+      /exile the top [^.]*(?:you may play|you may cast)/,
+    ) ||
+    (!spell && /\bdraw (?:a|an|one) card/.test(t))
+  ) {
     roles.add("draw");
   }
   if (tutorTarget(card)) roles.add("tutor");
 
-  // Behind
   if (
     has(
       t,
@@ -109,6 +133,8 @@ export function cardRoles(card: CardDetails): Set<Role> {
   ) {
     roles.add("removal");
   }
+  if (/\bcounter target (?:spell|activated|triggered|noncreature|creature|instant|sorcery|artifact|enchantment)/.test(t)) roles.add("counter");
+
   const massRemoval = has(
     t,
     /\b(?:destroy|exile) all (?:other )?(?:creatures|nonland permanents|permanents|artifacts|enchantments|planeswalkers|nontoken)/,
@@ -126,33 +152,19 @@ export function cardRoles(card: CardDetails): Set<Role> {
   );
   if (oneSided) roles.add("onesidedwipe");
   else if (massRemoval) roles.add("wipe");
-  if (has(t, /\byou gain (?:\d+|x|that much|an amount of) life/, /\bgains? \d+ life\b/) || keywords.has("lifelink")) roles.add("lifegain");
-  if (/\bCreature\b/.test(type) && (Number(card.power) >= 6 || Number(card.toughness) >= 6)) roles.add("bigbody");
-
-  // Parity
+  if (/prevent all combat damage that would be dealt/.test(t)) roles.add("fog");
   if (
     has(
       t,
-      /creatures you control (?:gain [^.]*? and )?get \+(?:\d+|x)\/\+(?:\d+|x)/,
-      /put a \+1\/\+1 counter on each creature you control/,
+      /can't attack you(?: or (?:a )?planeswalkers? you control)? unless/,
+      /spells your opponents cast cost \{\d\} more/,
+      /creatures your opponents control enter (?:the battlefield )?tapped/,
+      /each opponent can't cast more than one spell each turn/,
     )
   ) {
-    roles.add("anthem");
-  }
-  if (
-    has(
-      t,
-      /creatures you control (?:gain|have) [^.]*\b(?:flying|trample|menace|shadow|fear|intimidate|horsemanship)\b/,
-      /creatures you control (?:gain|have) [^.]*can't be blocked/,
-      /\bcan't be blocked\b/,
-      /additional combat phase/,
-    )
-  ) {
-    roles.add("evasion");
+    roles.add("tax");
   }
 
-  // Ahead
-  if (/\bcounter target (?:spell|activated|triggered|noncreature|creature|instant|sorcery|artifact|enchantment)/.test(t)) roles.add("counter");
   if (
     has(
       t,
@@ -168,77 +180,69 @@ export function cardRoles(card: CardDetails): Set<Role> {
     roles.add("protection");
   }
   if (has(t, /each opponent loses (?:\d+|x|that much|half)/, /\byou win the game\b/, /target opponent loses the game/, /take an extra turn/)) roles.add("finisher");
+  // Force multipliers: doublers and extra triggers make the rest of the plan count twice.
+  if (has(t, /\btwice that many\b/, /\bdouble that damage\b/, /\bdouble the (?:number|amount|damage)\b/, /\btriggers? an additional time\b/)) {
+    roles.add("enhancer");
+  }
 
   return roles;
 }
 
-export function quadrantsOf(roles: Set<Role>): Set<Quadrant> {
-  return new Set([...roles].map((r) => ROLE_INFO[r].quadrant));
+/**
+ * The template categories a card fills. Finishers and enhancers are always part
+ * of the plan; `plan` adds the card to it when the deck's playstyle uses it.
+ */
+export function categoriesOf(roles: Set<Role>, plan = false): Category[] {
+  const out = (Object.entries(CATEGORY_ROLES) as [Category, Role[]][]).filter(([, r]) => r.some((role) => roles.has(role))).map(([c]) => c);
+  if (plan || roles.has("finisher") || roles.has("enhancer")) out.push("plan");
+  return out;
 }
-
-/** Rough guides for a 100-card Commander deck (lands aside), from common deckbuilding advice. */
-export const ROLE_TARGETS: Partial<Record<Role, number>> = {
-  ramp: 10,
-  draw: 10,
-  removal: 8,
-  wipe: 2,
-  protection: 3,
-};
-
-export const QUADRANT_TARGETS: Record<Quadrant, number> = { developing: 22, behind: 12, parity: 6, ahead: 5 };
 
 export interface DeckProfile {
   /** Cards doing each job (one entry per card, not per copy). */
   roles: Record<Role, string[]>;
-  quadrants: Record<Quadrant, string[]>;
-  /** Cards that fit two or more quadrants: the most flexible ones. */
-  flexible: string[];
-  /** Nonland cards that fit no quadrant. */
-  noQuadrant: string[];
-  /** One-sided and symmetrical wipes together, for the wipe target. */
-  wipes: number;
+  /** Cards in each template category. */
+  categories: Record<Category, string[]>;
+  /** Cards that fill two or more categories, and which: the flexible ones. */
+  flexible: { name: string; categories: Category[] }[];
+  /** Nonland cards that fill no category: the first places to look for cuts. */
+  unplaced: string[];
   lands: number;
-  /** The deck has blue, so counterspells are an option. */
-  blue: boolean;
+  /** The nonland cards' mana curve (the commander left out). */
+  curve: CurveReport;
 }
 
-export function deckProfile(cards: { card: CardDetails; qty: number }[], colors: string[]): DeckProfile {
-  const roles = Object.fromEntries(Object.keys(ROLE_INFO).map((r) => [r, [] as string[]])) as Record<Role, string[]>;
-  const quadrants = Object.fromEntries(QUADRANTS.map((q) => [q, [] as string[]])) as Record<Quadrant, string[]>;
-  const flexible: string[] = [];
-  const noQuadrant: string[] = [];
+export function deckProfile(
+  cards: { card: CardDetails; qty: number }[],
+  { commander, isPlan = () => false }: { commander?: string; isPlan?: (name: string) => boolean } = {},
+): DeckProfile {
+  const roles = Object.fromEntries(Object.keys(ROLE_LABEL).map((r) => [r, [] as string[]])) as Record<Role, string[]>;
+  const categories = Object.fromEntries(CATEGORIES.map((c) => [c, [] as string[]])) as Record<Category, string[]>;
+  const flexible: DeckProfile["flexible"] = [];
+  const unplaced: string[] = [];
   let lands = 0;
   for (const { card, qty } of cards) {
     if (/\bLand\b/.test(card.typeLine.split(" // ")[0])) {
       lands += qty;
       continue;
     }
+    if (card.name === commander) continue;
     const r = cardRoles(card);
     for (const role of r) roles[role].push(card.name);
-    const q = quadrantsOf(r);
-    for (const quadrant of q) quadrants[quadrant].push(card.name);
-    if (q.size >= 2) flexible.push(card.name);
-    if (q.size === 0) noQuadrant.push(card.name);
+    const c = categoriesOf(r, isPlan(card.name));
+    for (const category of c) categories[category].push(card.name);
+    if (c.length >= 2) flexible.push({ name: card.name, categories: c });
+    if (c.length === 0) unplaced.push(card.name);
   }
-  return { roles, quadrants, flexible, noQuadrant, wipes: roles.wipe.length + roles.onesidedwipe.length, lands, blue: colors.includes("U") };
+  return { roles, categories, flexible, unplaced, lands, curve: manaCurve(cards, commander) };
 }
 
-/** How many more of each job the deck could use, by the guides above. Zero when it has enough. */
-export function roleGaps(profile: DeckProfile): Partial<Record<Role, number>> {
-  const gaps: Partial<Record<Role, number>> = {};
-  for (const [role, target] of Object.entries(ROLE_TARGETS) as [Role, number][]) {
-    const have = role === "wipe" ? profile.wipes : profile.roles[role].length;
-    if (have < target) gaps[role] = target - have;
-  }
-  if (profile.blue && profile.roles.counter.length < 2) gaps.counter = 2 - profile.roles.counter.length;
-  return gaps;
-}
-
-export function quadrantGaps(profile: DeckProfile): Partial<Record<Quadrant, number>> {
-  const gaps: Partial<Record<Quadrant, number>> = {};
-  for (const q of QUADRANTS) {
-    const have = profile.quadrants[q].length;
-    if (have < QUADRANT_TARGETS[q]) gaps[q] = QUADRANT_TARGETS[q] - have;
+/** How many more of each category the deck could use, by the template. Zero when it has enough. */
+export function categoryGaps(profile: DeckProfile): Partial<Record<Category, number>> {
+  const gaps: Partial<Record<Category, number>> = {};
+  for (const c of CATEGORIES) {
+    const have = profile.categories[c].length;
+    if (have < CATEGORY_INFO[c].target) gaps[c] = CATEGORY_INFO[c].target - have;
   }
   return gaps;
 }

@@ -5,9 +5,10 @@ describe("transitionFor", () => {
   it("slides forward moving right along the nav, and back moving left", () => {
     expect(transitionFor("/", "/binder")).toBe("nav-forward");
     expect(transitionFor("/binder", "/shopping")).toBe("nav-forward");
-    expect(transitionFor("/deck", "/decks")).toBe("nav-back");
+    expect(transitionFor("/decks", "/deck")).toBe("nav-forward");
     expect(transitionFor("/shopping", "/")).toBe("nav-back");
-    expect(transitionFor("/deck", "/market")).toBe("nav-forward");
+    expect(transitionFor("/decks/abc123", "/market")).toBe("nav-forward");
+    expect(transitionFor("/decks", "/decks/abc123")).toBe("nav-forward");
     expect(transitionFor("/shopping", "/market")).toBe("nav-back");
   });
 

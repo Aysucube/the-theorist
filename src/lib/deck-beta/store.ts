@@ -8,7 +8,7 @@ import { createLocalStore, useHydrated } from "@/lib/local-store";
 import { mergeDeckLists } from "@/lib/saved-shape";
 import { fetchJsonWithRetry, sleep } from "@/lib/retry";
 import type { CardDetails } from "@/lib/types";
-import type { AnalysisResponse, BuilderResponse, CardsResponse, LandArtResponse, PairingsResponse, PlaystyleResponse, RulingsResponse } from "./api";
+import type { AnalysisResponse, BuilderResponse, CardsResponse, CommanderPlanResponse, LandArtResponse, PairingsResponse, PlaystyleResponse, RulingsResponse } from "./api";
 
 function isDeckCard(value: unknown): value is DeckCard {
   const card = value as DeckCard;
@@ -367,6 +367,16 @@ export function useBuilderData(commander: { name: string; layout: string } | und
   return url ? (remote.get(url) as RemoteState<BuilderResponse> | undefined) : undefined;
 }
 
+/** How a commander is built and played (EDHREC's playstyles, curve and articles), for its game plan. */
+export function useCommanderPlan(commander: { name: string; layout: string } | undefined): RemoteState<CommanderPlanResponse> | undefined {
+  useSyncExternalStore(subscribePairings, () => pairingsVersion, () => 0);
+  const url = commander ? `/api/deck-beta/commander-plan?${new URLSearchParams({ commander: commander.name, layout: commander.layout })}` : "";
+  useEffect(() => {
+    if (url) loadRemote<CommanderPlanResponse>(url, url, undefined, "EDHREC is busy");
+  }, [url]);
+  return url ? (remote.get(url) as RemoteState<CommanderPlanResponse> | undefined) : undefined;
+}
+
 /** Tries the builder's EDHREC lookup again after it failed. */
 export function retryBuilderData(commander: { name: string; layout: string }) {
   const url = `/api/deck-beta/builder?${new URLSearchParams({ commander: commander.name, layout: commander.layout })}`;
@@ -423,6 +433,69 @@ export function useDeckLibrary() {
       libraryStore.set([{ ...deck, name: deck.name.trim() || "Untitled deck", id, savedAt: Date.now() }, ...libraryStore.get()]);
       return id;
     },
+  };
+}
+
+/** What a deck view works on: the pasted deck (Check a Deck) or a saved one (My Decks). */
+export interface DeckSource {
+  deck: DeckCard[];
+  ready: boolean;
+  /** The chosen commander's name ("" for the first that fits). */
+  commander: string;
+  setCommander: (name: string) => void;
+  /** Adds one card, saving its details if we have them so it shows up at once. */
+  add: (card: CardDetails) => void;
+  remove: (name: string) => void;
+  /** Replaces the whole deck (with its commander, when a deck code names one). */
+  replace: (cards: DeckCard[], commander?: string) => void;
+  /** Adds pasted cards; a card already in the deck takes the pasted quantity. */
+  addList: (cards: DeckCard[]) => void;
+  clear: () => void;
+}
+
+/** The pasted deck on the Check a Deck page. */
+export function usePastedDeckSource(): DeckSource {
+  const beta = useBetaDeck();
+  const [commander, setCommander] = useChosenCommander();
+  return {
+    ...beta,
+    commander,
+    setCommander,
+    replace: (cards, chosen) => {
+      beta.replace(cards);
+      if (chosen !== undefined) setCommander(chosen);
+    },
+  };
+}
+
+/**
+ * A saved deck from My Decks, by id, with every change saved to it as it's
+ * made (and to the computer's copy of My Decks). saved is null when there's no
+ * such deck (or not yet, before the page has read the browser's storage).
+ */
+export function useSavedDeckSource(id: string): DeckSource & { saved: SavedDeck | null } {
+  const decks = libraryStore.useValue();
+  const ready = useHydrated();
+  const saved = decks.find((d) => d.id === id) ?? null;
+  const cardsNow = () => libraryStore.get().find((d) => d.id === id)?.cards ?? [];
+  const update = (patch: Partial<SavedDeck>) => libraryStore.set(libraryStore.get().map((d) => (d.id === id ? { ...d, ...patch } : d)));
+  return {
+    saved,
+    deck: saved?.cards ?? [],
+    ready,
+    commander: saved?.commander ?? "",
+    // A new commander means a new picture on My Decks.
+    setCommander: (name) => update({ commander: name, commanderImage: undefined }),
+    add: (card) => {
+      const current = cardsNow();
+      if (current.some((c) => detailsKey(c.name) === detailsKey(card.name)) || current.length >= MAX_DECK_CARDS) return;
+      detailsStore.set({ ...detailsStore.get(), [detailsKey(card.name)]: card });
+      update({ cards: [...current, { name: card.name, qty: 1 }] });
+    },
+    remove: (name) => update({ cards: removeCard(cardsNow(), name) }),
+    replace: (cards, chosen) => update({ cards: importCards([], cards), ...(chosen !== undefined ? { commander: chosen, commanderImage: undefined } : {}) }),
+    addList: (cards) => update({ cards: importCards(cardsNow(), cards) }),
+    clear: () => update({ cards: [] }),
   };
 }
 

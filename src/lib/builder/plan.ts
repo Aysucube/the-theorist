@@ -1,13 +1,17 @@
-// Create Commander Deck: the numbers a deck is built around — how many lands,
-// how the basics split across the colors, how many slots are left — and the
-// recommendations that grow with the deck: cards for the four quadrants and
-// any job it's short on, consistency, combos, playstyles, lands, and cards
-// from the binder. Kept free of React so it's easy to test.
+// Create Commander Deck: the numbers a deck is built around (how many lands,
+// how the basics split, how the commander's colors shape the mana base) and
+// the recommendations that grow with the deck, by the deckbuilding template:
+// cheap ramp and card advantage to secure the curve first, then whatever
+// category it's short of (card advantage, ramp, targeted and mass disruption,
+// its plan), flexible cards that fill several, combos, the playstyle, lands
+// for its colors, and cards from the binder. Kept free of React so it's easy to test.
 import type { PlaystyleCard } from "@/lib/deck-beta/api";
 import { comboBracket, isMassLandDenial, type Bracket } from "@/lib/deck-beta/bracket";
+import { landTarget } from "@/lib/deck-beta/curve";
 import { planUpgrades, scoreCandidate, type Candidate, type Pick, type UpgradePlan } from "@/lib/deck-beta/doctor";
+import { LAND_KIND_LABEL, landFit, landKind, manaBasePlan, type ManaBasePlan } from "@/lib/deck-beta/lands";
 import { cardKey } from "@/lib/deck-beta/recommend";
-import { deckProfile, quadrantGaps, roleGaps, type DeckProfile } from "@/lib/deck-beta/roles";
+import { categoryGaps, deckProfile, type Category, type DeckProfile } from "@/lib/deck-beta/roles";
 import { byImpact } from "@/lib/deck-beta/walkthrough";
 import type { CardDetails, Combo, DeckCombos } from "@/lib/types";
 
@@ -20,6 +24,8 @@ export const BASIC_FOR: Record<string, string> = { W: "Plains", U: "Island", B: 
 const ORDER = "WUBRG";
 /** How much owning a card counts when building from the binder: enough to beat a somewhat more popular card you'd have to buy. */
 const OWNED_BONUS = 0.6;
+/** Synergy at which an EDHREC card counts as part of the commander's plan. */
+const PLAN_SYNERGY = 0.15;
 
 const isLand = (card: Pick["card"]) => /\bLand\b/.test(card.typeLine.split(" // ")[0]);
 
@@ -29,41 +35,24 @@ export function fitsIdentity(card: { colorIdentity: string[] }, identity: string
 }
 
 /**
- * How many lands to run: EDHREC's average for the commander when it has one
- * (36 otherwise, a little more for an expensive commander), one fewer for
- * Brackets 4 and 5, whose decks lean on cheap mana and low curves.
+ * What a commander's deck will likely cost to cast before any card is picked:
+ * the average mana value of the nonland cards its decks on EDHREC play most.
  */
-export function recommendLands({
-  average,
-  commanderCmc,
-  bracket,
-  commander,
-}: {
-  average?: number;
-  commanderCmc: number;
-  bracket: Bracket;
-  commander: string;
-}): { count: number; why: string } {
-  const why: string[] = [];
-  let count: number;
-  if (average && average > 0) {
-    count = Math.round(average);
-    why.push(`${commander} decks on EDHREC run ${count} lands on average.`);
-  } else {
-    count = 36 + (commanderCmc >= 6 ? 1 : commanderCmc <= 2 ? -1 : 0);
-    why.push(
-      commanderCmc >= 6
-        ? "Most Commander decks run about 36 lands; an expensive commander wants one more."
-        : commanderCmc <= 2
-          ? "Most Commander decks run about 36 lands; a cheap commander can do with one fewer."
-          : "Most Commander decks run about 36 lands.",
-    );
-  }
-  if (bracket >= 4) {
-    count -= 1;
-    why.push(`Bracket ${bracket} decks lean on cheap mana rocks and lower curves, so one fewer.`);
-  }
-  return { count: Math.min(MAX_LANDS, Math.max(MIN_LANDS, count)), why: why.join(" ") };
+export function predictedAverage(candidates: { card: CardDetails; inclusion?: number }[], limit = 60): number | undefined {
+  const top = candidates
+    .filter((c) => !isLand(c.card) && c.inclusion !== undefined)
+    .sort((a, b) => (b.inclusion ?? 0) - (a.inclusion ?? 0))
+    .slice(0, limit);
+  return top.length >= 10 ? top.reduce((sum, c) => sum + c.card.cmc, 0) / top.length : undefined;
+}
+
+/**
+ * How many lands to run, by the curve: 38 for a mid-range deck, 33 to 35 for
+ * a low curve, 39 or 40 for a high one (see deck-beta/curve.ts).
+ */
+export function recommendLands({ curveAverage }: { curveAverage?: number }): { count: number; why: string } {
+  const { count, why } = landTarget(curveAverage);
+  return { count: Math.min(MAX_LANDS, Math.max(MIN_LANDS, count)), why };
 }
 
 /** How many colored mana symbols of each color the mana costs ask for (hybrid counts half to each). */
@@ -108,17 +97,19 @@ export interface BuilderCandidate extends Candidate {
 export interface BuilderPick extends Pick {
   ownedCopies: number;
   lists: string[];
-  /** A one-line reason, e.g. "Completes Infinite green mana". */
+  /** A one-line reason, e.g. "Completes Infinite green mana" or "Untapped dual". */
   reason?: string;
 }
 
 export interface BuilderGroups {
   /** The few cards that would help most right now. */
   next: BuilderPick[];
+  /** Cheap ramp and card advantage that keep the curve low. */
+  curve: BuilderPick[];
+  /** Cards that fill two or more template categories. */
   flexible: BuilderPick[];
-  consistency: BuilderPick[];
-  ramp: BuilderPick[];
-  quadrants: { quadrant: UpgradePlan["quadrants"][number]["quadrant"]; short: number; picks: BuilderPick[] }[];
+  /** Each category the deck is short of, with cards that fill it. */
+  categories: { category: Category; short: number; picks: BuilderPick[] }[];
   power: BuilderPick[];
   combos: { pick: BuilderPick; combo: Combo }[];
   playstyle: BuilderPick[];
@@ -137,20 +128,36 @@ export interface BuilderInput {
   /** The deck's combos (Commander Spellbook and EDHREC), once known. */
   combos?: DeckCombos | null;
   /** The chosen playstyle's cards from EDHREC, best first. */
-  playstyle?: PlaystyleCard[];
+  playstyle?: PlaystylePick[];
   /** Favour cards in the binder. */
   preferOwned: boolean;
+  /** The commander, left out of the curve. */
+  commander?: string;
+  /** The land count chosen, for the mana base plan. */
+  lands?: number;
   perGroup?: number;
 }
+type PlaystylePick = PlaystyleCard;
 
 /** Recommendations for the deck as it stands; they change as cards go in. */
-export function builderRecommendations(input: BuilderInput): BuilderGroups & { profile: DeckProfile } {
+export function builderRecommendations(input: BuilderInput): BuilderGroups & { profile: DeckProfile; manaBase: ManaBasePlan } {
   const { deck, identity, bracket, isGameChanger, combos, preferOwned, perGroup = 8 } = input;
-  const profile = deckProfile(deck, identity);
-  const inDeck = new Set(deck.map((d) => cardKey(d.card.name)));
-  const has = (name: string) => inDeck.has(cardKey(name));
   const candidates = input.candidates.filter((c) => fitsIdentity(c.card, identity)).map((c) => ({ ...c, owned: c.ownedCopies > 0 }));
   const byName = new Map(candidates.map((c) => [cardKey(c.card.name), c]));
+  const playstyleNames = new Set((input.playstyle ?? []).map((p) => cardKey(p.name)));
+  // The plan: the commander's high-synergy cards and the chosen playstyle's.
+  const isPlanCandidate = (c: Candidate) =>
+    (c.synergy ?? 0) >= PLAN_SYNERGY || playstyleNames.has(cardKey(c.card.name)) || (byName.get(cardKey(c.card.name))?.lists.includes("High Synergy Cards") ?? false);
+  const profile = deckProfile(deck, {
+    commander: input.commander,
+    isPlan: (name) => {
+      const c = byName.get(cardKey(name));
+      return c ? isPlanCandidate(c) : playstyleNames.has(cardKey(name));
+    },
+  });
+  const manaBase = manaBasePlan(identity.length, input.lands ?? profile.curve.lands.count);
+  const inDeck = new Set(deck.map((d) => cardKey(d.card.name)));
+  const has = (name: string) => inDeck.has(cardKey(name));
   const comboLimit = bracket <= 2 ? 2 : bracket === 3 ? 3 : 5;
 
   // Cards that would complete a combo, by the bracket of the strongest one.
@@ -167,15 +174,18 @@ export function builderRecommendations(input: BuilderInput): BuilderGroups & { p
     gameChangersInDeck: deck.filter((d) => isGameChanger(d.card.name)).length,
     completes: (n: string) => completes.get(cardKey(n)),
     ownedBonus: preferOwned ? OWNED_BONUS : 0,
+    isPlan: isPlanCandidate,
+    curve: profile.curve,
     perGroup,
   };
   const asPick = (p: Pick): BuilderPick => {
     const c = byName.get(cardKey(p.card.name));
     return { ...p, ownedCopies: c?.ownedCopies ?? 0, lists: c?.lists ?? [] };
   };
-  const plan = planUpgrades(profile, roleGaps(profile), quadrantGaps(profile), candidates, has, options);
+  const plan = planUpgrades(profile, candidates, has, options);
   const tooStrong = new Set(plan.leftOut.map((l) => cardKey(l.pick.card.name)));
-  const score = (c: BuilderCandidate) => asPick(scoreCandidate(c, roleGaps(profile), options));
+  const gaps = categoryGaps(profile);
+  const score = (c: BuilderCandidate) => asPick(scoreCandidate(c, gaps, options));
   const ownedFirst = (a: BuilderPick, b: BuilderPick) => Number(b.ownedCopies > 0) - Number(a.ownedCopies > 0) || b.score - a.score;
 
   // Combos a card away that the bracket allows, EDHREC's for the commander first.
@@ -199,18 +209,26 @@ export function builderRecommendations(input: BuilderInput): BuilderGroups & { p
     .sort(ownedFirst)
     .slice(0, perGroup);
 
-  // Lands beyond the basics: EDHREC's for the commander and any in the binder.
+  // Lands beyond the basics, rated for the commander's colors: untapped fixing
+  // up in more colors, utility lands up in fewer, always-tapped lands down.
   const lands = candidates
     .filter((c) => isLand(c.card) && !has(c.card.name) && !/\bBasic\b/.test(c.card.typeLine) && !(bracket <= 3 && isMassLandDenial(c.card)))
-    .map((c) => ({ ...score(c), score: (c.inclusion ?? 0) + Math.max(0, c.synergy ?? 0) }))
-    .sort(ownedFirst)
+    .map((c) => {
+      const kind = landKind(c.card) ?? "other";
+      return {
+        ...score(c),
+        score: (c.inclusion ?? 0) + Math.max(0, c.synergy ?? 0) + landFit(kind, identity.length),
+        reason: LAND_KIND_LABEL[kind],
+      };
+    })
+    .sort(preferOwned ? ownedFirst : (a, b) => b.score - a.score)
     .slice(0, perGroup);
 
   // Cards from the binder that do a job, whether or not EDHREC lists them.
   const binder = candidates
     .filter((c) => c.ownedCopies > 0 && !has(c.card.name) && !isLand(c.card) && !tooStrong.has(cardKey(c.card.name)))
     .map(score)
-    .filter((p) => p.roles.length > 0)
+    .filter((p) => p.categories.length > 0)
     .sort((a, b) => b.score - a.score)
     .slice(0, perGroup * 2);
 
@@ -220,19 +238,17 @@ export function builderRecommendations(input: BuilderInput): BuilderGroups & { p
     return preferOwned ? out.map((p, i) => ({ p, i })).sort((a, b) => Number(b.p.ownedCopies > 0) - Number(a.p.ownedCopies > 0) || a.i - b.i).map(({ p }) => p) : out;
   };
   const groups = {
+    curve: arrange(plan.curve),
     flexible: arrange(plan.flexible),
-    consistency: arrange(plan.consistency),
-    ramp: arrange(plan.ramp),
-    quadrants: plan.quadrants.map((g) => ({ ...g, picks: arrange(g.picks) })),
+    categories: plan.categories.map((g) => ({ ...g, picks: arrange(g.picks) })),
     power: arrange(plan.power),
   };
-  // Next: the best of the worst gaps first, then consistency, ramp and flexible picks.
+  // Next: secure the curve, then the worst gaps, flexible picks and a combo.
   const next: BuilderPick[] = [];
   const seen = new Set<string>();
   for (const pick of [
-    ...groups.quadrants.flatMap((g) => g.picks.slice(0, 2)),
-    ...groups.consistency.slice(0, 2),
-    ...groups.ramp.slice(0, 2),
+    ...groups.curve.slice(0, 2),
+    ...groups.categories.flatMap((g) => g.picks.slice(0, 1)),
     ...groups.flexible.slice(0, 2),
     ...combosGroup.slice(0, 1).map((g) => g.pick),
   ]) {
@@ -243,5 +259,5 @@ export function builderRecommendations(input: BuilderInput): BuilderGroups & { p
   }
   if (preferOwned) next.sort((a, b) => Number(b.ownedCopies > 0) - Number(a.ownedCopies > 0));
 
-  return { ...groups, next, combos: combosGroup, playstyle, lands, binder, leftOut: plan.leftOut, profile };
+  return { ...groups, next, combos: combosGroup, playstyle, lands, binder, leftOut: plan.leftOut, profile, manaBase };
 }

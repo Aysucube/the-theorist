@@ -1,8 +1,8 @@
 "use client";
 
 import { motion } from "motion/react";
-import { QUADRANT_COLORS } from "@/components/deck-beta/recommendations-panel";
-import { ROLE_INFO, type Role } from "@/lib/deck-beta/roles";
+import { FlexTag } from "@/components/deck-beta/template-bits";
+import type { Category } from "@/lib/deck-beta/roles";
 import type { CardDetails } from "@/lib/types";
 import { useHoverPreview } from "../card-link";
 import { LazyCardImage } from "../deck-beta/lazy-card-image";
@@ -19,14 +19,15 @@ const STAGGER_LIMIT = 12;
 export function BuildCard({
   card,
   ownedCopies,
-  roles = [],
+  categories = [],
   reason,
   index,
   onAdd,
 }: {
   card: CardDetails;
   ownedCopies: number;
-  roles?: Role[];
+  /** The template categories it fills; two or more earn it the flexibility tag. */
+  categories?: Category[];
   reason?: string;
   index: number;
   onAdd: (card: CardDetails) => void;
@@ -72,14 +73,9 @@ export function BuildCard({
           {owned ? `In your binder${ownedCopies > 1 ? ` ×${ownedCopies}` : ""}` : "Not owned"}
           {reason && <span className="text-muted"> · {reason}</span>}
         </p>
-        {roles.length > 0 && (
-          <p className="mt-1 flex flex-wrap gap-1">
-            {roles.slice(0, 3).map((r) => (
-              <span key={r} className="inline-flex items-center gap-1 text-[10.5px] text-muted">
-                <span aria-hidden className="size-1.5 rounded-full" style={{ background: QUADRANT_COLORS[ROLE_INFO[r].quadrant] }} />
-                {ROLE_INFO[r].label}
-              </span>
-            ))}
+        {categories.length >= 2 && (
+          <p className="mt-1">
+            <FlexTag categories={categories} compact />
           </p>
         )}
       </div>

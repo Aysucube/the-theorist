@@ -5,13 +5,14 @@
 
 export type TransitionType = "nav-forward" | "nav-back" | "nav-fade";
 
-/** The sections in nav order. A card page sits under the front page. */
-const SECTIONS = ["/", "/binder", "/decks", "/deck", "/market", "/shopping"];
+/** The sections in nav order. A card page sits under the front page; Check a Deck (/deck) under My Decks. */
+const SECTIONS = ["/", "/binder", "/decks", "/market", "/shopping"];
 
 function place(path: string): { section: number; depth: number } {
   const clean = path.replace(/[?#].*$/, "").replace(/\/+$/, "") || "/";
   if (clean === "/") return { section: 0, depth: 0 };
   const parts = clean.split("/").filter(Boolean);
+  if (parts[0] === "deck") return { section: SECTIONS.indexOf("/decks"), depth: parts.length };
   const section = SECTIONS.indexOf(`/${parts[0]}`);
   // Anything outside the sections (a card, an unknown page) counts as one step below the front page.
   return section < 0 ? { section: 0, depth: parts.length } : { section, depth: parts.length - 1 };

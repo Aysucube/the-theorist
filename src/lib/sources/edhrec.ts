@@ -49,7 +49,11 @@ export interface RawPage {
   /** Names of cards EDHREC considers similar (e.g. other mana rocks for Sol Ring). */
   similar?: unknown[];
   /** On commander pages: the playstyles (themes) its decks are built around, most decks first. */
-  panels?: { taglinks?: { value?: string; slug?: string; count?: number }[] };
+  panels?: {
+    taglinks?: { value?: string; slug?: string; count?: number }[];
+    /** On commander pages: its average deck's spells by mana value, e.g. { "1": 8, "2": 18 }. */
+    mana_curve?: Record<string, number>;
+  };
   container?: {
     json_dict?: {
       card?: {
@@ -218,6 +222,13 @@ export function parseCommanderStats(page: RawPage, path: string): EdhrecCommande
         }
       : undefined;
 
+  // The average deck's spells by mana value, and their average cost.
+  const curve = Object.entries(page.panels?.mana_curve ?? {}).flatMap(([cmc, count]) =>
+    /^\d+$/.test(cmc) && typeof count === "number" && count > 0 ? [{ cmc: Number(cmc), count }] : [],
+  );
+  const spells = curve.reduce((sum, c) => sum + c.count, 0);
+  const curveAverage = spells > 0 ? curve.reduce((sum, c) => sum + c.cmc * c.count, 0) / spells : undefined;
+
   return {
     url: `${SITE}/${path}`,
     numDecks: dict.card.num_decks ?? 0,
@@ -226,6 +237,7 @@ export function parseCommanderStats(page: RawPage, path: string): EdhrecCommande
     themes,
     averages,
     bracketCounts: page.bracket_counts && typeof page.bracket_counts === "object" ? page.bracket_counts : undefined,
+    curveAverage,
   };
 }
 

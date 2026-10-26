@@ -1,4 +1,5 @@
 // What the deck beta's API routes return.
+import type { EdhrecArticle } from "@/lib/sources/edhrec-articles";
 import type { CardDetails, DeckCombos, EdhrecDeckAverages, EdhrecPairing, EdhrecTheme, Ruling, SpellbookBracket } from "@/lib/types";
 
 /** POST /api/deck-beta/cards */
@@ -90,6 +91,23 @@ export type BuilderResponse =
       themes: EdhrecTheme[];
       averages?: EdhrecDeckAverages;
       bracketCounts?: Record<string, number>;
+      /** The average mana value of its decks' spells. */
+      curveAverage?: number;
+      /** EDHREC articles about the commander, for how it's played. */
+      articles?: EdhrecArticle[];
       cards: BuilderCard[];
       details: Record<string, CardDetails>;
+    };
+
+/** GET /api/deck-beta/commander-plan: how a commander is built and played, for its game plan. */
+export type CommanderPlanResponse =
+  | { found: false }
+  | {
+      found: true;
+      url: string;
+      numDecks: number;
+      themes: EdhrecTheme[];
+      averages?: EdhrecDeckAverages;
+      curveAverage?: number;
+      articles: EdhrecArticle[];
     };

@@ -2,21 +2,24 @@
 
 import { AnimatePresence } from "motion/react";
 import { useEffect, useId, useState } from "react";
-import { QUADRANT_COLORS } from "@/components/deck-beta/recommendations-panel";
+import { CATEGORY_COLORS } from "@/components/deck-beta/template-bits";
 import type { BuilderGroups, BuilderPick } from "@/lib/builder/plan";
 import { useCardDetails } from "@/lib/binder/card-cache";
-import { QUADRANT_INFO } from "@/lib/deck-beta/roles";
+import { CATEGORY_INFO } from "@/lib/deck-beta/roles";
 import { fetchJsonWithRetry } from "@/lib/retry";
 import type { CardDetails } from "@/lib/types";
 import { TabBar } from "../theme/tabs";
 import { BuildCard } from "./build-card";
 
-const TABS = ["Next up", "Quadrants", "Consistency", "Combos", "Playstyle", "Lands", "Binder", "Search"] as const;
+const TABS = ["Next up", "Curve", "Template", "Flexible", "Combos", "Playstyle", "Lands", "Binder", "Search"] as const;
 type Tab = (typeof TABS)[number];
 
 /**
- * 5. Build: recommendations for the deck as it stands, grouped by what they'd
- * do for it. Adding a card sends it into the deck and the groups re-rank.
+ * 5. Build: recommendations for the deck as it stands, by the deckbuilding
+ * template: the curve first (cheap ramp and card advantage), then what the
+ * template says it's short of, flexible cards that fill several categories,
+ * combos, the playstyle, lands for its colors and cards from the binder.
+ * Adding a card sends it into the deck and the groups re-rank.
  */
 export function BuildStep({
   groups,
@@ -29,6 +32,8 @@ export function BuildStep({
   bracket,
   onPickTheme,
   has,
+  curveAdvice,
+  landAdvice,
 }: {
   groups: BuilderGroups;
   ownedFor: (name: string) => number;
@@ -41,9 +46,15 @@ export function BuildStep({
   onPickTheme: () => void;
   /** In the deck already. */
   has: (name: string) => boolean;
+  /** What the curve needs, in a line. */
+  curveAdvice: string;
+  /** What lands the commander's colors want, in a line. */
+  landAdvice: string;
 }) {
   const [tab, setTab] = useState<Tab>("Next up");
   const counts: Partial<Record<Tab, number>> = {
+    Curve: groups.curve.length,
+    Flexible: groups.flexible.length,
     Combos: groups.combos.length,
     Playstyle: groups.playstyle.length,
     Lands: groups.lands.length,
@@ -80,7 +91,13 @@ export function BuildStep({
       <div key={tab} className="reveal-fast flex flex-col gap-6">
         {tab === "Next up" && (
           <>
-            <Group title="Next up" note="The cards that would help the deck most right now: its biggest gaps first." picks={groups.next} ownedFor={ownedFor} onAdd={onAdd} />
+            <Group
+              title="Next up"
+              note="The cards that would help most right now: cheap ramp and card advantage for the curve, then the template’s biggest gaps."
+              picks={groups.next}
+              ownedFor={ownedFor}
+              onAdd={onAdd}
+            />
             <Group
               title={bracket >= 4 ? "Stronger cards" : "Game Changers you have room for"}
               note={bracket >= 4 ? "Game Changers, tutors, fast mana and free spells." : "Bracket 3 allows up to three."}
@@ -90,28 +107,41 @@ export function BuildStep({
             />
           </>
         )}
-        {tab === "Quadrants" && (
+        {tab === "Curve" && (
+          <Group
+            title="Secure the curve"
+            note={`Cheap ramp (2 mana or less) and card advantage (3 or less): something to cast early, and two spells a turn soon after. ${curveAdvice}`}
+            picks={groups.curve}
+            ownedFor={ownedFor}
+            onAdd={onAdd}
+            empty="The curve is covered for now."
+          />
+        )}
+        {tab === "Template" && (
           <>
-            <Group title="Flexible" note="Cards that fit two or more quadrants: good in more of your games." picks={groups.flexible} ownedFor={ownedFor} onAdd={onAdd} />
-            {groups.quadrants.map((g) => (
+            {groups.categories.map((g) => (
               <Group
-                key={g.quadrant}
-                title={`${QUADRANT_INFO[g.quadrant].label} · ${g.short} short`}
-                dot={QUADRANT_COLORS[g.quadrant]}
-                note={`${QUADRANT_INFO[g.quadrant].question} ${QUADRANT_INFO[g.quadrant].examples}.`}
+                key={g.category}
+                title={`${CATEGORY_INFO[g.category].label} · ${g.short} short`}
+                dot={CATEGORY_COLORS[g.category]}
+                note={`${CATEGORY_INFO[g.category].about} Flexible and cheaper cards first.`}
                 picks={g.picks}
                 ownedFor={ownedFor}
                 onAdd={onAdd}
               />
             ))}
-            {groups.quadrants.length === 0 && <p className="text-sm text-muted">Every quadrant is covered.</p>}
+            {groups.categories.length === 0 && <p className="text-sm text-muted">Every part of the template is filled.</p>}
           </>
         )}
-        {tab === "Consistency" && (
-          <>
-            <Group title="Card draw and tutors" note="See more of your deck and find the card you need." picks={groups.consistency} ownedFor={ownedFor} onAdd={onAdd} />
-            <Group title="Ramp" note="Get ahead on mana: about ten is a good start." picks={groups.ramp} ownedFor={ownedFor} onAdd={onAdd} />
-          </>
+        {tab === "Flexible" && (
+          <Group
+            title="Flexible"
+            note="Cards that fill two or more template categories, most first: one slot doing two jobs."
+            picks={groups.flexible}
+            ownedFor={ownedFor}
+            onAdd={onAdd}
+            empty="No flexible picks left for now."
+          />
         )}
         {tab === "Combos" && (
           <Group
@@ -136,7 +166,13 @@ export function BuildStep({
             </p>
           ))}
         {tab === "Lands" && (
-          <Group title="Lands" note="Lands beyond the basics: EDHREC’s for the commander and any in your binder. Basics fill the rest." picks={groups.lands} ownedFor={ownedFor} onAdd={onAdd} />
+          <Group
+            title="Lands"
+            note={`${landAdvice} Lands that always enter tapped rank down; basics fill the rest.`}
+            picks={groups.lands}
+            ownedFor={ownedFor}
+            onAdd={onAdd}
+          />
         )}
         {tab === "Binder" && (
           <Group
@@ -185,7 +221,7 @@ function Group({
         <ul className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 xl:grid-cols-4">
           <AnimatePresence mode="popLayout" initial={false}>
             {picks.map((p, i) => (
-              <BuildCard key={p.card.name} card={p.card} ownedCopies={ownedFor(p.card.name)} roles={p.roles} reason={p.reason} index={i} onAdd={onAdd} />
+              <BuildCard key={p.card.name} card={p.card} ownedCopies={ownedFor(p.card.name)} categories={p.categories} reason={p.reason} index={i} onAdd={onAdd} />
             ))}
           </AnimatePresence>
         </ul>

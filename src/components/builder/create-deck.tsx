@@ -8,7 +8,11 @@ import { useBinder } from "@/lib/binder/store";
 import { rememberDetails, useCardDetails } from "@/lib/binder/card-cache";
 import { isBasicLandName } from "@/lib/binder/collection";
 import { STEPS, useBuilderDraft } from "@/lib/builder/draft";
-import { builderRecommendations, fitsIdentity, recommendLands, splitBasics, type BuilderCandidate } from "@/lib/builder/plan";
+import { builderRecommendations, fitsIdentity, predictedAverage, recommendLands, splitBasics, type BuilderCandidate } from "@/lib/builder/plan";
+import { commanderGamePlan } from "@/lib/deck-beta/game-plan";
+import { manaBasePlan } from "@/lib/deck-beta/lands";
+import { cardTraits, subtypeVocabulary } from "@/lib/deck-beta/synergy";
+import { curveAdvice } from "../deck-beta/template-bits";
 import { bracketLabel, estimateDeckBracket } from "@/lib/deck-beta/bracket";
 import { cardKey } from "@/lib/deck-beta/recommend";
 import { retryBuilderData, useBuilderData, useDeckAnalysis, useDeckLibrary, usePlaystyle } from "@/lib/deck-beta/store";
@@ -76,7 +80,8 @@ export function CreateDeck() {
     const timer = window.setTimeout(() => setSettled(deckKey), ANALYSIS_SETTLE_MS);
     return () => window.clearTimeout(timer);
   }, [deckKey]);
-  const analysis = useDeckAnalysis(draft.step >= 4 ? commanderRef : undefined, settled ? settled.split("\n") : []);
+  // Only once the deck has cards: an empty deck has no combos to find.
+  const analysis = useDeckAnalysis(draft.step >= 4 && settled ? commanderRef : undefined, settled ? settled.split("\n") : []);
   const analysisResult = analysis?.state === "done" ? analysis.result : undefined;
   useEffect(() => {
     if (analysisResult) rememberDetails(Object.values(analysisResult.missing));
@@ -90,13 +95,6 @@ export function CreateDeck() {
   const isLand = (c: CardDetails) => /\bLand\b/.test(c.typeLine.split(" // ")[0]);
   const nonbasicLands = deckCards.filter(isLand).length;
   const spells = deckCards.length - nonbasicLands;
-
-  const recommended = draft.commander && draft.bracket
-    ? recommendLands({ average: data?.averages?.lands, commanderCmc: draft.commander.cmc, bracket: draft.bracket, commander: draft.commander.name })
-    : undefined;
-  const lands = draft.lands ?? recommended?.count ?? 36;
-  const basics = Math.max(0, lands - nonbasicLands);
-  const spellTarget = 99 - lands;
 
   const candidates = useMemo(() => {
     const out: BuilderCandidate[] = [];
@@ -120,6 +118,28 @@ export function CreateDeck() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, binder.cards, analysisResult, status.state, identityKey]);
 
+  // Lands by the curve: EDHREC's decks for the commander, or (until a deck has
+  // spells) the curve of the cards those decks play most.
+  const expectedCurve = useMemo(() => data?.curveAverage ?? predictedAverage(candidates), [data, candidates]);
+  const recommended = draft.commander && draft.bracket ? recommendLands({ curveAverage: expectedCurve }) : undefined;
+  const lands = draft.lands ?? recommended?.count ?? 38;
+  const basics = Math.max(0, lands - nonbasicLands);
+  const spellTarget = 99 - lands;
+  const manaBase = manaBasePlan(identity.length, lands);
+
+  // The commander's game plan: what it does and wants, read like the deck's cards, with how EDHREC's decks build it.
+  // Cheap to work out, so it isn't memoized (the commander's details come from a cache).
+  const gamePlan = commanderCard
+    ? commanderGamePlan({
+        commander: commanderCard,
+        traits: cardTraits(commanderCard, subtypeVocabulary([commanderCard, ...candidates.slice(0, 120).map((x) => x.card)])),
+        themes: data?.themes,
+        numDecks: data?.numDecks,
+        averages: data?.averages,
+        curveAverage: data?.curveAverage,
+      })
+    : undefined;
+
   const plan = useMemo(() => {
     if (!draft.bracket || deck.length === 0) return null;
     return builderRecommendations({
@@ -131,10 +151,12 @@ export function CreateDeck() {
       combos: analysisResult?.combos,
       playstyle: themeCards,
       preferOwned: draft.preferOwned,
+      commander: commanderName,
+      lands,
     });
     // The deck key and the inputs above capture what the plan depends on.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [candidates, deckKey, commanderCard, draft.bracket, analysisResult, themeCards, draft.preferOwned, gameChangers]);
+  }, [candidates, deckKey, commanderCard, draft.bracket, analysisResult, themeCards, draft.preferOwned, gameChangers, lands]);
 
   const report = useMemo(
     () =>
@@ -265,6 +287,7 @@ export function CreateDeck() {
                       onTheme={(theme, themeName) => update({ theme, themeName })}
                       preferOwned={draft.preferOwned}
                       onPreferOwned={(preferOwned) => update({ preferOwned })}
+                      plan={gamePlan}
                     />
                   )}
                   {step === 3 && recommended && (
@@ -276,6 +299,7 @@ export function CreateDeck() {
                       colors={identity}
                       nonbasicLands={nonbasicLands}
                       manaCosts={deckCards.map((c) => c.manaCost ?? "")}
+                      manaBase={manaBase}
                     />
                   )}
                   {step === 4 &&
@@ -291,6 +315,8 @@ export function CreateDeck() {
                         bracket={draft.bracket ?? 3}
                         onPickTheme={() => go(2)}
                         has={(name) => deckCards.some((c) => cardKey(c.name) === cardKey(name)) || cardKey(name) === cardKey(commanderName ?? "")}
+                        curveAdvice={curveAdvice(plan.profile.curve)}
+                        landAdvice={plan.manaBase.advice}
                       />
                     ) : (
                       <p className="flex items-center gap-2 text-sm text-muted">

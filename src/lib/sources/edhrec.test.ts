@@ -218,6 +218,12 @@ describe("commander deck averages", () => {
     expect(stats.averages).toMatchObject({ lands: 36, basics: 13, nonbasics: 23, creatures: 24 });
     expect(Object.keys(stats.bracketCounts ?? {})).toEqual(["1", "2", "3", "4", "5"]);
   });
+
+  it("averages the mana value of its average deck's spells", () => {
+    const stats = parseCommanderStats(atraxa(), "commanders/atraxa-praetors-voice")!;
+    // 1 zero, 8 ones, 18 twos, 16 threes, 10 fours, 6 fives, 3 sixes, 1 seven: 187 mana over 63 spells.
+    expect(stats.curveAverage).toBeCloseTo(187 / 63, 5);
+  });
 });
 
 describe("commander combos", () => {

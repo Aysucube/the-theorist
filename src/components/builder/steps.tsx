@@ -13,7 +13,10 @@ import { useCardDetails } from "@/lib/binder/card-cache";
 import { fetchJsonWithRetry } from "@/lib/retry";
 import type { CardDetails } from "@/lib/types";
 import { formatCount, formatPercent } from "@/lib/format";
+import type { GamePlan } from "@/lib/deck-beta/game-plan";
+import type { ManaBasePlan } from "@/lib/deck-beta/lands";
 import { LazyCardImage } from "../deck-beta/lazy-card-image";
+import { GamePlanCard } from "../deck-beta/template-bits";
 import { GameChangerTag } from "../game-changer-tag";
 import { ColorIdentity, Pip } from "../mana";
 import { Meter } from "./deck-rail";
@@ -293,6 +296,7 @@ export function SynergyStep({
   onTheme,
   preferOwned,
   onPreferOwned,
+  plan,
 }: {
   commander: DraftCommander;
   data: Found | null;
@@ -304,6 +308,8 @@ export function SynergyStep({
   onTheme: (slug: string, name?: string) => void;
   preferOwned: boolean;
   onPreferOwned: (value: boolean) => void;
+  /** The commander's game plan, once its card and EDHREC's data are in. */
+  plan?: GamePlan;
 }) {
   const ranked = useMemo(() => {
     if (!data) return null;
@@ -337,6 +343,7 @@ export function SynergyStep({
 
   return (
     <div className="flex flex-col gap-10">
+      {plan && <GamePlanCard plan={plan} articles={data.articles} edhrecUrl={data.url} />}
       <dl className="grid grid-cols-3 gap-6 border-y border-line py-6">
         <Stat label="Decks on EDHREC" value={data.numDecks} />
         <Stat label="Cards they play" value={data.cards.length} />
@@ -428,6 +435,7 @@ export function LandsStep({
   colors,
   nonbasicLands,
   manaCosts,
+  manaBase,
 }: {
   recommended: number;
   why: string;
@@ -436,6 +444,8 @@ export function LandsStep({
   colors: string[];
   nonbasicLands: number;
   manaCosts: string[];
+  /** How the commander's colors shape the lands. */
+  manaBase: ManaBasePlan;
 }) {
   const id = useId();
   const basics = Math.max(0, lands - nonbasicLands);
@@ -467,12 +477,21 @@ export function LandsStep({
           max={MAX_LANDS}
           value={lands}
           onChange={(e) => onLands(Number(e.target.value))}
-          className="w-full accent-foreground"
+          className="w-full accent-accent"
         />
         <div className="mt-1 flex justify-between text-[11px] text-muted tabular-nums">
           <span>{MIN_LANDS}</span>
           <span>{MAX_LANDS}</span>
         </div>
+      </div>
+      <div className="flex flex-col gap-2 rounded-xl border border-line bg-surface p-4">
+        <p className="eyebrow">Your mana base</p>
+        <p className="text-sm">{manaBase.advice}</p>
+        <p className="text-sm text-muted tabular-nums">
+          About {manaBase.basics} basics and {manaBase.nonbasics} other lands: {colors.length >= 2 ? "untapped duals, fetches and fixing" : "utility lands"}
+          {manaBase.utilityRoom > 0 && `, with room for ${manaBase.utilityRoom} utility ${manaBase.utilityRoom === 1 ? "land" : "lands"}`}. Avoid lands that
+          always enter tapped: a basic is often better. Acceleration at 2 mana or less beats three-mana rocks.
+        </p>
       </div>
       <div className="flex flex-col gap-3">
         <p className="eyebrow">Basics, by the colors your cards ask for</p>

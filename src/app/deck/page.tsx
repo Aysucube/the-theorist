@@ -3,7 +3,7 @@ import { DeckBeta } from "@/components/deck-beta/deck-beta";
 import { PageTransition } from "@/components/theme/page-transition";
 
 export const metadata: Metadata = {
-  title: "Deck Synergy (beta)",
+  title: "Check a Deck",
 };
 
 // The beta deck is stored in the visitor's browser, so everything renders on the client.

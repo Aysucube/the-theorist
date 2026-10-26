@@ -4,9 +4,9 @@ import NumberFlow from "@number-flow/react";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 import { BRACKET_STYLE } from "@/components/deck-beta/bracket-badge";
-import { QUADRANT_COLORS } from "@/components/deck-beta/recommendations-panel";
+import { CATEGORY_COLORS, CurveChart } from "@/components/deck-beta/template-bits";
 import { bracketLabel, type BracketReport } from "@/lib/deck-beta/bracket";
-import { QUADRANT_INFO, QUADRANT_TARGETS, QUADRANTS, ROLE_TARGETS, type DeckProfile } from "@/lib/deck-beta/roles";
+import { CATEGORIES, CATEGORY_INFO, type DeckProfile } from "@/lib/deck-beta/roles";
 import { parseTypeLine } from "@/lib/deck-beta/synergy";
 import { DECK_SIZE } from "@/lib/builder/plan";
 import type { DraftCommander } from "@/lib/builder/draft";
@@ -95,31 +95,29 @@ export function DeckRail({
 
         {profile && (
           <div className="flex flex-col gap-2.5">
-            <p className="eyebrow">Quadrants</p>
-            {QUADRANTS.map((q) => (
-              <div key={q} className="grid grid-cols-[5.5rem_1fr_2rem] items-center gap-2 text-xs">
-                <span className="text-muted">{QUADRANT_INFO[q].label}</span>
-                <Meter value={profile.quadrants[q].length / QUADRANT_TARGETS[q]} color={QUADRANT_COLORS[q]} />
-                <span className="text-right tabular-nums">{profile.quadrants[q].length}</span>
-              </div>
-            ))}
-            <p className="eyebrow mt-2">Jobs</p>
-            {(
-              [
-                ["Ramp", profile.roles.ramp.length, ROLE_TARGETS.ramp!],
-                ["Card draw", profile.roles.draw.length, ROLE_TARGETS.draw!],
-                ["Removal", profile.roles.removal.length, ROLE_TARGETS.removal!],
-                ["Wipes", profile.wipes, ROLE_TARGETS.wipe!],
-                ["Protection", profile.roles.protection.length, ROLE_TARGETS.protection!],
-              ] as const
-            ).map(([label, have, target]) => (
-              <div key={label} className="flex items-baseline justify-between text-xs">
-                <span className="text-muted">{label}</span>
-                <span className={`tabular-nums ${have >= target ? "text-foreground" : "text-muted"}`}>
-                  {have} / {target}
+            <p className="eyebrow">The template</p>
+            {CATEGORIES.map((c) => (
+              <div key={c} className="grid grid-cols-[7.5rem_1fr_2.5rem] items-center gap-2 text-xs" title={CATEGORY_INFO[c].about}>
+                <span className="truncate text-muted">{CATEGORY_INFO[c].label}</span>
+                <Meter value={profile.categories[c].length / CATEGORY_INFO[c].target} color={CATEGORY_COLORS[c]} />
+                <span className="text-right tabular-nums">
+                  {profile.categories[c].length}
+                  <span className="text-muted">/{CATEGORY_INFO[c].target}</span>
                 </span>
               </div>
             ))}
+            {profile.flexible.length > 0 && (
+              <p className="text-xs text-muted">
+                <span className="font-medium text-accent tabular-nums">{profile.flexible.length}</span> flexible{" "}
+                {profile.flexible.length === 1 ? "card fills" : "cards fill"} two or more
+              </p>
+            )}
+            <p className="eyebrow mt-3">Mana curve</p>
+            <CurveChart curve={profile.curve} compact />
+            <p className="text-xs text-muted tabular-nums">
+              {profile.curve.spells ? `Average ${profile.curve.average.toFixed(1)} · ` : ""}
+              {profile.curve.early}/{profile.curve.earlyTarget} plays at 2 or less
+            </p>
           </div>
         )}
 

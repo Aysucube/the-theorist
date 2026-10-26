@@ -23,27 +23,55 @@ export) or upload a CSV from a collection app such as ManaBox, Deckbox or Dragon
 with a name column and a count column works. Add to what's there or replace it, change counts
 card by card, and filter by color, type or commanders.
 
+### How decks are judged
+
+Decks are built and judged by one set of rules, drawn from deckbuilding guides (The Command
+Zone's template and videos on mana curves and mana bases):
+
+- **The template** for a 100-card deck: 10 to 12 **ramp**, 12 **card advantage** (cards that net
+  extra cards, not just selection), 12 **targeted disruption** (removal and counterspells), 6 **mass
+  disruption** (board wipes, fogs, taxes) and about 30 cards for its **plan** (enablers, payoffs and
+  enhancers for what the deck does). The categories add up to more than 99 on purpose: the best
+  cards fill two at once, and those carry a **Flexible** tag (the only tag cards get).
+- **The mana curve**: spells by mana value against a low, wide curve (about 3 mana on average, 4
+  in 10 spells at 2 or less), so there's something to cast every turn from the start and two
+  spells a turn soon after. Upgrades put **cheap ramp and card advantage first** to secure it, and
+  expensive cards that do no job are suggested as cuts.
+- **Lands by the curve**: 38 for a mid-range deck, 33 to 35 for a low curve, 39 or 40 for a high
+  one.
+- **The mana base by colors**: mostly basics and room for 8 to 10 utility lands in one color;
+  untapped duals, fetches and a couple of bounce lands in two; more fixing, triomes and lands that
+  tap for any color in three or more. Lands that always enter tapped rank down (a basic is often
+  better), and ramp at 2 mana or less beats three-mana rocks.
+- **The commander's game plan**: what it rewards and makes (a payoff wants enablers, an enabler
+  wants payoffs, one that's both wants protecting), how players build it (its most popular
+  playstyles on EDHREC, with their share of decks, and its decks' curve and creature count), what
+  the 99 should hold, and **EDHREC's articles about it** (deck techs, budget builds, upgrade
+  guides) for more.
+
 **Create Commander Deck** builds a deck from the binder, one step at a time:
 
 1. **Commander**: every commander in your binder, filtered by color (including, exactly or within
    those colors) or by name, or any commander at all if you'd rather.
 2. **Bracket**: the bracket you're building for (1 to 5), with how EDHREC's decks for the
    commander split across them.
-3. **Synergies**: EDHREC's cards for the commander, highest synergy and new cards first, and its
-   playstyles to lean into. Cards you don't own are grayed out throughout.
-4. **Lands**: how many to run, from EDHREC's average for the commander (one fewer for Brackets 4
-   and 5), and how the basics split across the colors by the deck's mana symbols.
-5. **Build**: recommendations that change with every card you add: the cards that help most right
-   now, each of Quadrant Theory's four quadrants, consistency (card draw, tutors, ramp), combos a
-   card away that fit the bracket, the chosen playstyle, nonbasic lands and cards from your binder,
-   your own cards first if you like. The deck comes together beside it: its commander, a count to
-   100, quadrant and job meters, its bracket, and the newest cards on a stack.
+3. **Synergies**: the commander's **game plan**, then EDHREC's cards for it, highest synergy and new
+   cards first, and its playstyles to lean into. Cards you don't own are grayed out throughout.
+4. **Lands**: how many to run by the curve of the commander's decks on EDHREC, the mana base its
+   colors want, and how the basics split across the colors by the deck's mana symbols.
+5. **Build**: recommendations that change with every card you add: **Next up**, the **Curve**
+   (cheap ramp and card advantage), the **Template** categories it's short of, **Flexible** cards,
+   combos a card away that fit the bracket, the chosen playstyle, lands for its colors and cards
+   from your binder, your own cards first if you like. The deck comes together beside it: its
+   commander, a count to 100, the template's meters, its mana curve, its bracket, and the newest
+   cards on a stack.
 6. **Finish**: name it and save it. Basic lands fill the rest of the mana base.
 
 A deck in progress is saved as you go, so you can leave and continue later. Saved decks go to
 **My Decks**, each shown by its commander with its name and how many cards you'd need to buy.
-Click one to open it in Deck Synergy; right-click it (or use its ⋯ button) to add **only the cards
-missing from your binder** to Shopping, copy it, or delete it.
+**Click one to open its page**: everything below, for that deck, with every change saved to it.
+Right-click it (or use its ⋯ button) to add **only the cards missing from your binder** to
+Shopping, copy it, or delete it.
 
 **Where the binder is saved.** The binder and My Decks are kept in your browser and, when you
 open The Theorist from its launcher (or `npm run dev`), in files on your computer too
@@ -55,56 +83,42 @@ lost. The binder page says where it's saved, and **Download a backup** saves it 
 import box reads back. If the browser's storage fills up, rebuildable caches are cleared first so
 the binder still fits.
 
-**Deck Synergy (beta)** is a separate, early test. Paste a deck and pick its commander. Beside the
-title it shows the deck's **Commander Bracket**, such as "Bracket 2 nearing 3": worked out from its
-Game Changers, mass land denial, extra turns and combos (rated by Commander Spellbook), following
-Wizards of the Coast's October 2025 bracket rules. Click it for the reasons.
+### A deck's page
 
-- **Network**: the deck as an animated network, with the commander in the middle as its card
-  turning in 3D, over a dimmed land in the commander's colors (a basic land for one color, the
-  original dual for two, such as Savannah for green-white, and one of its duals for three or more).
-  The deck's playstyles (Elves, Tokens, Aristocrats...) sit around it, every card linked to the playstyles it
-  feeds or rewards, and combos running as coloured chains through their pieces. Cards that would
-  complete a combo (infinite ones and the ones EDHREC lists for the commander first, even two or
-  three cards away) sit outside as shaded nodes you can add. Click a combo
-  to zoom onto it and walk through how it works, step by step, with each step's cards lit up.
-  Select, drag and zoom (buttons or Ctrl + scroll) to explore. **3D sphere** turns the map into a
-  Dyson sphere in plain space: the commander's card is the star at the center, each playstyle a
-  station on the shell with the cards that feed it gathered round it, cards that would complete a
-  combo just outside, and cards that link to nothing orbiting further out like planets (unlinked
-  lands make an asteroid belt). Drag to turn it.
-- **Recommendations**: built from what the deck already has and the bracket you want it in. Pick
-  a bracket (1 to 5) and it says what to cut to get down to it (Game Changers over the limit, land
-  denial, extra turns that could chain, combos to break) or how much room there is to grow, and
-  every upgrade below fits that bracket: lower brackets favour synergy and flexible cards, higher
-  ones Game Changers, tutors, fast mana and free spells. Cards left out for being too strong are
-  listed with the reason. Its cards are also sorted into Quadrant
-  Theory's four stages of a game (Developing: ramp, card draw, tutors; Behind: removal, wipes,
-  lifegain, big creatures; Parity: one-sided wipes, anthems, evasion; Ahead: counterspells,
-  protection, finishers), with the cards that fit several quadrants picked out. Then meters for
-  lands, ramp, card draw, tutors, removal, wipes and protection against common deckbuilding
-  guides; upgrades from EDHREC's decks for the commander that fill the gaps (flexible picks that
-  fit two or more quadrants first, then consistency, ramp, each short quadrant, and Game
-  Changers there's room for); combos a card away that fit the bracket; and the cards doing the
-  least, as places to cut. Roles are read from rules text, so they're a guide.
+Each deck in My Decks has its own page. Beside its name it shows the deck's **Commander Bracket**,
+such as "Bracket 2 nearing 3": worked out from its Game Changers, mass land denial, extra turns and
+combos (rated by Commander Spellbook), following Wizards of the Coast's October 2025 bracket rules.
+
+- **Overview**: the commander's game plan and how many of the deck's cards serve it; the template's
+  meters (open one for its cards); the mana curve; the mana base (basics, other lands, utility
+  lands, lands that enter tapped, slow rocks); the most flexible cards; the bracket, with what it
+  takes to reach the one you pick; then upgrades from EDHREC's decks for the commander that fit
+  that bracket (securing the curve first, then each category it's short of, flexible picks,
+  stronger cards for higher brackets and lands for its colors); combos a card away; and cuts for a
+  lower curve. Read from rules text and EDHREC's data, so treat it as a guide.
+- **Synergies**: the deck as an animated network, with the commander in the middle as its card
+  turning in 3D, over a dimmed land in the commander's colors. The deck's playstyles (Elves,
+  Tokens, Aristocrats...) sit around it, every card linked to the playstyles it feeds or rewards,
+  and combos running as coloured chains through their pieces. Cards that would complete a combo
+  sit outside as shaded nodes you can add. Click a combo to walk through how it works, step by
+  step. **3D sphere** turns the map into a Dyson sphere: the commander is the star at the center,
+  each playstyle a station on the shell, and cards that link to nothing orbit further out.
 - **Combos**: the combos the deck has and the ones a card away (from
   [Commander Spellbook](https://commanderspellbook.com)), plus the combos EDHREC lists for the
-  commander that need two or more cards, each with its steps and an add button for every missing
-  card, and how
-  consistently the deck assembles one: the chance of holding every piece by turns 4 to 10,
-  with tutors counted, from shuffling the deck 4,000 times.
+  commander, each with its steps and an add button for every missing card, and how consistently
+  the deck assembles one, from shuffling the deck 4,000 times.
 - **Playstyle**: what the deck is built around now, and, for any of the commander's playstyles
   on EDHREC, the highest-synergy cards to add and the deck's cards those decks rarely play.
-- **Cards**: a gallery. Click a card for what it interacts with; double-click it (or click it
-  in the network) for its own animated network of synergies and combos with your commander,
-  its rulings and recommendations.
+- **Cards**: a gallery. Click a card for what it interacts with; double-click it for its own
+  network of synergies and combos with your commander, its rulings and recommendations.
 
-Under **Saved decks and sharing**, save decks in the browser and load them back, or copy the
-deck as a code (`TT1.…`, the whole deck and its commander in one line), a link, or a plain list
-for Moxfield and Archidekt. Paste a code into "Paste a deck list" on any copy of The Theorist to
-load it. Codes are made and read in the browser; no deck is sent to a server to share it.
+**Check a Deck** (My Decks → "Check a pasted list") does all of this for any pasted list without
+saving it. Under **Saved decks and sharing** there, save it to My Decks, or copy the deck as a code
+(`TT1.…`, the whole deck and its commander in one line), a link, or a plain list for Moxfield and
+Archidekt. Paste a code into "Paste a deck list" on any copy of The Theorist to load it. Codes are
+made and read in the browser; no deck is sent to a server to share it.
 
-It keeps its own deck. **Add to Shopping** puts only the cards you don't own into the Shopping list,
+On a deck's page, **Add to Shopping** puts only the cards you don't own into the Shopping list,
 so you can price them in Philippine stores: copies in your binder are taken off (own 1 of a card the
 deck runs 2 of, and 1 goes on the list), and basic lands are left out unless you ask. Nothing else
 changes the Shopping list.
@@ -269,18 +283,20 @@ same pages their own websites use, so the app is built to stay a light, polite v
   HTTP 429 the app stops calling Scryfall for 30 seconds.
 - Each visitor is rate limited (`src/proxy.ts`): 60 card pages per minute,
   120 search suggestions per minute, 350 price checks per 10 minutes.
-- Commander Spellbook is asked twice per deck analysis (Deck Synergy: its combos and its bracket
+- Commander Spellbook is asked twice per deck analysis (a deck's page: its combos and its bracket
   estimate), cached for a day, plus once per combo EDHREC lists for the commander that Spellbook's
   search didn't return (up to 20, for their steps), cached for a week.
 - Create Commander Deck reads the same EDHREC commander page as everything else (cached for a
   day). Card details for a binder are asked for 150 cards at a time and kept in the browser, so
   each card is looked up once.
+- A commander's game plan adds one search of EDHREC's articles for its name, cached for days; its
+  playstyles and curve come from the EDHREC page already read for it.
 - The exchange rate is one request to Frankfurter (or ExchangeRate-API), cached for hours. Full set
   names come from Scryfall's set list, one request cached for days.
 - PH deals checks prices through the same one-card-at-a-time queue as "Check ₱", and only while
   it's switched on.
 - The Game Changers list comes from one Scryfall search, cached for a day on the server and in
-  each browser. The land art behind Deck Synergy's networks is one Scryfall search per land, cached
+  each browser. The land art behind the synergy networks is one Scryfall search per land, cached
   for a day, and its artist is credited on the page.
 - Every request names the app in its User-Agent and gives up after 10 seconds (45 for
   Commander Spellbook, which works through every combo in a deck).

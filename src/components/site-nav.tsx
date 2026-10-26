@@ -1,10 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLayoutEffect, useRef, type ComponentType, type SVGProps } from "react";
 import { useDeck } from "@/lib/use-deck";
 import { AppLink } from "./app-link";
-import { BinderIcon, DecksIcon, HomeIcon, MarketIcon, SearchIcon, ShoppingIcon, SynergyIcon } from "./theme/icons";
+import { BinderIcon, DecksIcon, HomeIcon, MarketIcon, SearchIcon, ShoppingIcon } from "./theme/icons";
 import { Sigil } from "./theme/sigil";
 
 type Section = { href: string; label: string; Icon: ComponentType<SVGProps<SVGSVGElement>> };
@@ -12,7 +13,6 @@ type Section = { href: string; label: string; Icon: ComponentType<SVGProps<SVGSV
 const SECTIONS: Section[] = [
   { href: "/binder", label: "Binder", Icon: BinderIcon },
   { href: "/decks", label: "Decks", Icon: DecksIcon },
-  { href: "/deck", label: "Synergy", Icon: SynergyIcon },
   { href: "/market", label: "Market", Icon: MarketIcon },
   { href: "/shopping", label: "Shopping", Icon: ShoppingIcon },
 ];
@@ -29,7 +29,10 @@ export function SiteNav() {
   const { deck, ready } = useDeck();
   const shopping = ready ? deck.reduce((sum, c) => sum + c.qty, 0) : 0;
   const active = (href: string) =>
-    href === "/" ? pathname === "/" || pathname.startsWith("/card") : href === "/deck" ? pathname === "/deck" : pathname === href || pathname.startsWith(`${href}/`);
+    href === "/"
+      ? pathname === "/" || pathname.startsWith("/card")
+      : // Check a Deck (/deck) is part of Decks.
+        pathname === href || pathname.startsWith(`${href}/`) || (href === "/decks" && pathname === "/deck");
 
   return (
     <>
@@ -58,7 +61,7 @@ export function SiteNav() {
         style={{ viewTransitionName: "site-tabbar" }}
         className="fixed inset-x-0 bottom-0 z-40 border-t border-line/80 bg-background/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl sm:hidden"
       >
-        <ul className="grid grid-cols-6">
+        <ul className="grid grid-cols-5">
           {TABBAR.map(({ href, label, Icon }) => {
             const on = active(href);
             return (
@@ -147,5 +150,30 @@ function Count({ n, className = "" }: { n: number; className?: string }) {
       {n}
       <span className="sr-only"> cards</span>
     </span>
+  );
+}
+
+/**
+ * The header while the current page isn't known yet (a deck's page streams it
+ * in, since its address has the deck's id): the same bar, with nothing lit.
+ */
+export function SiteNavFallback() {
+  return (
+    <header className="sticky top-0 z-40 border-b border-line/70 bg-background/80 backdrop-blur-xl backdrop-saturate-150">
+      <div className="mx-auto flex h-14 w-full max-w-5xl items-center justify-between gap-4 px-4 sm:px-6">
+        <Link href="/" className="flex items-center gap-2.5 text-sm font-semibold tracking-tight">
+          <Sigil className="size-7 text-accent" />
+          The Theorist
+        </Link>
+        <div className="hidden items-center gap-1 text-sm sm:flex">
+          {SECTIONS.map(({ href, label, Icon }) => (
+            <Link key={href} href={href} className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-muted">
+              <Icon className="size-4" />
+              {label}
+            </Link>
+          ))}
+        </div>
+      </div>
+    </header>
   );
 }

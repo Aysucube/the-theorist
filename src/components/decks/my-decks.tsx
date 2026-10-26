@@ -4,18 +4,19 @@ import { ContextMenu } from "@base-ui/react/context-menu";
 import { Menu } from "@base-ui/react/menu";
 import { motion, MotionConfig } from "motion/react";
 import { useSearchParams } from "next/navigation";
-import type { ReactNode } from "react";
+import { ViewTransition, type ReactNode } from "react";
 import { toast } from "sonner";
 import { useCardDetails } from "@/lib/binder/card-cache";
 import { missingFromBinder, ownedCounts } from "@/lib/binder/collection";
 import { useBinder } from "@/lib/binder/store";
 import { useBuilderDraft } from "@/lib/builder/draft";
 import { deckToText, encodeDeck } from "@/lib/deck-beta/deck-code";
-import { loadWholeDeck, useDeckLibrary, type SavedDeck } from "@/lib/deck-beta/store";
+import { useDeckLibrary, type SavedDeck } from "@/lib/deck-beta/store";
 import { formatCount } from "@/lib/format";
 import { useDeck } from "@/lib/use-deck";
 import { AppLink as Link, useAppRouter } from "../app-link";
 import { RetryingImage } from "../retrying-image";
+import { deckArtName } from "./deck-page";
 
 const savedDate = new Intl.DateTimeFormat("en-PH", { dateStyle: "medium" });
 
@@ -62,7 +63,7 @@ export function MyDecks() {
         { label: `Add ${formatCount(copies(missing))} missing to Shopping`, onClick: () => addToShopping(missing), disabled: missing.length === 0 },
         { label: "Add missing, with basic lands", onClick: () => addToShopping(missingWithBasics), disabled: missingWithBasics.length === missing.length },
         "separator" as const,
-        { label: "Open in Deck Synergy", onClick: () => open(deck) },
+        { label: "Open deck", onClick: () => open(deck) },
         { label: "Copy deck code", onClick: async () => copy(await encodeDeck(deck), "deck code") },
         { label: "Copy as a list", onClick: () => copy(deckToText(deck), "list") },
         "separator" as const,
@@ -78,8 +79,7 @@ export function MyDecks() {
   };
 
   function open(deck: SavedDeck) {
-    loadWholeDeck(deck.cards, deck.commander);
-    router.push("/deck");
+    router.push(`/decks/${deck.id}`);
   }
 
   return (
@@ -120,18 +120,21 @@ export function MyDecks() {
                     <button
                       type="button"
                       onClick={() => open(deck)}
-                      aria-label={`${deck.name}: open in Deck Synergy. Right-click for more.`}
+                      aria-label={`${deck.name}: open its game plan, curve, synergies and combos. Right-click for more.`}
                       className="block w-full text-left"
                     />
                   }
                 >
-                  <span
-                    className={`block aspect-[488/680] overflow-hidden rounded-[4.75%] bg-subtle shadow-[0_10px_30px_-14px_rgb(0_0_0/0.5)] transition-transform duration-200 ease-out group-hover:-translate-y-0.5 ${
-                      deck.id === fresh ? "ring-2 ring-accent ring-offset-4 ring-offset-background" : ""
-                    }`}
-                  >
-                    {image && <RetryingImage url={image} alt={deck.commander ?? deck.name} />}
-                  </span>
+                  {/* The commander's picture morphs into the deck page's header. */}
+                  <ViewTransition name={deckArtName(deck.id)} share="morph" default="none">
+                    <span
+                      className={`block aspect-[488/680] overflow-hidden rounded-[4.75%] bg-subtle shadow-[0_10px_30px_-14px_rgb(0_0_0/0.5)] transition-transform duration-200 ease-out group-hover:-translate-y-0.5 ${
+                        deck.id === fresh ? "ring-2 ring-accent ring-offset-4 ring-offset-background" : ""
+                      }`}
+                    >
+                      {image && <RetryingImage url={image} alt={deck.commander ?? deck.name} />}
+                    </span>
+                  </ViewTransition>
                   <span className="mt-3 block truncate text-[15px] font-medium tracking-tight">{deck.name}</span>
                   <span className="mt-0.5 block truncate text-xs text-muted">
                     {[`${formatCount(total)} cards`, deck.bracket ? `Bracket ${deck.bracket}` : null, savedDate.format(deck.savedAt)].filter(Boolean).join(" · ")}

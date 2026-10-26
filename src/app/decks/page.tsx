@@ -17,11 +17,16 @@ export default function DecksPage() {
         <PageHeader
           feature="decks"
           eyebrow="Your decks"
-          description="Right-click a deck to add only the cards you’re missing to Shopping."
+          description="Click a deck for its game plan, mana curve, synergies and combos. Right-click it to add only the cards you’re missing to Shopping."
           actions={
-            <Link href="/decks/new" className="btn btn-primary btn-lg">
-              Create Commander Deck
-            </Link>
+            <>
+              <Link href="/deck" className="btn btn-secondary btn-lg">
+                Check a pasted list
+              </Link>
+              <Link href="/decks/new" className="btn btn-primary btn-lg">
+                Create Commander Deck
+              </Link>
+            </>
           }
         />
         <Suspense fallback={<p className="text-muted">Loading your decks…</p>}>

@@ -1,8 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import type { CSSProperties } from "react";
+import { Suspense, type CSSProperties } from "react";
 import { Toaster } from "sonner";
-import { SiteNav } from "@/components/site-nav";
+import { SiteNav, SiteNavFallback } from "@/components/site-nav";
 import { Backdrop } from "@/components/theme/backdrop";
 import { CastEffects } from "@/components/theme/cast-effects";
 import "./globals.css";
@@ -42,7 +42,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       {/* On phones the tab bar sits along the bottom, so the page keeps clear of it. */}
       <body className="flex min-h-full flex-col overflow-x-clip pb-[calc(4rem+env(safe-area-inset-bottom))] font-sans sm:pb-0">
         <Backdrop />
-        <SiteNav />
+        {/* The nav lights the current page; on a deck's page (its id in the address) that's known only at request time. */}
+        <Suspense fallback={<SiteNavFallback />}>
+          <SiteNav />
+        </Suspense>
         {children}
         <CastEffects />
         <Toaster

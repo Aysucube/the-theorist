@@ -37,8 +37,8 @@ export const FEATURES: Record<FeatureId, Feature> = {
   synergy: {
     id: "synergy",
     href: "/deck",
-    title: "Deck Synergy",
-    blurb: "Paste a deck to see its network, combos, bracket and upgrades.",
+    title: "Check a Deck",
+    blurb: "Paste any list to see its curve, game plan, synergies and combos without saving it.",
     Icon: SynergyIcon,
   },
   market: {
