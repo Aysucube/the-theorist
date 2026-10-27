@@ -219,17 +219,7 @@ export function CombosList({
                 {lackingAll.map((name) => {
                   const card = missing?.[name];
                   if (!card) return null;
-                  return (
-                    <button
-                      key={name}
-                      type="button"
-                      disabled={inDeck(card.name)}
-                      onClick={() => onAdd(card)}
-                      className="btn btn-primary h-7 px-2.5 text-xs disabled:border disabled:border-emerald-600 disabled:bg-transparent disabled:text-emerald-700 dark:disabled:text-emerald-400 disabled:bg-none disabled:shadow-none disabled:opacity-100"
-                    >
-                      {inDeck(card.name) ? `${name} in deck ✓` : `+ Add ${name}`}
-                    </button>
-                  );
+                  return <AddPiece key={name} name={name} card={card} added={inDeck(card.name)} onAdd={onAdd} />;
                 })}
                 </span>
               )}
@@ -259,6 +249,26 @@ export function CombosList({
         );
       })}
     </ul>
+  );
+}
+
+function AddPiece({ name, card, added, onAdd }: { name: string; card: CardDetails; added: boolean; onAdd: (card: CardDetails) => void }) {
+  const { trigger, preview } = useHoverPreview(card.name);
+  return (
+    <>
+      {/* Disabled buttons get no pointer events, so the preview listens on a wrapper. */}
+      <span {...trigger} className="inline-flex">
+        <button
+          type="button"
+          disabled={added}
+          onClick={() => onAdd(card)}
+          className="btn btn-primary h-7 px-2.5 text-xs disabled:border disabled:border-emerald-600 disabled:bg-transparent disabled:text-emerald-700 dark:disabled:text-emerald-400 disabled:bg-none disabled:shadow-none disabled:opacity-100"
+        >
+          {added ? `${name} in deck ✓` : `+ Add ${name}`}
+        </button>
+      </span>
+      {preview}
+    </>
   );
 }
 

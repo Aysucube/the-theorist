@@ -88,6 +88,7 @@ the binder still fits.
 Each deck in My Decks has its own page. Beside its name it shows the deck's **Commander Bracket**,
 such as "Bracket 2 nearing 3": worked out from its Game Changers, mass land denial, extra turns and
 combos (rated by Commander Spellbook), following Wizards of the Coast's October 2025 bracket rules.
+In every tab, resting the mouse on a card (its name, its picture or an add button) shows its preview.
 
 - **Overview**: the commander's game plan and how many of the deck's cards serve it; the template's
   meters (open one for its cards); the mana curve; the mana base (basics, other lands, utility

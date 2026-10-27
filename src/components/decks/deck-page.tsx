@@ -7,6 +7,7 @@ import { useSavedDeckSource } from "@/lib/deck-beta/store";
 import { formatCount } from "@/lib/format";
 import { AppLink as Link } from "../app-link";
 import { AddToShopping } from "../deck-beta/add-to-shopping";
+import { HoverName } from "../deck-beta/bits";
 import { BracketBadge } from "../deck-beta/bracket-badge";
 import { DeckWorkspace, ImportBox } from "../deck-beta/deck-beta";
 import { ColorIdentity } from "../mana";
@@ -66,7 +67,11 @@ export function DeckPage() {
                 aside={info.loaded > 0 && <BracketBadge report={info.report} checking={info.checking} onClick={info.showBracket} />}
                 description={
                   <p className="flex flex-wrap items-center gap-x-2 text-sm text-muted">
-                    {deck.commander && <span>{deck.commander} ·</span>}
+                    {deck.commander && (
+                      <span>
+                        <HoverName name={deck.commander} className="rounded-sm hover:text-foreground focus-visible:text-foreground focus-visible:outline-none" /> ·
+                      </span>
+                    )}
                     <span>
                       {formatCount(info.totalCards)} {info.totalCards === 1 ? "card" : "cards"}
                       {deck.bracket ? ` · built for Bracket ${deck.bracket}` : ""}

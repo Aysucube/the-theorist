@@ -11,8 +11,10 @@ import type { CardDetails, EdhrecTheme } from "@/lib/types";
 import { useHoverPreview } from "../card-link";
 import { GameChangerTag } from "../game-changer-tag";
 import { ManaCost } from "../mana";
+import { HoverName } from "./bits";
 import { HUB_COLORS } from "./deck-network";
 import { LazyCardImage } from "./lazy-card-image";
+import { CardName } from "./template-bits";
 
 /** Recommendations shown for a playstyle. */
 const SHOWN = 24;
@@ -87,7 +89,13 @@ export function PlaystylePanel({
                   {tagLabel(hub.tag)}
                 </p>
                 <p className="mt-1 text-xs text-muted">
-                  {formatCount(hub.payoffs.length)} payoffs ({hub.payoffs.slice(0, 3).join(", ")}
+                  {formatCount(hub.payoffs.length)} payoffs (
+                  {hub.payoffs.slice(0, 3).map((name, ni) => (
+                    <span key={name}>
+                      {ni > 0 && ", "}
+                      <HoverName name={name} className="rounded-sm hover:text-foreground focus-visible:text-foreground focus-visible:outline-none" />
+                    </span>
+                  ))}
                   {hub.payoffs.length > 3 ? "…" : ""}) · {formatCount(hub.enablers.length)} enablers
                 </p>
               </li>
@@ -242,14 +250,7 @@ function NameList({ names, onOpen }: { names: string[]; onOpen: (name: string) =
   return (
     <div className="flex flex-wrap gap-1.5">
       {names.map((name) => (
-        <button
-          key={name}
-          type="button"
-          onClick={() => onOpen(name)}
-          className="rounded-md border border-line bg-background px-2 py-0.5 text-xs hover:border-accent/50"
-        >
-          {name}
-        </button>
+        <CardName key={name} name={name} onOpen={onOpen} />
       ))}
     </div>
   );

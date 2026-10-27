@@ -25,6 +25,7 @@ import {
 import { formatCount } from "@/lib/format";
 import { useGameChangers } from "@/lib/use-game-changers";
 import type { CardDetails } from "@/lib/types";
+import { useHoverPreview } from "../card-link";
 import { GameChangerTag } from "../game-changer-tag";
 import { ColorIdentity, ManaCost } from "../mana";
 import { ImageNote } from "../retrying-image";
@@ -621,6 +622,7 @@ function Tile({
 }) {
   const card = entry.details;
   const name = card?.name ?? entry.asked;
+  const { trigger, preview } = useHoverPreview(name);
   const body = (
     <>
       <div
@@ -647,14 +649,21 @@ function Tile({
 
   if (!card) return <div className="min-w-0">{body}</div>;
   return (
-    <button
-      type="button"
-      onClick={(e) => onClick(e, card.name)}
-      aria-label={`${name}: click for what it interacts with, double-click for its synergy map`}
-      className="group block w-full min-w-0 text-left select-none focus-visible:outline-none [&:focus-visible>div]:ring-3 [&:focus-visible>div]:ring-accent/70"
-    >
-      {body}
-    </button>
+    <>
+      <button
+        type="button"
+        {...trigger}
+        onClick={(e) => {
+          trigger.onClick();
+          onClick(e, card.name);
+        }}
+        aria-label={`${name}: click for what it interacts with, double-click for its synergy map`}
+        className="group block w-full min-w-0 text-left select-none focus-visible:outline-none [&:focus-visible>div]:ring-3 [&:focus-visible>div]:ring-accent/70"
+      >
+        {body}
+      </button>
+      {preview}
+    </>
   );
 }
 
