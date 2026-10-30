@@ -59,12 +59,14 @@ Zone's template and videos on mana curves and mana bases):
    cards first, and its playstyles to lean into. Cards you don't own are grayed out throughout.
 4. **Lands**: how many to run by the curve of the commander's decks on EDHREC, the mana base its
    colors want, and how the basics split across the colors by the deck's mana symbols.
-5. **Build**: recommendations that change with every card you add: **Next up**, the **Curve**
-   (cheap ramp and card advantage), the **Template** categories it's short of, **Flexible** cards,
-   combos a card away that fit the bracket, the chosen playstyle, lands for its colors and cards
-   from your binder, your own cards first if you like. The deck comes together beside it: its
-   commander, a count to 100, the template's meters, its mana curve, its bracket, and the newest
-   cards on a stack.
+5. **Build**: the template is the tabs: **Ramp**, **Card advantage**, **Targeted disruption**, **Mass
+   disruption** and **Plan**, each with its count and meter, plus **Lands** for the mana base. It opens
+   on the category furthest from its target. Each tab lists the cards to add in order: **EDHREC's
+   highest synergy** first, then **flexible** cards, then the rest, your own cards first in each part
+   if you like, all re-ranked with every card you add. The Plan tab also holds the chosen playstyle
+   and combos a card away that fit the bracket, and any card can be searched for below the tabs. The
+   deck comes together beside it: its commander, a count to 100, its mana curve, its bracket, and
+   the newest cards on a stack.
 6. **Finish**: name it and save it. Basic lands fill the rest of the mana base.
 
 A deck in progress is saved as you go, so you can leave and continue later. Saved decks go to

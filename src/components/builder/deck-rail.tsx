@@ -25,15 +25,17 @@ function groupOf(card: CardDetails) {
 }
 
 /**
- * The deck as it comes together: the commander, how full it is, where its
- * cards sit in Quadrant Theory and the jobs they do, its bracket, and the
- * cards themselves — the newest fanned out on a stack they fly into.
+ * The deck as it comes together: the commander, how full it is, its mana
+ * curve (and the template, when the build step's tabs aren't showing it), its
+ * bracket, and the cards themselves — the newest fanned out on a stack they
+ * fly into.
  */
 export function DeckRail({
   commander,
   cards,
   basics,
   profile,
+  template = false,
   report,
   combosFound,
   onRemove,
@@ -44,6 +46,8 @@ export function DeckRail({
   /** Basic lands the deck will fill in. */
   basics: number;
   profile?: DeckProfile;
+  /** Show the template's meters. */
+  template?: boolean;
   report?: BracketReport;
   combosFound?: number;
   onRemove: (name: string) => void;
@@ -95,24 +99,25 @@ export function DeckRail({
 
         {profile && (
           <div className="flex flex-col gap-2.5">
-            <p className="eyebrow">The template</p>
-            {CATEGORIES.map((c) => (
-              <div key={c} className="grid grid-cols-[7.5rem_1fr_2.5rem] items-center gap-2 text-xs" title={CATEGORY_INFO[c].about}>
-                <span className="truncate text-muted">{CATEGORY_INFO[c].label}</span>
-                <Meter value={profile.categories[c].length / CATEGORY_INFO[c].target} color={CATEGORY_COLORS[c]} />
-                <span className="text-right tabular-nums">
-                  {profile.categories[c].length}
-                  <span className="text-muted">/{CATEGORY_INFO[c].target}</span>
-                </span>
-              </div>
-            ))}
+            {template && <p className="eyebrow">The template</p>}
+            {template &&
+              CATEGORIES.map((c) => (
+                <div key={c} className="grid grid-cols-[7.5rem_1fr_2.5rem] items-center gap-2 text-xs" title={CATEGORY_INFO[c].about}>
+                  <span className="truncate text-muted">{CATEGORY_INFO[c].label}</span>
+                  <Meter value={profile.categories[c].length / CATEGORY_INFO[c].target} color={CATEGORY_COLORS[c]} />
+                  <span className="text-right tabular-nums">
+                    {profile.categories[c].length}
+                    <span className="text-muted">/{CATEGORY_INFO[c].target}</span>
+                  </span>
+                </div>
+              ))}
             {profile.flexible.length > 0 && (
               <p className="text-xs text-muted">
                 <span className="font-medium text-accent tabular-nums">{profile.flexible.length}</span> flexible{" "}
                 {profile.flexible.length === 1 ? "card fills" : "cards fill"} two or more
               </p>
             )}
-            <p className="eyebrow mt-3">Mana curve</p>
+            <p className={`eyebrow ${template || profile.flexible.length > 0 ? "mt-3" : ""}`}>Mana curve</p>
             <CurveChart curve={profile.curve} compact />
             <p className="text-xs text-muted tabular-nums">
               {profile.curve.spells ? `Average ${profile.curve.average.toFixed(1)} · ` : ""}

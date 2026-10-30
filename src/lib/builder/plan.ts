@@ -1,17 +1,18 @@
 // Create Commander Deck: the numbers a deck is built around (how many lands,
 // how the basics split, how the commander's colors shape the mana base) and
-// the recommendations that grow with the deck, by the deckbuilding template:
-// cheap ramp and card advantage to secure the curve first, then whatever
-// category it's short of (card advantage, ramp, targeted and mass disruption,
-// its plan), flexible cards that fill several, combos, the playstyle, lands
-// for its colors, and cards from the binder. Kept free of React so it's easy to test.
+// the recommendations that grow with the deck, one shelf per category of the
+// deckbuilding template (ramp, card advantage, targeted and mass disruption,
+// its plan). Each shelf leads with EDHREC's highest-synergy cards, then
+// flexible cards that fill several categories, then the rest. The plan also
+// takes the playstyle's cards and combo pieces, and lands are rated for the
+// commander's colors. Kept free of React so it's easy to test.
 import type { PlaystyleCard } from "@/lib/deck-beta/api";
 import { comboBracket, isMassLandDenial, type Bracket } from "@/lib/deck-beta/bracket";
 import { landTarget } from "@/lib/deck-beta/curve";
 import { planUpgrades, scoreCandidate, type Candidate, type Pick, type UpgradePlan } from "@/lib/deck-beta/doctor";
 import { LAND_KIND_LABEL, landFit, landKind, manaBasePlan, type ManaBasePlan } from "@/lib/deck-beta/lands";
 import { cardKey } from "@/lib/deck-beta/recommend";
-import { categoryGaps, deckProfile, type Category, type DeckProfile } from "@/lib/deck-beta/roles";
+import { CATEGORIES, categoryGaps, deckProfile, type Category, type DeckProfile } from "@/lib/deck-beta/roles";
 import { byImpact } from "@/lib/deck-beta/walkthrough";
 import type { CardDetails, Combo, DeckCombos } from "@/lib/types";
 
@@ -101,20 +102,27 @@ export interface BuilderPick extends Pick {
   reason?: string;
 }
 
-export interface BuilderGroups {
-  /** The few cards that would help most right now. */
-  next: BuilderPick[];
-  /** Cheap ramp and card advantage that keep the curve low. */
-  curve: BuilderPick[];
-  /** Cards that fill two or more template categories. */
+/** One category of the template, and the cards that fill it in the order to add them. */
+export interface TemplateShelf {
+  category: Category;
+  /** How many more it wants; 0 once it's filled. */
+  short: number;
+  /** EDHREC's highest-synergy cards for it, highest first. */
+  synergy: BuilderPick[];
+  /** Then cards that fill two or more categories, most first. */
   flexible: BuilderPick[];
-  /** Each category the deck is short of, with cards that fill it. */
-  categories: { category: Category; short: number; picks: BuilderPick[] }[];
-  power: BuilderPick[];
+  /** Then the rest that fill it, best first. */
+  more: BuilderPick[];
+}
+
+export interface BuilderGroups {
+  /** Every category of the template, in its usual order. */
+  template: TemplateShelf[];
+  /** Pieces for combos a card away, for the plan (those not already on its shelf above them). */
   combos: { pick: BuilderPick; combo: Combo }[];
+  /** The chosen playstyle's cards, for the plan (likewise). */
   playstyle: BuilderPick[];
   lands: BuilderPick[];
-  binder: BuilderPick[];
   leftOut: UpgradePlan["leftOut"];
 }
 
@@ -141,7 +149,7 @@ type PlaystylePick = PlaystyleCard;
 
 /** Recommendations for the deck as it stands; they change as cards go in. */
 export function builderRecommendations(input: BuilderInput): BuilderGroups & { profile: DeckProfile; manaBase: ManaBasePlan } {
-  const { deck, identity, bracket, isGameChanger, combos, preferOwned, perGroup = 8 } = input;
+  const { deck, identity, bracket, isGameChanger, combos, preferOwned, perGroup = 12 } = input;
   const candidates = input.candidates.filter((c) => fitsIdentity(c.card, identity)).map((c) => ({ ...c, owned: c.ownedCopies > 0 }));
   const byName = new Map(candidates.map((c) => [cardKey(c.card.name), c]));
   const playstyleNames = new Set((input.playstyle ?? []).map((p) => cardKey(p.name)));
@@ -190,12 +198,15 @@ export function builderRecommendations(input: BuilderInput): BuilderGroups & { p
 
   // Combos a card away that the bracket allows, EDHREC's for the commander first.
   const combosGroup: BuilderGroups["combos"] = [];
+  const comboReason = new Map<string, string>();
   for (const combo of [...(combos?.almostIncluded ?? [])].sort(byImpact)) {
     if (comboBracket(combo) > comboLimit) continue;
     const piece = combo.cards.find((n) => !has(n));
     const candidate = piece ? byName.get(cardKey(piece)) : undefined;
     if (!candidate || combosGroup.some((g) => cardKey(g.pick.card.name) === cardKey(piece!))) continue;
-    combosGroup.push({ pick: { ...score(candidate), reason: `Completes ${combo.results[0] ?? "a combo"}` }, combo });
+    const reason = `Completes ${combo.results[0] ?? "a combo"}`;
+    combosGroup.push({ pick: { ...score(candidate), reason }, combo });
+    comboReason.set(cardKey(piece!), reason);
     if (combosGroup.length >= perGroup) break;
   }
 
@@ -206,8 +217,7 @@ export function builderRecommendations(input: BuilderInput): BuilderGroups & { p
       return c && !has(c.card.name) && !tooStrong.has(cardKey(c.card.name)) && !isLand(c.card) ? [c] : [];
     })
     .map(score)
-    .sort(ownedFirst)
-    .slice(0, perGroup);
+    .sort(ownedFirst);
 
   // Lands beyond the basics, rated for the commander's colors: untapped fixing
   // up in more colors, utility lands up in fewer, always-tapped lands down.
@@ -224,40 +234,44 @@ export function builderRecommendations(input: BuilderInput): BuilderGroups & { p
     .sort(preferOwned ? ownedFirst : (a, b) => b.score - a.score)
     .slice(0, perGroup);
 
-  // Cards from the binder that do a job, whether or not EDHREC lists them.
-  const binder = candidates
-    .filter((c) => c.ownedCopies > 0 && !has(c.card.name) && !isLand(c.card) && !tooStrong.has(cardKey(c.card.name)))
-    .map(score)
-    .filter((p) => p.categories.length > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, perGroup * 2);
-
-  // Building from the binder: cards you own lead every group (otherwise in the plan's order).
-  const arrange = (picks: Pick[]) => {
-    const out = picks.map(asPick);
-    return preferOwned ? out.map((p, i) => ({ p, i })).sort((a, b) => Number(b.p.ownedCopies > 0) - Number(a.p.ownedCopies > 0) || a.i - b.i).map(({ p }) => p) : out;
+  // Each shelf in the order to add its cards. Your own cards lead their part of it when you build from the binder.
+  const arrange = (picks: Pick[], label?: (p: Pick) => string) => {
+    const out = picks.map((p) => ({ ...asPick(p), reason: comboReason.get(cardKey(p.card.name)) ?? label?.(p) }));
+    return preferOwned ? out.sort((a, b) => Number(b.ownedCopies > 0) - Number(a.ownedCopies > 0)) : out;
   };
-  const groups = {
-    curve: arrange(plan.curve),
-    flexible: arrange(plan.flexible),
-    categories: plan.categories.map((g) => ({ ...g, picks: arrange(g.picks) })),
-    power: arrange(plan.power),
-  };
-  // Next: secure the curve, then the worst gaps, flexible picks and a combo.
-  const next: BuilderPick[] = [];
-  const seen = new Set<string>();
-  for (const pick of [
-    ...groups.curve.slice(0, 2),
-    ...groups.categories.flatMap((g) => g.picks.slice(0, 1)),
-    ...groups.flexible.slice(0, 2),
-    ...combosGroup.slice(0, 1).map((g) => g.pick),
-  ]) {
-    if (seen.has(cardKey(pick.card.name))) continue;
-    seen.add(cardKey(pick.card.name));
-    next.push(pick);
-    if (next.length >= 6) break;
-  }
-  if (preferOwned) next.sort((a, b) => Number(b.ownedCopies > 0) - Number(a.ownedCopies > 0));
+  const template = CATEGORIES.map((category): TemplateShelf => {
+    // Tutors and Game Changers that fill no category go toward the plan.
+    const fits = plan.eligible.filter((p) => p.categories.includes(category) || (category === "plan" && p.categories.length === 0));
+    const synergy = fits
+      .filter((p) => (p.synergy ?? 0) > 0)
+      .sort((a, b) => b.synergy! - a.synergy! || b.score - a.score)
+      // Enough to fill the category, so a big gap like the plan's isn't cut short.
+      .slice(0, Math.max(perGroup, gaps[category] ?? 0));
+    const flexible = fits
+      .filter((p) => p.categories.length >= 2 && !synergy.includes(p))
+      .sort((a, b) => b.categories.length - a.categories.length || b.score - a.score)
+      .slice(0, perGroup);
+    const more = fits.filter((p) => !synergy.includes(p) && !flexible.includes(p)).slice(0, perGroup);
+    return {
+      category,
+      short: gaps[category] ?? 0,
+      synergy: arrange(synergy, (p) => `+${Math.round(p.synergy! * 100)}% synergy`),
+      flexible: arrange(flexible),
+      more: arrange(more),
+    };
+  });
 
-  return { ...groups, next, combos: combosGroup, playstyle, lands, binder, leftOut: plan.leftOut, profile, manaBase };
+  // The plan's shelf shows each card once: the playstyle and combos sit below its first two parts and above the rest.
+  const planShelf = template.find((g) => g.category === "plan")!;
+  const shown = new Set([...planShelf.synergy, ...planShelf.flexible].map((p) => cardKey(p.card.name)));
+  const notShown = <T,>(items: T[], name: (item: T) => string) => {
+    const out = items.filter((item) => !shown.has(cardKey(name(item)))).slice(0, perGroup);
+    out.forEach((item) => shown.add(cardKey(name(item))));
+    return out;
+  };
+  const playstyleLeft = notShown(playstyle, (p) => p.card.name);
+  const combosLeft = notShown(combosGroup, (g) => g.pick.card.name);
+  planShelf.more = notShown(planShelf.more, (p) => p.card.name);
+
+  return { template, combos: combosLeft, playstyle: playstyleLeft, lands, leftOut: plan.leftOut, profile, manaBase };
 }

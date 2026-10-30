@@ -55,6 +55,9 @@ describe("builderRecommendations", () => {
     candidate(card("Staff of Domination", "Artifact", "{3}, {T}: Untap target creature.\n{5}, {T}: Draw a card.", { colorIdentity: [] })),
     candidate(card("Gaea's Cradle", "Legendary Land", "{T}: Add {G} for each creature you control."), { lists: ["Lands"], inclusion: 0.5 }),
     candidate(card("Rhystic Study", "Enchantment", "Whenever an opponent casts a spell, you may draw a card unless that player pays {1}.", { colorIdentity: ["U"] })),
+    candidate(card("Dryad Arbor Scout", "Creature — Elf", "{T}: Add {G}. Whenever this creature attacks, draw two cards."), { inclusion: 0.2 }),
+    candidate(card("Elvish Archdruid", "Creature — Elf Druid", "{T}: Add {G} for each Elf you control."), { synergy: 0.4, inclusion: 0.1 }),
+    candidate(card("Priest of the Grove", "Creature — Elf Druid", "{T}: Add {G}."), { synergy: 0.05, inclusion: 0.9, ownedCopies: 1 }),
   ];
   const staffCombo: Combo = {
     id: "staff",
@@ -66,6 +69,8 @@ describe("builderRecommendations", () => {
     url: "",
     bracketTag: "S",
   };
+  const shelf = (result: ReturnType<typeof run>, category: string) => result.template.find((g) => g.category === category)!;
+  const names = (picks: { card: CardDetails }[]) => picks.map((p) => p.card.name);
   const run = (bracket: 2 | 3, preferOwned = true) =>
     builderRecommendations({
       deck: [
@@ -88,27 +93,75 @@ describe("builderRecommendations", () => {
     expect(fitsIdentity({ colorIdentity: [] }, ["G"])).toBe(true);
   });
 
-  it("puts owned cards ahead when asked", () => {
-    const curve = run(3).curve.map((p) => p.card.name);
-    expect(curve.indexOf("Llanowar Elves")).toBeLessThan(curve.indexOf("Elvish Mystic"));
-    const notPreferred = run(3, false).curve.map((p) => p.card.name);
-    expect(notPreferred.indexOf("Elvish Mystic")).toBeLessThan(notPreferred.indexOf("Llanowar Elves"));
-  });
-
-  it("secures the curve with cheap ramp and card advantage, and plans the mana base by colors", () => {
+  it("has a shelf for every category of the template, with how short it is", () => {
     const three = run(3);
-    expect(three.curve.map((p) => p.card.name)).toEqual(expect.arrayContaining(["Llanowar Elves", "Elvish Mystic"]));
-    expect(three.manaBase.colors).toBe(2);
-    expect(three.lands[0].reason).toBeDefined();
+    expect(three.template.map((g) => g.category)).toEqual(["ramp", "advantage", "targeted", "mass", "plan"]);
+    expect(shelf(three, "mass").short).toBe(6);
   });
 
-  it("offers combo pieces the bracket allows, and lands and next picks", () => {
+  it("leads each shelf with EDHREC's highest synergy, then flexible cards, then the rest", () => {
+    const ramp = shelf(run(3, false), "ramp");
+    expect(names(ramp.synergy)).toEqual(["Elvish Archdruid", "Priest of the Grove"]);
+    expect(ramp.synergy[0].reason).toBe("+40% synergy");
+    expect(names(ramp.flexible)).toEqual(["Dryad Arbor Scout"]);
+    expect(names(ramp.more)).toEqual(["Elvish Mystic", "Llanowar Elves"]);
+  });
+
+  it("lists enough high-synergy cards to fill a category's gap", () => {
+    const result = builderRecommendations({ deck: [{ card: commander, qty: 1 }], candidates, identity: ["B", "G"], bracket: 3, isGameChanger: () => false, preferOwned: false, perGroup: 1 });
+    expect(names(shelf(result, "ramp").synergy)).toEqual(["Elvish Archdruid", "Priest of the Grove"]);
+    expect(shelf(result, "ramp").flexible).toHaveLength(1);
+  });
+
+  it("offers a flexible card in each category it fills", () => {
+    const three = run(3, false);
+    expect(names(shelf(three, "ramp").flexible)).toContain("Dryad Arbor Scout");
+    expect(names(shelf(three, "advantage").flexible)).toContain("Dryad Arbor Scout");
+  });
+
+  it("puts owned cards ahead within each part of a shelf when asked", () => {
+    const ramp = shelf(run(3), "ramp");
+    expect(names(ramp.synergy)).toEqual(["Priest of the Grove", "Elvish Archdruid"]);
+    expect(names(ramp.more)).toEqual(["Llanowar Elves", "Elvish Mystic"]);
+  });
+
+  it("offers Game Changers only as far as the bracket has room", () => {
+    const gameChanger = candidate(card("Crop Rotation", "Instant", "Search your library for a land card, put that card onto the battlefield."), { synergy: 0.5 });
+    const build = (bracket: 2 | 3) =>
+      builderRecommendations({ deck: [{ card: commander, qty: 1 }], candidates: [gameChanger], identity: ["B", "G"], bracket, isGameChanger: () => true, preferOwned: false });
+    expect(names(shelf(build(3), "ramp").synergy)).toEqual(["Crop Rotation"]);
+    expect(names(shelf(build(2), "ramp").synergy)).toEqual([]);
+    expect(build(2).leftOut.map((l) => l.pick.card.name)).toEqual(["Crop Rotation"]);
+  });
+
+  it("keeps a card out of the plan's later parts once it's shown higher up", () => {
+    const staff = candidate(card("Staff of Domination", "Artifact", "{3}, {T}: Untap target creature.", { colorIdentity: [] }), { synergy: 0.6 });
+    const elves = candidate(card("Wirewood Symbiote", "Creature — Elf", "Return an Elf you control to its owner's hand."), { inclusion: 0.2 });
+    const result = builderRecommendations({
+      deck: [{ card: commander, qty: 1 }],
+      candidates: [staff, elves],
+      identity: ["B", "G"],
+      bracket: 3,
+      isGameChanger: () => false,
+      combos: { included: [], almostIncluded: [staffCombo] },
+      playstyle: [{ name: "Staff of Domination" }, { name: "Wirewood Symbiote" }] as never,
+      preferOwned: false,
+      perGroup: 1,
+    });
+    expect(names(shelf(result, "plan").synergy)).toEqual(["Staff of Domination"]);
+    expect(shelf(result, "plan").synergy[0].reason).toMatch(/Infinite green mana/);
+    expect(result.combos).toEqual([]);
+    expect(names(result.playstyle)).toEqual(["Wirewood Symbiote"]);
+    expect(names(shelf(result, "plan").more)).toEqual([]);
+  });
+
+  it("offers combo pieces the bracket allows, lands, and plans the mana base by colors", () => {
     const three = run(3);
     expect(three.combos.map((g) => g.pick.card.name)).toEqual(["Staff of Domination"]);
     expect(three.combos[0].pick.reason).toMatch(/Infinite green mana/);
     expect(run(2).combos).toEqual([]);
     expect(three.lands.map((p) => p.card.name)).toEqual(["Gaea's Cradle"]);
-    expect(three.next.length).toBeGreaterThan(0);
-    expect(three.binder.map((p) => p.card.name)).toContain("Llanowar Elves");
+    expect(three.lands[0].reason).toBeDefined();
+    expect(three.manaBase.colors).toBe(2);
   });
 });

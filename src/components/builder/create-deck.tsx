@@ -247,6 +247,7 @@ export function CreateDeck() {
               cards={deckCards}
               basics={step >= 3 ? basics : 0}
               profile={step >= 4 ? plan?.profile : undefined}
+              template={step === 5}
               report={step >= 4 ? report : undefined}
               combosFound={analysisResult?.combos?.included.length}
               onRemove={removeCard}
@@ -306,6 +307,9 @@ export function CreateDeck() {
                     (plan ? (
                       <BuildStep
                         groups={plan}
+                        profile={plan.profile}
+                        landTarget={plan.manaBase.nonbasics}
+                        preferOwned={draft.preferOwned}
                         ownedFor={binder.owned}
                         onAdd={add}
                         spells={spells}

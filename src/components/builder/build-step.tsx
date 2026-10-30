@@ -1,28 +1,34 @@
 "use client";
 
+import { Tabs } from "@base-ui/react/tabs";
 import { AnimatePresence } from "motion/react";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import { CATEGORY_COLORS } from "@/components/deck-beta/template-bits";
-import type { BuilderGroups, BuilderPick } from "@/lib/builder/plan";
+import type { BuilderGroups, BuilderPick, TemplateShelf } from "@/lib/builder/plan";
 import { useCardDetails } from "@/lib/binder/card-cache";
-import { CATEGORY_INFO } from "@/lib/deck-beta/roles";
+import { CATEGORIES, CATEGORY_INFO, type Category, type DeckProfile } from "@/lib/deck-beta/roles";
 import { fetchJsonWithRetry } from "@/lib/retry";
 import type { CardDetails } from "@/lib/types";
-import { TabBar } from "../theme/tabs";
 import { BuildCard } from "./build-card";
+import { Meter } from "./deck-rail";
 
-const TABS = ["Next up", "Curve", "Template", "Flexible", "Combos", "Playstyle", "Lands", "Binder", "Search"] as const;
-type Tab = (typeof TABS)[number];
+type Tab = Category | "lands";
+const LANDS_COLOR = "#8d9bb8";
+
+type PickProps = { ownedFor: (name: string) => number; onAdd: (card: CardDetails) => void };
 
 /**
- * 5. Build: recommendations for the deck as it stands, by the deckbuilding
- * template: the curve first (cheap ramp and card advantage), then what the
- * template says it's short of, flexible cards that fill several categories,
- * combos, the playstyle, lands for its colors and cards from the binder.
- * Adding a card sends it into the deck and the groups re-rank.
+ * 5. Build: the template is the tabs, each with its meter, and each category
+ * lists the cards that fill it in the order to add them: EDHREC's highest
+ * synergy, then flexible cards, then the rest. The plan also holds the
+ * playstyle's cards and combo pieces; lands get a tab for the mana base. It
+ * opens on the category furthest from its target. Adding a card sends it into
+ * the deck and the lists re-rank.
  */
 export function BuildStep({
   groups,
+  profile,
+  landTarget,
   ownedFor,
   onAdd,
   spells,
@@ -30,19 +36,23 @@ export function BuildStep({
   themeName,
   leftOut,
   bracket,
+  preferOwned,
   onPickTheme,
   has,
   curveAdvice,
   landAdvice,
-}: {
+}: PickProps & {
   groups: BuilderGroups;
-  ownedFor: (name: string) => number;
-  onAdd: (card: CardDetails) => void;
+  profile: DeckProfile;
+  /** About how many nonbasic lands the commander's colors want. */
+  landTarget: number;
   spells: number;
   spellTarget: number;
   themeName?: string;
   leftOut: number;
   bracket: number;
+  /** The cards you own lead each list. */
+  preferOwned: boolean;
   onPickTheme: () => void;
   /** In the deck already. */
   has: (name: string) => boolean;
@@ -51,15 +61,12 @@ export function BuildStep({
   /** What lands the commander's colors want, in a line. */
   landAdvice: string;
 }) {
-  const [tab, setTab] = useState<Tab>("Next up");
-  const counts: Partial<Record<Tab, number>> = {
-    Curve: groups.curve.length,
-    Flexible: groups.flexible.length,
-    Combos: groups.combos.length,
-    Playstyle: groups.playstyle.length,
-    Lands: groups.lands.length,
-    Binder: groups.binder.length,
-  };
+  const [tab, setTab] = useState<Tab>(() => {
+    const need = (g: TemplateShelf) => g.short / CATEGORY_INFO[g.category].target;
+    return groups.template.reduce((worst, g) => (need(g) > need(worst) ? g : worst)).category;
+  });
+  const shelf = groups.template.find((g) => g.category === tab);
+  const pickProps = { ownedFor, onAdd };
 
   return (
     <div className="flex flex-col gap-6">
@@ -71,122 +78,130 @@ export function BuildStep({
         {leftOut > 0 && <p className="text-xs text-muted">{leftOut} strong cards left out for Bracket {bracket}</p>}
       </div>
 
-      <TabBar
-        label="Recommendations"
+      <TemplateTabs
         value={tab}
         onValueChange={setTab}
-        className="no-scrollbar overflow-x-auto"
-        items={TABS.map((t) => ({
-          value: t,
-          label: (
-            <>
-              {t}
-              {counts[t] ? <span className="text-[11px] tabular-nums opacity-60">{counts[t]}</span> : null}
-            </>
-          ),
-        }))}
+        items={[
+          ...CATEGORIES.map((c) => ({
+            value: c,
+            label: CATEGORY_INFO[c].label,
+            have: profile.categories[c].length,
+            target: CATEGORY_INFO[c].target,
+            color: CATEGORY_COLORS[c],
+            about: CATEGORY_INFO[c].about,
+          })),
+          { value: "lands" as const, label: "Lands", have: profile.lands, target: landTarget, color: LANDS_COLOR, about: "Nonbasic lands. Basics fill the rest." },
+        ]}
       />
 
-      {/* Keyed by the tab, so each group pops in when its tab is picked. */}
-      <div key={tab} className="reveal-fast flex flex-col gap-6">
-        {tab === "Next up" && (
-          <>
-            <Group
-              title="Next up"
-              note="The cards that would help most right now: cheap ramp and card advantage for the curve, then the template’s biggest gaps."
-              picks={groups.next}
-              ownedFor={ownedFor}
-              onAdd={onAdd}
-            />
-            <Group
-              title={bracket >= 4 ? "Stronger cards" : "Game Changers you have room for"}
-              note={bracket >= 4 ? "Game Changers, tutors, fast mana and free spells." : "Bracket 3 allows up to three."}
-              picks={groups.power}
-              ownedFor={ownedFor}
-              onAdd={onAdd}
-            />
-          </>
-        )}
-        {tab === "Curve" && (
-          <Group
-            title="Secure the curve"
-            note={`Cheap ramp (2 mana or less) and card advantage (3 or less): something to cast early, and two spells a turn soon after. ${curveAdvice}`}
-            picks={groups.curve}
-            ownedFor={ownedFor}
-            onAdd={onAdd}
-            empty="The curve is covered for now."
-          />
-        )}
-        {tab === "Template" && (
-          <>
-            {groups.categories.map((g) => (
+      {/* Keyed by the tab, so each list pops in when its tab is picked. */}
+      <div key={tab} className="reveal-fast flex flex-col gap-8">
+        {shelf && (
+          <Shelf shelf={shelf} preferOwned={preferOwned} note={tab === "ramp" || tab === "advantage" ? curveAdvice : undefined} {...pickProps}>
+            {tab === "plan" &&
+              (themeName ? (
+                <Group title={themeName} note={`EDHREC’s best cards for ${themeName} decks.`} picks={groups.playstyle} {...pickProps} />
+              ) : (
+                <p className="text-sm text-muted">
+                  You’re building a balanced deck.{" "}
+                  <button type="button" onClick={onPickTheme} className="link text-foreground">
+                    Pick a playstyle
+                  </button>{" "}
+                  to see the cards that suit it.
+                </p>
+              ))}
+            {tab === "plan" && (
               <Group
-                key={g.category}
-                title={`${CATEGORY_INFO[g.category].label} · ${g.short} short`}
-                dot={CATEGORY_COLORS[g.category]}
-                note={`${CATEGORY_INFO[g.category].about} Flexible and cheaper cards first.`}
-                picks={g.picks}
-                ownedFor={ownedFor}
-                onAdd={onAdd}
+                title="Complete a combo"
+                note="Each of these completes a combo with cards already in the deck, within your bracket."
+                picks={groups.combos.map((g) => g.pick)}
+                {...pickProps}
               />
-            ))}
-            {groups.categories.length === 0 && <p className="text-sm text-muted">Every part of the template is filled.</p>}
-          </>
+            )}
+          </Shelf>
         )}
-        {tab === "Flexible" && (
-          <Group
-            title="Flexible"
-            note="Cards that fill two or more template categories, most first: one slot doing two jobs."
-            picks={groups.flexible}
-            ownedFor={ownedFor}
-            onAdd={onAdd}
-            empty="No flexible picks left for now."
-          />
-        )}
-        {tab === "Combos" && (
-          <Group
-            title="Complete a combo"
-            note="Each of these completes a combo with cards already in the deck, within your bracket. EDHREC’s combos for the commander come first."
-            picks={groups.combos.map((g) => g.pick)}
-            ownedFor={ownedFor}
-            onAdd={onAdd}
-            empty="No combo is one card away yet. Add more of the commander’s key cards and check back."
-          />
-        )}
-        {tab === "Playstyle" &&
-          (themeName ? (
-            <Group title={themeName} note={`EDHREC’s best cards for ${themeName} decks, the ones you own first.`} picks={groups.playstyle} ownedFor={ownedFor} onAdd={onAdd} />
-          ) : (
-            <p className="text-sm text-muted">
-              You’re building a balanced deck.{" "}
-              <button type="button" onClick={onPickTheme} className="link text-foreground">
-                Pick a playstyle
-              </button>{" "}
-              to see the cards that suit it.
-            </p>
-          ))}
-        {tab === "Lands" && (
+        {tab === "lands" && (
           <Group
             title="Lands"
             note={`${landAdvice} Lands that always enter tapped rank down; basics fill the rest.`}
             picks={groups.lands}
-            ownedFor={ownedFor}
-            onAdd={onAdd}
+            empty="No lands to suggest for these colors yet."
+            {...pickProps}
           />
         )}
-        {tab === "Binder" && (
-          <Group
-            title="From your binder"
-            note="Cards you own that do a job here, whether or not EDHREC lists them."
-            picks={groups.binder}
-            ownedFor={ownedFor}
-            onAdd={onAdd}
-            empty="Nothing in your binder fits this commander yet."
-          />
-        )}
-        {tab === "Search" && <AnySearch ownedFor={ownedFor} onAdd={onAdd} has={has} />}
+      </div>
+
+      <div className="border-t border-line pt-6">
+        <AnySearch ownedFor={ownedFor} onAdd={onAdd} has={has} />
       </div>
     </div>
+  );
+}
+
+/** The template as tabs: each category, how full it is, and its meter. */
+function TemplateTabs({
+  value,
+  onValueChange,
+  items,
+}: {
+  value: Tab;
+  onValueChange: (value: Tab) => void;
+  items: { value: Tab; label: string; have: number; target: number; color: string; about: string }[];
+}) {
+  return (
+    <Tabs.Root value={value} onValueChange={(next) => onValueChange(next as Tab)}>
+      <Tabs.List aria-label="The template" className="relative isolate grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {items.map((item) => (
+          <Tabs.Tab key={item.value} value={item.value} title={item.about} className="template-tab">
+            <span className="flex items-start justify-between gap-2">
+              <span className="min-w-0 leading-tight">{item.label}</span>
+              <span className="text-xs leading-tight tabular-nums">
+                <span className="font-semibold text-foreground">{item.have}</span>
+                <span className="text-muted">/{item.target}</span>
+              </span>
+            </span>
+            <Meter value={item.have / item.target} color={item.color} className="mt-auto" />
+          </Tabs.Tab>
+        ))}
+        <Tabs.Indicator className="template-tab-indicator" />
+      </Tabs.List>
+    </Tabs.Root>
+  );
+}
+
+/** One category's cards in the order to add them. `children` sit between the flexible cards and the rest. */
+function Shelf({
+  shelf,
+  preferOwned,
+  note,
+  children,
+  ...pickProps
+}: PickProps & { shelf: TemplateShelf; preferOwned: boolean; note?: string; children?: ReactNode }) {
+  const info = CATEGORY_INFO[shelf.category];
+  const empty = shelf.synergy.length + shelf.flexible.length + shelf.more.length === 0;
+  return (
+    <>
+      <div>
+        <h3 className="flex items-center gap-2 font-semibold">
+          <span aria-hidden className="size-2 rounded-full" style={{ background: CATEGORY_COLORS[shelf.category] }} />
+          {info.label}
+          <span className="text-sm font-normal text-muted">{shelf.short > 0 ? `${shelf.short} to go` : "filled"}</span>
+        </h3>
+        <p className="text-sm text-muted">
+          {info.about} {note}
+        </p>
+      </div>
+      <Group
+        title="Highest synergy"
+        note={`EDHREC’s highest-synergy cards for your commander${preferOwned ? ", the ones you own first" : ""}.`}
+        picks={shelf.synergy}
+        {...pickProps}
+      />
+      <Group title="Flexible" note="Cards that fill two or more parts of the template, most first: one slot doing two jobs." picks={shelf.flexible} {...pickProps} />
+      {children}
+      <Group title="Also fits" note="The rest, cheaper and more often played first." picks={shelf.more} {...pickProps} />
+      {empty && <p className="text-sm text-muted">No cards to suggest here yet. Add more of the commander’s key cards and check back.</p>}
+    </>
   );
 }
 
@@ -196,24 +211,17 @@ function Group({
   picks,
   ownedFor,
   onAdd,
-  dot,
   empty,
-}: {
+}: PickProps & {
   title: string;
   note: string;
   picks: BuilderPick[];
-  ownedFor: (name: string) => number;
-  onAdd: (card: CardDetails) => void;
-  dot?: string;
   empty?: string;
 }) {
   if (picks.length === 0 && !empty) return null;
   return (
     <section>
-      <h3 className="flex items-center gap-2 font-semibold">
-        {dot && <span aria-hidden className="size-2 rounded-full" style={{ background: dot }} />}
-        {title}
-      </h3>
+      <h4 className="text-sm font-semibold">{title}</h4>
       <p className="mb-4 text-sm text-muted">{note}</p>
       {picks.length === 0 ? (
         <p className="text-sm text-muted">{empty}</p>

@@ -45,6 +45,8 @@ export interface UpgradePlan {
   power: Pick[];
   /** Good candidates left out because they'd push the deck past the bracket. */
   leftOut: { pick: Pick; why: string }[];
+  /** Every card the bracket allows, best first, with only as many Game Changers as it has room for. */
+  eligible: Pick[];
 }
 
 export interface PlanOptions {
@@ -205,9 +207,10 @@ export function planUpgrades(profile: DeckProfile, candidates: Candidate[], inDe
     }
   }
   power.forEach((p) => used.add(p.card.name));
+  const eligible = picks.filter((p) => !limitGameChangers || !p.gameChanger || power.includes(p));
 
   leftOut.sort((x, y) => y.pick.score - x.pick.score);
-  return { curve, flexible, categories, power, leftOut: leftOut.slice(0, perGroup * 2) };
+  return { curve, flexible, categories, power, leftOut: leftOut.slice(0, perGroup * 2), eligible };
 }
 
 /**

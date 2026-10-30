@@ -746,6 +746,58 @@ dialog[open]::backdrop {
   }
 }
 
+/* The builder's tabs: the template's categories, each with its meter. The lit
+   frame glides between them, so it's drawn over them and lets clicks through. */
+.template-tab {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  padding: 0.625rem 0.75rem;
+  text-align: left;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--muted);
+  transition:
+    color 160ms ease,
+    border-color 160ms ease;
+}
+.template-tab[data-active] {
+  color: var(--foreground);
+}
+@media (hover: hover) and (pointer: fine) {
+  .template-tab:not([data-active]):hover {
+    border-color: var(--line-strong);
+    color: var(--foreground);
+  }
+}
+.template-tab-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  height: var(--active-tab-height);
+  width: var(--active-tab-width);
+  translate: var(--active-tab-left) var(--active-tab-top);
+  border-radius: 0.75rem;
+  border: 1px solid var(--accent);
+  background: rgb(90 176 255 / 0.08);
+  box-shadow: 0 0 16px -4px rgb(90 176 255 / 0.6);
+  pointer-events: none;
+  transition:
+    translate 220ms var(--ease-out),
+    width 220ms var(--ease-out),
+    height 220ms var(--ease-out);
+}
+@media (prefers-reduced-motion: reduce) {
+  .template-tab-indicator {
+    transition: none;
+  }
+}
+
 /* Rows that scroll sideways (tabs, card strips) without a visible bar. */
 .no-scrollbar {
   scrollbar-width: none;
