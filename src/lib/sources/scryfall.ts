@@ -1,5 +1,6 @@
 import { cacheLife } from "next/cache";
 import { canBeCommander } from "@/lib/commander-rules";
+import { fixingLandsQuery } from "@/lib/deck-beta/lands";
 import type { CardDetails, CardInfo, Printing, Ruling, ScryfallCard, ScryfallLookup } from "@/lib/types";
 import { SourceError, sourceFetch } from "./http";
 import { createThrottle } from "./throttle";
@@ -353,6 +354,18 @@ export async function getLandArts(name: string): Promise<LandArt[]> {
     if (!artUrl) return [];
     return [{ artUrl, artist: card.artist, set: card.set_name, fullArt: Boolean(card.full_art) || card.border_color === "borderless" }];
   });
+}
+
+// --- Fixing lands ---------------------------------------------------------------
+
+/** The lands that fix these colors, most played in Commander first. One page is plenty: the rest are hardly played. */
+export async function getFixingLands(colors: string[]): Promise<CardDetails[]> {
+  "use cache: remote";
+  cacheLife("days");
+
+  const query = encodeURIComponent(fixingLandsQuery(colors));
+  const list = (await get(`/cards/search?q=${query}&order=edhrec&unique=cards`)) as RawList<RawCard> | null;
+  return (list?.data ?? []).map(toCardDetails);
 }
 
 // --- Game Changers --------------------------------------------------------------

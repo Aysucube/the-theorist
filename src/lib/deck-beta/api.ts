@@ -99,6 +99,11 @@ export type BuilderResponse =
       details: Record<string, CardDetails>;
     };
 
+/** GET /api/deck-beta/lands: the lands that fix a deck's colors, most played first. */
+export interface LandsResponse {
+  lands: CardDetails[];
+}
+
 /** GET /api/deck-beta/commander-plan: how a commander is built and played, for its game plan. */
 export type CommanderPlanResponse =
   | { found: false }

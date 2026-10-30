@@ -69,8 +69,8 @@ export function landKind(card: CardDetails): LandKind | undefined {
   if (/search your library for an? [^.]*(?:plains|island|swamp|mountain|forest|basic land)[^.]* card/.test(t) && /sacrifice/.test(t)) return "fetch";
   if (/return a land you control to its owner'?s hand/.test(t)) return "bounce";
   if (/add one mana of any color|add one mana of any type/.test(t)) return "rainbow";
-  // "Enters tapped unless…" (checklands, fastlands, battle lands) or "you may pay 2 life" (shocks) usually come in untapped.
-  const alwaysTapped = /enters (?:the battlefield )?tapped\./.test(t) && !/tapped unless|you may pay \d life/.test(t);
+  // "Enters tapped unless…" (checklands, fastlands, battle lands), "you may pay 2 life" (shocks) or "you may reveal" (snarls) usually come in untapped.
+  const alwaysTapped = /enters (?:the battlefield )?tapped\./.test(t) && !/tapped unless|you may pay \d life|you may reveal/.test(t);
   const colors = landColors(card);
   if (alwaysTapped) return "tapped";
   if (colors.size >= 2) return "dual";
@@ -78,6 +78,24 @@ export function landKind(card: CardDetails): LandKind | undefined {
   const abilities = t.split("\n").filter((line) => !/^\(?\{t\}(?:, pay \d life)?: add\b/.test(line.trim()) && line.trim() !== "");
   if (abilities.length > 0 || colors.size === 0) return "utility";
   return "other";
+}
+
+/** Lands that fix a deck's colors, beyond plain dual lands. */
+export function fixesColors(kind: LandKind): boolean {
+  return kind === "fetch" || kind === "triome" || kind === "rainbow" || kind === "bounce";
+}
+
+/** The deck's colors a fetch land can find: a basic land is any of them, a typed land only its types. */
+export function fetchedColors(card: CardDetails, identity: string[]): string[] {
+  const search = card.oracleText.match(/search your library for [^.]*/i)?.[0] ?? "";
+  if (/basic land/i.test(search)) return identity;
+  return identity.filter((c) => new RegExp(`\\b${BASIC_TYPES["WUBRG".indexOf(c)]}\\b`, "i").test(search));
+}
+
+/** Scryfall's search for the lands that make two of these colors, or fetch lands. */
+export function fixingLandsQuery(colors: string[]): string {
+  const pairs = colors.flatMap((a, i) => colors.slice(i + 1).map((b) => `(produces:${a} produces:${b})`));
+  return `t:land -t:basic f:commander id<=${colors.join("")} (${[...pairs, 'o:"search your library"'].join(" or ")})`.toLowerCase();
 }
 
 export interface ManaBasePlan {

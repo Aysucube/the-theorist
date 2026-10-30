@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CardDetails } from "@/lib/types";
-import { isSlowRamp, landFit, landKind, manaBase, manaBasePlan } from "./lands";
+import { fetchedColors, fixingLandsQuery, isSlowRamp, landFit, landKind, manaBase, manaBasePlan } from "./lands";
 import { cardRoles } from "./roles";
 
 const land = (name: string, typeLine: string, oracleText: string): CardDetails => ({
@@ -21,6 +21,7 @@ const lands = {
   hinterland: land("Hinterland Harbor", "Land", "This land enters tapped unless you control a Forest or an Island.\n{T}: Add {G} or {U}."),
   promenade: land("Bountiful Promenade", "Land", "This land enters tapped unless you have two or more opponents.\n{T}: Add {G} or {W}."),
   yavimaya: land("Yavimaya Coast", "Land", "{T}: Add {C}.\n{T}: Add {G} or {U}. This land deals 1 damage to you."),
+  snarl: land("Necroblossom Snarl", "Land", "As this land enters, you may reveal a Swamp or Forest card from your hand. If you don't, this land enters tapped.\n{T}: Add {B} or {G}."),
   misty: land("Misty Rainforest", "Land", "{T}, Pay 1 life, Sacrifice this land: Search your library for a Forest or Island card, put it onto the battlefield, then shuffle."),
   passage: land("Fabled Passage", "Land", "{T}, Sacrifice this land: Search your library for a basic land card, put it onto the battlefield tapped, then shuffle. Then if you control four or more lands, untap that land."),
   ketria: land("Ketria Triome", "Land — Forest Island Mountain", "({T}: Add {G}, {U}, or {R}.)\nThis land enters tapped.\nCycling {3} ({3}, Discard this card: Draw a card.)"),
@@ -34,7 +35,7 @@ const lands = {
 describe("landKind", () => {
   it("tells the kinds of land apart", () => {
     expect(landKind(lands.forest)).toBe("basic");
-    for (const dual of [lands.tropical, lands.breeding, lands.hinterland, lands.promenade, lands.yavimaya]) expect(landKind(dual)).toBe("dual");
+    for (const dual of [lands.tropical, lands.breeding, lands.hinterland, lands.promenade, lands.yavimaya, lands.snarl]) expect(landKind(dual)).toBe("dual");
     expect(landKind(lands.misty)).toBe("fetch");
     expect(landKind(lands.passage)).toBe("fetch");
     expect(landKind(lands.ketria)).toBe("triome");
@@ -47,6 +48,21 @@ describe("landKind", () => {
 
   it("isn't for nonlands", () => {
     expect(landKind({ ...lands.forest, typeLine: "Artifact" })).toBeUndefined();
+  });
+});
+
+describe("fetchedColors", () => {
+  it("finds any color with a basic land, and only its types otherwise", () => {
+    expect(fetchedColors(lands.passage, ["B", "G"])).toEqual(["B", "G"]);
+    expect(fetchedColors(lands.misty, ["B", "G"])).toEqual(["G"]);
+    expect(fetchedColors(lands.misty, ["W", "B"])).toEqual([]);
+  });
+});
+
+describe("fixingLandsQuery", () => {
+  it("asks for lands that make any two of the colors, or fetch", () => {
+    expect(fixingLandsQuery(["B", "G"])).toBe('t:land -t:basic f:commander id<=bg ((produces:b produces:g) or o:"search your library")');
+    expect(fixingLandsQuery(["W", "B", "G"])).toContain("(produces:w produces:b) or (produces:w produces:g) or (produces:b produces:g)");
   });
 });
 

@@ -160,8 +160,65 @@ describe("builderRecommendations", () => {
     expect(three.combos.map((g) => g.pick.card.name)).toEqual(["Staff of Domination"]);
     expect(three.combos[0].pick.reason).toMatch(/Infinite green mana/);
     expect(run(2).combos).toEqual([]);
-    expect(three.lands.map((p) => p.card.name)).toEqual(["Gaea's Cradle"]);
-    expect(three.lands[0].reason).toBeDefined();
+    expect(names(three.lands.utility)).toEqual(["Gaea's Cradle"]);
+    expect(three.lands.utility[0].reason).toBeDefined();
     expect(three.manaBase.colors).toBe(2);
+  });
+
+  describe("lands", () => {
+    const land = (name: string, oracleText: string, colorIdentity: string[] = [], extra: Partial<BuilderCandidate> = {}, typeLine = "Land") =>
+      candidate(card(name, typeLine, oracleText, { colorIdentity, cmc: 0 }), { inclusion: undefined, ...extra });
+    const cemetery = land("Woodland Cemetery", "This land enters tapped unless you control a Swamp or a Forest.\n{T}: Add {B} or {G}.", ["B", "G"], { inclusion: 0.6 });
+    const tomb = land("Overgrown Tomb", "({T}: Add {B} or {G}.)\nAs this land enters, you may pay 2 life. If you don't, it enters tapped.", ["B", "G"], { inclusion: 0.7 }, "Land — Swamp Forest");
+    const bayou = land("Bayou", "({T}: Add {B} or {G}.)", ["B", "G"], {}, "Land — Swamp Forest");
+    const catacombs = land("Verdant Catacombs", "{T}, Pay 1 life, Sacrifice this land: Search your library for a Swamp or Forest card, put it onto the battlefield, then shuffle.");
+    const strand = land("Flooded Strand", "{T}, Pay 1 life, Sacrifice this land: Search your library for a Plains or Island card, put it onto the battlefield, then shuffle.");
+    const wilds = land("Evolving Wilds", "{T}, Sacrifice this land: Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.");
+    const tower = land("Command Tower", "{T}: Add one mana of any color in your commander's color identity.");
+    const rogues = land("Rogue's Passage", "{T}: Add {C}.\n{4}, {T}: Target creature can't be blocked this turn.");
+    const gate = land("Golgari Guildgate", "This land enters tapped.\n{T}: Add {B} or {G}.", ["B", "G"], { inclusion: 0.9 }, "Land — Gate");
+    const all = [bayou, cemetery, tomb, catacombs, strand, wilds, tower, rogues, gate];
+    const build = (candidates: BuilderCandidate[], identity = ["B", "G"], extra: { preferOwned?: boolean; perGroup?: number; deck?: BuilderCandidate[] } = {}) =>
+      builderRecommendations({
+        deck: [{ card: commander, qty: 1 }, ...(extra.deck ?? []).map((c) => ({ card: c.card, qty: 1 }))],
+        candidates,
+        identity,
+        bracket: 3,
+        isGameChanger: () => false,
+        preferOwned: extra.preferOwned ?? false,
+        lands: 38,
+        perGroup: extra.perGroup,
+      }).lands;
+
+    it("sorts lands into duals, more fixing, utility and tapped lands", () => {
+      const lands = build(all);
+      expect(names(lands.duals)).toEqual(["Overgrown Tomb", "Woodland Cemetery", "Bayou"]);
+      expect(names(lands.fixing)).toEqual(expect.arrayContaining(["Verdant Catacombs", "Evolving Wilds", "Command Tower"]));
+      expect(names(lands.utility)).toEqual(["Rogue's Passage"]);
+      expect(names(lands.slow)).toEqual(["Golgari Guildgate"]);
+    });
+
+    it("leaves out fetch lands that can't find the deck's colors", () => {
+      const lands = Object.values(build(all)).flat();
+      expect(names(lands)).not.toContain("Flooded Strand");
+    });
+
+    it("puts the lands you own ahead when asked", () => {
+      const owned = { ...bayou, ownedCopies: 1 };
+      expect(names(build([cemetery, tomb, owned], ["B", "G"], { preferOwned: true }).duals)).toEqual(["Bayou", "Overgrown Tomb", "Woodland Cemetery"]);
+    });
+
+    it("lists enough duals to fill the mana base and drops the ones in the deck", () => {
+      const more = Array.from({ length: 20 }, (_, i) => land(`Dual ${i}`, "{T}: Add {B} or {G}.", ["B", "G"]));
+      expect(build(more, ["B", "G"], { perGroup: 2 }).duals).toHaveLength(14);
+      expect(build(more, ["B", "G"], { perGroup: 2, deck: more.slice(0, 4) }).duals).toHaveLength(10);
+      expect(names(build(all, ["B", "G"], { deck: [tomb] }).duals)).toEqual(["Woodland Cemetery", "Bayou"]);
+    });
+
+    it("has no shelf for fixing in one color", () => {
+      const lands = build([catacombs, tower, rogues], ["G"]);
+      expect(lands.fixing).toEqual([]);
+      expect(names(lands.utility)).toEqual(expect.arrayContaining(["Verdant Catacombs", "Rogue's Passage"]));
+    });
   });
 });

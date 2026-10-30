@@ -4,13 +4,14 @@
 // deckbuilding template (ramp, card advantage, targeted and mass disruption,
 // its plan). Each shelf leads with EDHREC's highest-synergy cards, then
 // flexible cards that fill several categories, then the rest. The plan also
-// takes the playstyle's cards and combo pieces, and lands are rated for the
-// commander's colors. Kept free of React so it's easy to test.
+// takes the playstyle's cards and combo pieces, and lands get a shelf of their
+// own, dual lands first, rated for the commander's colors. Kept free of React
+// so it's easy to test.
 import type { PlaystyleCard } from "@/lib/deck-beta/api";
 import { comboBracket, isMassLandDenial, type Bracket } from "@/lib/deck-beta/bracket";
 import { landTarget } from "@/lib/deck-beta/curve";
 import { planUpgrades, scoreCandidate, type Candidate, type Pick, type UpgradePlan } from "@/lib/deck-beta/doctor";
-import { LAND_KIND_LABEL, landFit, landKind, manaBasePlan, type ManaBasePlan } from "@/lib/deck-beta/lands";
+import { fetchedColors, fixesColors, LAND_KIND_LABEL, landFit, landKind, manaBasePlan, type ManaBasePlan } from "@/lib/deck-beta/lands";
 import { cardKey } from "@/lib/deck-beta/recommend";
 import { CATEGORIES, categoryGaps, deckProfile, type Category, type DeckProfile } from "@/lib/deck-beta/roles";
 import { byImpact } from "@/lib/deck-beta/walkthrough";
@@ -115,6 +116,17 @@ export interface TemplateShelf {
   more: BuilderPick[];
 }
 
+/** The lands to add on top of the basics that come with the deck, each in the order to add it. */
+export interface LandShelf {
+  /** Make two or more of the deck's colors and enter untapped, or usually do. */
+  duals: BuilderPick[];
+  /** Fetch lands, triomes, bounce lands and lands that tap for any color. */
+  fixing: BuilderPick[];
+  utility: BuilderPick[];
+  /** Always enter tapped, so they come last: a basic is often better. */
+  slow: BuilderPick[];
+}
+
 export interface BuilderGroups {
   /** Every category of the template, in its usual order. */
   template: TemplateShelf[];
@@ -122,7 +134,7 @@ export interface BuilderGroups {
   combos: { pick: BuilderPick; combo: Combo }[];
   /** The chosen playstyle's cards, for the plan (likewise). */
   playstyle: BuilderPick[];
-  lands: BuilderPick[];
+  lands: LandShelf;
   leftOut: UpgradePlan["leftOut"];
 }
 
@@ -221,18 +233,26 @@ export function builderRecommendations(input: BuilderInput): BuilderGroups & { p
 
   // Lands beyond the basics, rated for the commander's colors: untapped fixing
   // up in more colors, utility lands up in fewer, always-tapped lands down.
-  const lands = candidates
+  // A fetch land has no colors of its own, so it has to find the deck's.
+  const rated = candidates
     .filter((c) => isLand(c.card) && !has(c.card.name) && !/\bBasic\b/.test(c.card.typeLine) && !(bracket <= 3 && isMassLandDenial(c.card)))
-    .map((c) => {
+    .flatMap((c) => {
       const kind = landKind(c.card) ?? "other";
-      return {
+      if (kind === "fetch" && fetchedColors(c.card, identity).length < Math.min(2, identity.length)) return [];
+      const pick = {
         ...score(c),
         score: (c.inclusion ?? 0) + Math.max(0, c.synergy ?? 0) + landFit(kind, identity.length),
         reason: LAND_KIND_LABEL[kind],
       };
+      return [{ kind, pick }];
     })
-    .sort(preferOwned ? ownedFirst : (a, b) => b.score - a.score)
-    .slice(0, perGroup);
+    .sort((a, b) => (preferOwned ? ownedFirst(a.pick, b.pick) : b.pick.score - a.pick.score));
+  const lands: LandShelf = { duals: [], fixing: [], utility: [], slow: [] };
+  for (const { kind, pick } of rated) {
+    const shelf = kind === "dual" ? lands.duals : kind === "tapped" ? lands.slow : fixesColors(kind) && identity.length >= 2 ? lands.fixing : lands.utility;
+    // Enough duals to fill the mana base, so a big gap in many colors isn't cut short.
+    if (shelf.length < (shelf === lands.duals ? Math.max(perGroup, manaBase.nonbasics - profile.lands) : perGroup)) shelf.push(pick);
+  }
 
   // Each shelf in the order to add its cards. Your own cards lead their part of it when you build from the binder.
   const arrange = (picks: Pick[], label?: (p: Pick) => string) => {

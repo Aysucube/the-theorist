@@ -15,13 +15,13 @@ import { cardTraits, subtypeVocabulary } from "@/lib/deck-beta/synergy";
 import { curveAdvice } from "../deck-beta/template-bits";
 import { bracketLabel, estimateDeckBracket } from "@/lib/deck-beta/bracket";
 import { cardKey } from "@/lib/deck-beta/recommend";
-import { retryBuilderData, useBuilderData, useDeckAnalysis, useDeckLibrary, usePlaystyle } from "@/lib/deck-beta/store";
+import { retryBuilderData, useBuilderData, useDeckAnalysis, useDeckLibrary, useFixingLands, usePlaystyle } from "@/lib/deck-beta/store";
 import { useGameChangers } from "@/lib/use-game-changers";
 import type { CardDetails } from "@/lib/types";
 import { AppLink as Link, useAppRouter } from "../app-link";
 import { FEATURES, morphName } from "../theme/features";
 import { FeatureBadge } from "../theme/page-header";
-import { BuildStep } from "./build-step";
+import { BuildStep, RecommendedLands } from "./build-step";
 import { DeckRail } from "./deck-rail";
 import { BracketStep, CommanderStep, LandsStep, SynergyStep } from "./steps";
 
@@ -90,7 +90,11 @@ export function CreateDeck() {
   const commanderCard = commanderName ? detailsFor(commanderName) : undefined;
   const identity = draft.commander?.colorIdentity ?? [];
   const identityKey = identity.join("");
-  const deckCards = draft.cards.map((c) => detailsFor(c.name)).filter((d): d is CardDetails => Boolean(d));
+  const fixingLands = useFixingLands(identity);
+  useEffect(() => {
+    if (fixingLands) rememberDetails(fixingLands);
+  }, [fixingLands]);
+  const deckCards =draft.cards.map((c) => detailsFor(c.name)).filter((d): d is CardDetails => Boolean(d));
   const deck = [...(commanderCard ? [{ card: commanderCard, qty: 1 }] : []), ...deckCards.map((card) => ({ card, qty: 1 }))];
   const isLand = (c: CardDetails) => /\bLand\b/.test(c.typeLine.split(" // ")[0]);
   const nonbasicLands = deckCards.filter(isLand).length;
@@ -108,6 +112,7 @@ export function CreateDeck() {
       const card = data!.details[c.name] ?? detailsFor(c.name);
       if (card) push(card, { synergy: c.synergy, inclusion: c.inclusion, lists: c.lists });
     }
+    for (const card of fixingLands ?? []) push(card);
     for (const name of binderNames) {
       const card = detailsFor(name);
       if (card && fitsIdentity(card, identity)) push(card);
@@ -116,7 +121,7 @@ export function CreateDeck() {
     return out;
     // The cache's status changes as details arrive, which is when this needs redoing.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, binder.cards, analysisResult, status.state, identityKey]);
+  }, [data, fixingLands, binder.cards, analysisResult, status.state, identityKey]);
 
   // Lands by the curve: EDHREC's decks for the commander, or (until a deck has
   // spells) the curve of the cards those decks play most.
@@ -124,6 +129,7 @@ export function CreateDeck() {
   const recommended = draft.commander && draft.bracket ? recommendLands({ curveAverage: expectedCurve }) : undefined;
   const lands = draft.lands ?? recommended?.count ?? 38;
   const basics = Math.max(0, lands - nonbasicLands);
+  const basicSplit = splitBasics(basics, identity, deckCards.map((c) => c.manaCost ?? ""));
   const spellTarget = 99 - lands;
   const manaBase = manaBasePlan(identity.length, lands);
 
@@ -195,11 +201,10 @@ export function CreateDeck() {
 
   function save(name: string) {
     if (!draft.commander) return;
-    const split = splitBasics(basics, identity, deckCards.map((c) => c.manaCost ?? ""));
     const id = library.create({
       name,
       commander: draft.commander.name,
-      cards: [{ name: draft.commander.name, qty: 1 }, ...draft.cards, ...Object.entries(split).map(([basic, qty]) => ({ name: basic, qty }))],
+      cards: [{ name: draft.commander.name, qty: 1 }, ...draft.cards, ...Object.entries(basicSplit).map(([basic, qty]) => ({ name: basic, qty }))],
       bracket: draft.bracket,
       theme: draft.themeName,
       commanderImage: draft.commander.imageUrl,
@@ -292,16 +297,19 @@ export function CreateDeck() {
                     />
                   )}
                   {step === 3 && recommended && (
-                    <LandsStep
-                      recommended={recommended.count}
-                      why={recommended.why}
-                      lands={lands}
-                      onLands={(n) => update({ lands: n })}
-                      colors={identity}
-                      nonbasicLands={nonbasicLands}
-                      manaCosts={deckCards.map((c) => c.manaCost ?? "")}
-                      manaBase={manaBase}
-                    />
+                    <>
+                      <LandsStep
+                        recommended={recommended.count}
+                        why={recommended.why}
+                        lands={lands}
+                        onLands={(n) => update({ lands: n })}
+                        colors={identity}
+                        nonbasicLands={nonbasicLands}
+                        manaCosts={deckCards.map((c) => c.manaCost ?? "")}
+                        manaBase={manaBase}
+                      />
+                      {plan && <RecommendedLands lands={plan.lands} preferOwned={draft.preferOwned} ownedFor={binder.owned} onAdd={add} />}
+                    </>
                   )}
                   {step === 4 &&
                     (plan ? (
@@ -309,6 +317,8 @@ export function CreateDeck() {
                         groups={plan}
                         profile={plan.profile}
                         landTarget={plan.manaBase.nonbasics}
+                        lands={lands}
+                        basicSplit={basicSplit}
                         preferOwned={draft.preferOwned}
                         ownedFor={binder.owned}
                         onAdd={add}

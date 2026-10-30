@@ -8,7 +8,7 @@ import { createLocalStore, useHydrated } from "@/lib/local-store";
 import { mergeDeckLists } from "@/lib/saved-shape";
 import { fetchJsonWithRetry, sleep } from "@/lib/retry";
 import type { CardDetails } from "@/lib/types";
-import type { AnalysisResponse, BuilderResponse, CardsResponse, CommanderPlanResponse, LandArtResponse, PairingsResponse, PlaystyleResponse, RulingsResponse } from "./api";
+import type { AnalysisResponse, BuilderResponse, CardsResponse, CommanderPlanResponse, LandArtResponse, LandsResponse, PairingsResponse, PlaystyleResponse, RulingsResponse } from "./api";
 
 function isDeckCard(value: unknown): value is DeckCard {
   const card = value as DeckCard;
@@ -365,6 +365,17 @@ export function useBuilderData(commander: { name: string; layout: string } | und
     if (url) loadRemote<BuilderResponse>(url, url, undefined, "EDHREC or Scryfall is busy");
   }, [url]);
   return url ? (remote.get(url) as RemoteState<BuilderResponse> | undefined) : undefined;
+}
+
+/** The lands that fix these colors, most played first. One color has none to ask for. */
+export function useFixingLands(colors: string[]): CardDetails[] | undefined {
+  useSyncExternalStore(subscribePairings, () => pairingsVersion, () => 0);
+  const url = colors.length >= 2 ? `/api/deck-beta/lands?${new URLSearchParams({ colors: colors.join("") })}` : "";
+  useEffect(() => {
+    if (url) loadRemote<LandsResponse>(url, url, undefined, "Scryfall is busy");
+  }, [url]);
+  const state = url ? (remote.get(url) as RemoteState<LandsResponse> | undefined) : undefined;
+  return state?.state === "done" ? state.result.lands : undefined;
 }
 
 /** How a commander is built and played (EDHREC's playstyles, curve and articles), for its game plan. */

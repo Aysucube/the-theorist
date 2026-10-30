@@ -4,7 +4,7 @@ import { Tabs } from "@base-ui/react/tabs";
 import { AnimatePresence } from "motion/react";
 import { useEffect, useId, useState, type ReactNode } from "react";
 import { CATEGORY_COLORS } from "@/components/deck-beta/template-bits";
-import type { BuilderGroups, BuilderPick, TemplateShelf } from "@/lib/builder/plan";
+import type { BuilderGroups, BuilderPick, LandShelf, TemplateShelf } from "@/lib/builder/plan";
 import { useCardDetails } from "@/lib/binder/card-cache";
 import { CATEGORIES, CATEGORY_INFO, type Category, type DeckProfile } from "@/lib/deck-beta/roles";
 import { fetchJsonWithRetry } from "@/lib/retry";
@@ -21,14 +21,17 @@ type PickProps = { ownedFor: (name: string) => number; onAdd: (card: CardDetails
  * 5. Build: the template is the tabs, each with its meter, and each category
  * lists the cards that fill it in the order to add them: EDHREC's highest
  * synergy, then flexible cards, then the rest. The plan also holds the
- * playstyle's cards and combo pieces; lands get a tab for the mana base. It
- * opens on the category furthest from its target. Adding a card sends it into
- * the deck and the lists re-rank.
+ * playstyle's cards and combo pieces; the lands tab shows the basics that come
+ * with the deck and the dual lands and others to add on top. It opens on the
+ * category furthest from its target. Adding a card sends it into the deck and
+ * the lists re-rank.
  */
 export function BuildStep({
   groups,
   profile,
   landTarget,
+  lands,
+  basicSplit,
   ownedFor,
   onAdd,
   spells,
@@ -46,6 +49,10 @@ export function BuildStep({
   profile: DeckProfile;
   /** About how many nonbasic lands the commander's colors want. */
   landTarget: number;
+  /** Lands to run, basics and others together. */
+  lands: number;
+  /** The basics that come with the deck, by name. */
+  basicSplit: Record<string, number>;
   spells: number;
   spellTarget: number;
   themeName?: string;
@@ -121,13 +128,18 @@ export function BuildStep({
           </Shelf>
         )}
         {tab === "lands" && (
-          <Group
-            title="Lands"
-            note={`${landAdvice} Lands that always enter tapped rank down; basics fill the rest.`}
-            picks={groups.lands}
-            empty="No lands to suggest for these colors yet."
-            {...pickProps}
-          />
+          <>
+            <div>
+              <h3 className="flex items-center gap-2 font-semibold">
+                <span aria-hidden className="size-2 rounded-full" style={{ background: LANDS_COLOR }} />
+                Lands
+                <span className="text-sm font-normal text-muted">{profile.lands < landTarget ? `${landTarget - profile.lands} to go` : "filled"}</span>
+              </h3>
+              <p className="text-sm text-muted">{landAdvice}</p>
+            </div>
+            <BasicsInDeck split={basicSplit} lands={lands} />
+            <LandGroups lands={groups.lands} preferOwned={preferOwned} {...pickProps} />
+          </>
         )}
       </div>
 
@@ -205,35 +217,78 @@ function Shelf({
   );
 }
 
+/** The basics the deck is filled out with, as they stand. */
+function BasicsInDeck({ split, lands }: { split: Record<string, number>; lands: number }) {
+  const entries = Object.entries(split);
+  const basics = entries.reduce((sum, [, n]) => sum + n, 0);
+  return (
+    <div className="rounded-xl border border-line bg-surface p-4">
+      <p className="eyebrow">Comes with the deck</p>
+      <p className="mt-1 text-sm tabular-nums">
+        {basics} basic {basics === 1 ? "land" : "lands"}
+        {entries.length > 0 && `: ${entries.map(([name, n]) => `${n} ${name}`).join(", ")}`}
+      </p>
+      <p className="mt-1 text-sm text-muted">Each land you add takes a basic’s place, so the deck stays at {lands} lands.</p>
+    </div>
+  );
+}
+
+/** The lands to add on top of the basics, dual lands first. */
+function LandGroups({ lands, preferOwned, ...pickProps }: PickProps & { lands: LandShelf; preferOwned: boolean }) {
+  if (lands.duals.length + lands.fixing.length + lands.utility.length + lands.slow.length === 0) {
+    return <p className="text-sm text-muted">No lands to suggest for these colors yet.</p>;
+  }
+  return (
+    <>
+      <Group
+        title="Dual lands"
+        note={`Make two or more of your colors and enter untapped, or usually do. The ones EDHREC’s decks play most come first${preferOwned ? ", after the ones you own" : ""}.`}
+        picks={lands.duals}
+        {...pickProps}
+      />
+      <Group title="More fixing" note="Fetch lands, triomes, bounce lands and lands that tap for any color." picks={lands.fixing} {...pickProps} />
+      <Group title="Utility lands" note="Lands that do more than make mana." picks={lands.utility} {...pickProps} />
+      <Group title="Enter tapped" note="Slower, so they come last: a basic is often better." picks={lands.slow} {...pickProps} />
+    </>
+  );
+}
+
+/** The Lands step's recommendations, for picking them as the mana base is set. */
+export function RecommendedLands({ lands, preferOwned, ...pickProps }: PickProps & { lands: LandShelf; preferOwned: boolean }) {
+  return (
+    <div className="mt-10 flex flex-col gap-8 border-t border-line pt-8">
+      <div>
+        <h3 className="font-semibold">Recommended lands</h3>
+        <p className="text-sm text-muted">On top of the basics that come with the deck. Each one you add takes a basic’s place.</p>
+      </div>
+      <LandGroups lands={lands} preferOwned={preferOwned} {...pickProps} />
+    </div>
+  );
+}
+
 function Group({
   title,
   note,
   picks,
   ownedFor,
   onAdd,
-  empty,
 }: PickProps & {
   title: string;
   note: string;
   picks: BuilderPick[];
-  empty?: string;
 }) {
-  if (picks.length === 0 && !empty) return null;
+  if (picks.length === 0) return null;
   return (
     <section>
       <h4 className="text-sm font-semibold">{title}</h4>
       <p className="mb-4 text-sm text-muted">{note}</p>
-      {picks.length === 0 ? (
-        <p className="text-sm text-muted">{empty}</p>
-      ) : (
-        <ul className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 xl:grid-cols-4">
-          <AnimatePresence mode="popLayout" initial={false}>
-            {picks.map((p, i) => (
-              <BuildCard key={p.card.name} card={p.card} ownedCopies={ownedFor(p.card.name)} categories={p.categories} reason={p.reason} index={i} onAdd={onAdd} />
-            ))}
-          </AnimatePresence>
-        </ul>
-      )}
+      <ul className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 xl:grid-cols-4">
+        <AnimatePresence mode="popLayout" initial={false}>
+          {picks.map((p, i) => (
+            <BuildCard key={p.card.name} card={p.card} ownedCopies={ownedFor(p.card.name)} categories={p.categories} reason={p.reason} index={i} onAdd={onAdd} />
+          ))}
+        </AnimatePresence>
+      </ul>
     </section>
   );
 }
