@@ -54,6 +54,11 @@ export function removeCard(deck: DeckCard[], name: string): DeckCard[] {
   return deck.filter((c) => key(c.name) !== key(name));
 }
 
+/** Puts another card in a card's place, with its quantity. */
+export function swapCard(deck: DeckCard[], from: string, to: string): DeckCard[] {
+  return deck.map((c) => (key(c.name) === key(from) ? { ...c, name: to } : c));
+}
+
 export function hasCard(deck: DeckCard[], name: string): boolean {
   return deck.some((c) => key(c.name) === key(name));
 }

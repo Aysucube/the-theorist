@@ -16,7 +16,10 @@ see the commanders most often built around a theme on EDHREC, and the cards thos
 Then collect cards on the **Shopping** page (or paste a list from Moxfield or Archidekt), price
 them all, and get a **shopping list** that uses the fewest stores possible,
 with a ready-to-send order message for each store. Prices always use the cheapest
-printing of a card, whatever printing your list names.
+printing of a card, whatever printing your list names. A card costing ₱100 or more gets a **drop
+arrow** beside its name: it opens the **cheaper alternatives**, cards with a similar effect in the
+same colors that are in stock for less, cheapest first, each with its hover preview. **Swap** puts
+one on the list in the card's place.
 
 The **Binder** holds your collection. Paste a list (`4 Llanowar Elves`, a Moxfield or Archidekt
 export) or upload a CSV from a collection app such as ManaBox, Deckbox or Dragon Shield; any CSV

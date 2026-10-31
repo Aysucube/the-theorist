@@ -113,3 +113,11 @@ export function ArrowRightIcon(props: IconProps) {
     </Icon>
   );
 }
+
+export function ArrowDownIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="m5 7.5 5 5 5-5" />
+    </Icon>
+  );
+}

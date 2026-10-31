@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DeckCard } from "./deck";
-import { orderText, planCheapest, planFewestStores, tickKey } from "./shopping";
+import { cheapestPhp, orderText, planCheapest, planFewestStores, tickKey } from "./shopping";
 import type { ListingBrief, PriceResponse, StoreOffer } from "./types";
 
 /** Plenty, for tests that aren't about stock. */
@@ -38,6 +38,19 @@ function stocked(stores: Record<string, [number, number][]>): PriceResponse {
 const deck = (...names: string[]): DeckCard[] => names.map((name) => ({ name, qty: 1 }));
 const storesOf = (plan: { stops: { store: string }[] }) => plan.stops.map((s) => s.store).sort();
 const stopAt = (plan: ReturnType<typeof planFewestStores>, store: string) => plan.stops.find((s) => s.store === store)!;
+
+describe("cheapestPhp", () => {
+  it("is a card's cheapest copy anywhere", () => {
+    expect(cheapestPhp(at(["HMO", 120], ["Vault", 150]))).toBe(120);
+  });
+
+  it("is unknown without a price", () => {
+    expect(cheapestPhp(undefined)).toBeUndefined();
+    expect(cheapestPhp("error")).toBeUndefined();
+    expect(cheapestPhp({ found: false })).toBeUndefined();
+    expect(cheapestPhp(lookup([]))).toBeUndefined();
+  });
+});
 
 describe("planFewestStores", () => {
   it("sends you to one store that has everything, even if splitting would be cheaper", () => {

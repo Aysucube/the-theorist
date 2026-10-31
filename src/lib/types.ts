@@ -326,6 +326,23 @@ export interface TcgphSummary {
   bySet?: Record<string, ListingBrief>;
 }
 
+/** A card with a similar effect to one on the Shopping list. */
+export interface AlternativeCard {
+  name: string;
+  typeLine: string;
+  manaCost?: string;
+  /** Its prices, in stock somewhere, so swapping it in needs no new lookup. */
+  price: { found: true } & TcgphSummary;
+}
+
+/** What GET /api/alternatives returns. */
+export interface AlternativesResponse {
+  /** Cheapest first. */
+  alternatives: AlternativeCard[];
+  /** Some cards couldn't be checked, so asking again may find more. */
+  incomplete?: boolean;
+}
+
 /** What GET /api/preview returns: enough for a hover card. */
 export interface CardPreview {
   name: string;

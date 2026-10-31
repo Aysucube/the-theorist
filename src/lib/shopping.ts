@@ -4,6 +4,14 @@ import { formatPhp } from "./format";
 import { buyCheapest, copiesOf, enoughFor, listingsOf, stockOf, type Purchase } from "./stock";
 import type { ListingBrief, PriceResponse } from "./types";
 
+/** A card this expensive or more gets a menu of cheaper alternatives. */
+export const ALTERNATIVES_FROM_PHP = 100;
+
+/** A card's cheapest copy anywhere, when it's been priced and is in stock. */
+export function cheapestPhp(price: PriceResponse | "error" | undefined): number | undefined {
+  return price && price !== "error" && price.found ? price.cheapest?.pricePhp : undefined;
+}
+
 export interface ShoppingItem {
   name: string;
   /** Copies to buy at this store. */

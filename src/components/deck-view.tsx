@@ -6,12 +6,13 @@ import { useEffect, useRef, useState } from "react";
 import { MAX_DECK_CARDS, parseDeckList, priceDeck, type DeckCard, type StoreCoverage } from "@/lib/deck";
 import { formatCount, formatPhp } from "@/lib/format";
 import { lookupPrice, sleep } from "@/lib/price-lookup";
-import { planCheapest, planFewestStores } from "@/lib/shopping";
+import { cheapestPhp, planCheapest, planFewestStores } from "@/lib/shopping";
 import { buyAnywhere } from "@/lib/stock";
 import type { CardInfo } from "@/lib/types";
 import { useCardInfo, useDeck, useSavedPrices, type Lookup } from "@/lib/use-deck";
 import { ShoppingList } from "./shopping-list";
 import { CardLink } from "./card-link";
+import { useCheaperAlternatives } from "./cheaper-alternatives";
 import { ManaCost } from "./mana";
 
 // Cards are priced one at a time with a short breather in between. Slow, but
@@ -358,37 +359,52 @@ function CardsTable({
     <section className="rounded-xl border border-line p-4 sm:p-6">
       <h2 className="text-xl font-semibold">Cards</h2>
       <ul className="mt-3">
-        {deck.map((card) => {
-          const info = infoFor(card.name);
-          return (
-            <li
-              key={card.name}
-              className="flex items-center gap-3 border-b border-line py-2 text-sm last:border-0"
-            >
-              <span className="w-8 shrink-0 text-right text-muted tabular-nums">{card.qty}×</span>
-              <div className="min-w-0 flex-1">
-                <div className="flex min-w-0 items-center gap-2">
-                  <CardLink name={card.name} className="min-w-0 truncate hover:underline" />
-                  {info?.manaCost && <ManaCost cost={info.manaCost} />}
-                </div>
-                {info?.typeLine && <p className="truncate text-xs text-muted">{info.typeLine}</p>}
-              </div>
-              <span className="shrink-0 text-right text-xs">
-                <LinePrice qty={card.qty} lookup={lookups[card.name]} />
-              </span>
-              <button
-                type="button"
-                onClick={() => onRemove(card.name)}
-                aria-label={`Remove ${card.name} from shopping list`}
-                className="flex size-6 shrink-0 items-center justify-center rounded-full text-muted hover:bg-red-100 hover:text-red-700 dark:hover:bg-red-950 dark:hover:text-red-400"
-              >
-                ×
-              </button>
-            </li>
-          );
-        })}
+        {deck.map((card) => (
+          <CardRow key={card.name} card={card} lookup={lookups[card.name]} info={infoFor(card.name)} onRemove={onRemove} />
+        ))}
       </ul>
     </section>
+  );
+}
+
+function CardRow({
+  card,
+  lookup,
+  info,
+  onRemove,
+}: {
+  card: DeckCard;
+  lookup: Lookup | undefined;
+  info: CardInfo | undefined;
+  onRemove: (name: string) => void;
+}) {
+  const { arrow, menu } = useCheaperAlternatives(card.name, cheapestPhp(lookup));
+  return (
+    <li className="border-b border-line py-2 text-sm last:border-0">
+      <div className="flex items-center gap-3">
+        <span className="w-8 shrink-0 text-right text-muted tabular-nums">{card.qty}×</span>
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-center gap-2">
+            <CardLink name={card.name} className="min-w-0 truncate hover:underline" />
+            {info?.manaCost && <ManaCost cost={info.manaCost} />}
+            {arrow}
+          </div>
+          {info?.typeLine && <p className="truncate text-xs text-muted">{info.typeLine}</p>}
+        </div>
+        <span className="shrink-0 text-right text-xs">
+          <LinePrice qty={card.qty} lookup={lookup} />
+        </span>
+        <button
+          type="button"
+          onClick={() => onRemove(card.name)}
+          aria-label={`Remove ${card.name} from shopping list`}
+          className="flex size-6 shrink-0 items-center justify-center rounded-full text-muted hover:bg-red-100 hover:text-red-700 dark:hover:bg-red-950 dark:hover:text-red-400"
+        >
+          ×
+        </button>
+      </div>
+      {menu}
+    </li>
   );
 }
 

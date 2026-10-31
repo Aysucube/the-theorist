@@ -1,6 +1,6 @@
 "use client";
 
-import { addCard, importCards, removeCard, type DeckCard } from "@/lib/deck";
+import { addCard, importCards, removeCard, swapCard, type DeckCard } from "@/lib/deck";
 import { createLocalStore, useHydrated } from "@/lib/local-store";
 import { useEffect } from "react";
 import type { Lookup } from "@/lib/price-lookup";
@@ -101,6 +101,7 @@ export function useDeck() {
     ready,
     add: (name: string) => deckStore.set(addCard(deckStore.get(), name)),
     remove: (name: string) => deckStore.set(removeCard(deckStore.get(), name)),
+    swap: (from: string, to: string) => deckStore.set(swapCard(deckStore.get(), from, to)),
     importCards: (cards: DeckCard[]) => deckStore.set(importCards(deckStore.get(), cards)),
     clear: () => {
       deckStore.set([]);

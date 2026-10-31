@@ -6,6 +6,7 @@ import {
   parseDeckList,
   priceDeck,
   removeCard,
+  swapCard,
   type DeckCard,
 } from "./deck";
 import type { PriceResponse, StoreOffer } from "./types";
@@ -64,6 +65,11 @@ describe("deck edits", () => {
 
   it("removes a card by name, ignoring case", () => {
     expect(removeCard(deck, "SOL RING")).toEqual([]);
+  });
+
+  it("swaps a card for another in its place, keeping its quantity", () => {
+    const list = [{ name: "Sol Ring", qty: 2 }, { name: "Island", qty: 5 }];
+    expect(swapCard(list, "sol ring", "Arcane Signet")).toEqual([{ name: "Arcane Signet", qty: 2 }, { name: "Island", qty: 5 }]);
   });
 
   it("imports pasted cards, taking the pasted quantity for cards already in the deck", () => {
