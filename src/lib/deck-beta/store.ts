@@ -322,23 +322,28 @@ export function useDeckAnalysis(commander: CardDetails | undefined, cards: strin
   return key ? (remote.get(key) as RemoteState<AnalysisResponse> | undefined) : undefined;
 }
 
-/** "" asks for the commander's cards across all its decks rather than one playstyle. */
-function playstyleUrl(commander: CardDetails, theme: string) {
-  return `/api/deck-beta/playstyle?${new URLSearchParams({ commander: commander.name, layout: commander.layout, ...(theme ? { theme } : {}) })}`;
+/** "" asks for the commander's cards across all its decks rather than one playstyle. With colors, it also asks how far each card leans into it. */
+function playstyleUrl(commander: CardDetails, theme: string, colors?: string[]) {
+  return `/api/deck-beta/playstyle?${new URLSearchParams({
+    commander: commander.name,
+    layout: commander.layout,
+    ...(theme ? { theme } : {}),
+    ...(colors ? { colors: colors.join("") } : {}),
+  })}`;
 }
 
-export function requestPlaystyle(commander: CardDetails, theme: string, force = false) {
-  const url = playstyleUrl(commander, theme);
+export function requestPlaystyle(commander: CardDetails, theme: string, force = false, colors?: string[]) {
+  const url = playstyleUrl(commander, theme, colors);
   loadRemote<PlaystyleResponse>(url, url, undefined, "EDHREC is busy", force);
 }
 
 /** The best cards for one of the commander's playstyles ("" for all its decks; undefined for none yet). */
-export function usePlaystyle(commander: CardDetails | undefined, theme: string | undefined): RemoteState<PlaystyleResponse> | undefined {
+export function usePlaystyle(commander: CardDetails | undefined, theme: string | undefined, colors?: string[]): RemoteState<PlaystyleResponse> | undefined {
   useSyncExternalStore(subscribePairings, () => pairingsVersion, () => 0);
-  const url = commander && theme !== undefined ? playstyleUrl(commander, theme) : "";
+  const url = commander && theme !== undefined ? playstyleUrl(commander, theme, colors) : "";
   useEffect(() => {
-    if (commander && theme !== undefined) requestPlaystyle(commander, theme);
-  }, [commander, theme]);
+    if (url) loadRemote<PlaystyleResponse>(url, url, undefined, "EDHREC is busy");
+  }, [url]);
   return url ? (remote.get(url) as RemoteState<PlaystyleResponse> | undefined) : undefined;
 }
 

@@ -190,6 +190,57 @@ export async function getTheme(slug: string): Promise<EdhrecThemePage | null> {
   return result && parseThemePage(result.page, slug);
 }
 
+/** EDHREC's name for each set of colors, in WUBRG order. */
+const COLOR_PAGES: Record<string, string> = {
+  "": "colorless",
+  W: "mono-white",
+  U: "mono-blue",
+  B: "mono-black",
+  R: "mono-red",
+  G: "mono-green",
+  WU: "azorius",
+  UB: "dimir",
+  BR: "rakdos",
+  RG: "gruul",
+  WG: "selesnya",
+  WB: "orzhov",
+  UR: "izzet",
+  BG: "golgari",
+  WR: "boros",
+  UG: "simic",
+  WUB: "esper",
+  UBR: "grixis",
+  BRG: "jund",
+  WRG: "naya",
+  WUG: "bant",
+  WBG: "abzan",
+  WUR: "jeskai",
+  UBG: "sultai",
+  WBR: "mardu",
+  URG: "temur",
+  WUBR: "yore-tiller",
+  UBRG: "glint-eye",
+  WBRG: "dune-brood",
+  WURG: "ink-treader",
+  WUBG: "witch-maw",
+  WUBRG: "five-color",
+};
+
+/**
+ * A theme across every deck of exactly these colors ("Tokens" in Golgari), or
+ * across all colors if EDHREC has no such page. Its synergy compares those
+ * decks with others of the same colors, so it shows what the theme itself asks for.
+ */
+export async function getThemeInColors(slug: string, colors: string[]): Promise<EdhrecThemePage | null> {
+  "use cache: remote";
+  cacheLife("days");
+
+  if (!/^[a-z0-9-]{1,80}$/.test(slug)) return null;
+  const page = COLOR_PAGES[[..."WUBRG"].filter((c) => colors.includes(c)).join("")];
+  const result = (page && (await getPage(`tags/${slug}/${page}`))) || (await getPage(`tags/${slug}`));
+  return result && parseThemePage(result.page, slug);
+}
+
 /** `path` is the page's path under /pages, e.g. "commanders/atraxa-praetors-voice". */
 export function parseCommanderStats(page: RawPage, path: string): EdhrecCommanderStats | null {
   const dict = page.container?.json_dict;

@@ -19,6 +19,8 @@ export interface GamePlanInput {
   averages?: EdhrecDeckAverages;
   /** The average mana value of its decks' spells on EDHREC. */
   curveAverage?: number;
+  /** The playstyle chosen for this deck, if any; `averages` and `curveAverage` are then its decks'. */
+  playstyle?: { name: string; numDecks: number };
 }
 
 export type CommanderRole = "payoff" | "enabler" | "engine" | "value";
@@ -77,7 +79,7 @@ const BROAD = new Set(["type:Creature", "type:Legendary", "type:Land"]);
 const INCIDENTAL = new Set(["theme:lifegain", "theme:draw"]);
 
 export function commanderGamePlan(input: GamePlanInput): GamePlan {
-  const { commander, traits, themes = [], numDecks = 0, averages, curveAverage } = input;
+  const { commander, traits, themes = [], numDecks = 0, averages, curveAverage, playstyle } = input;
   const name = short(commander.name);
   const { types, subtypes } = parseTypeLine(commander.typeLine);
   // What it is itself doesn't count as making: Lathril being an Elf isn't "making Elves".
@@ -121,6 +123,7 @@ export function commanderGamePlan(input: GamePlanInput): GamePlan {
         (second ? `, then ${second.name} (${Math.round(second.share * 100)}%).` : "."),
     );
   }
+  if (playstyle) summary.push(`You’re building ${playstyle.name}, like ${playstyle.numDecks.toLocaleString("en-PH")} of them.`);
 
   // What the 99 should do about it.
   if (role === "payoff" && focusTag) {
@@ -138,9 +141,11 @@ export function commanderGamePlan(input: GamePlanInput): GamePlan {
   const lands = landTarget(curveAverage);
   const focus: string[] = [];
   focus.push(
-    focusTag
-      ? `Plan: about 30 cards for ${tagLabel(focusTag)}, ${role === "payoff" ? "mostly enablers" : role === "enabler" ? "mostly payoffs" : "enablers, payoffs and enhancers"}.`
-      : "Plan: about 30 cards for whatever wins the game, ideally ones that also fill a template job.",
+    playstyle
+      ? `Plan: about 30 cards for ${playstyle.name}, led by what those decks play most.`
+      : focusTag
+        ? `Plan: about 30 cards for ${tagLabel(focusTag)}, ${role === "payoff" ? "mostly enablers" : role === "enabler" ? "mostly payoffs" : "enablers, payoffs and enhancers"}.`
+        : "Plan: about 30 cards for whatever wins the game, ideally ones that also fill a template job.",
   );
   if (averages) focus.push(`Its decks on EDHREC run about ${Math.round(averages.creatures)} creatures and ${Math.round(averages.instants + averages.sorceries)} instants and sorceries.`);
   focus.push(curveAverage ? `Curve: its decks average ${curveAverage.toFixed(1)} mana a spell, so ${lands.count} lands.` : `Lands: ${lands.count} to start, fewer if the curve ends up low.`);

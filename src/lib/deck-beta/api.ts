@@ -44,6 +44,10 @@ export interface PlaystyleCard {
   /** Share of these decks that run it (0–1). */
   inclusion?: number;
   numDecks: number;
+  /** The EDHREC lists it's in, e.g. "New Cards", "Creatures". */
+  lists?: string[];
+  /** How far it leans into the playstyle (see styleLean); asked for with the deck's colors. */
+  lean?: number;
 }
 
 /** GET /api/deck-beta/land-art */
@@ -64,6 +68,12 @@ export type PlaystyleResponse =
   | {
       found: true;
       url: string;
+      /** How many decks these numbers come from. */
+      numDecks: number;
+      averages?: EdhrecDeckAverages;
+      bracketCounts?: Record<string, number>;
+      /** The average mana value of these decks' spells. */
+      curveAverage?: number;
       /** The playstyle's best cards for this commander, highest synergy first. */
       cards: PlaystyleCard[];
       /** Every card EDHREC lists for it, to spot deck cards that don't fit. */
@@ -79,6 +89,8 @@ export interface BuilderCard {
   numDecks: number;
   /** The EDHREC lists it's in, e.g. "New Cards", "High Synergy Cards", "Lands". */
   lists: string[];
+  /** With a playstyle chosen, how far it leans into it. */
+  lean?: number;
 }
 
 /** GET /api/deck-beta/builder */

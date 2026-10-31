@@ -56,24 +56,27 @@ Zone's template and videos on mana curves and mana bases):
 
 1. **Commander**: every commander in your binder, filtered by color (including, exactly or within
    those colors) or by name, or any commander at all if you'd rather.
-2. **Bracket**: the bracket you're building for (1 to 5), with how EDHREC's decks for the
-   commander split across them.
-3. **Synergies**: the commander's **game plan**, then EDHREC's cards for it, highest synergy and new
-   cards first, and its playstyles to lean into. Cards you don't own are grayed out throughout.
-4. **Lands**: how many to run by the curve of the commander's decks on EDHREC, the mana base its
+2. **Playstyle**: every way EDHREC's players build the commander, most decks first, or **Balanced**
+   for all its decks. Everything after this step follows the one you pick: every suggestion, in your
+   binder or not, is ranked by that playstyle's decks, and cards they don't play sit last, under
+   **Outside the playstyle**. The land count and bracket split come from those decks too.
+3. **Bracket**: the bracket you're building for (1 to 5), with how EDHREC's decks split across them.
+4. **Synergies**: the commander's **game plan**, then EDHREC's cards for it, highest synergy and new
+   cards first. Cards you don't own are grayed out throughout.
+5. **Lands**: how many to run by the curve of those decks on EDHREC, the mana base the commander's
    colors want, how the basics split across the colors by the deck's mana symbols, and the lands to
    add on top of them.
-5. **Build**: the template is the tabs: **Ramp**, **Card advantage**, **Targeted disruption**, **Mass
+6. **Build**: the template is the tabs: **Ramp**, **Card advantage**, **Targeted disruption**, **Mass
    disruption** and **Plan**, each with its count and meter, plus **Lands** for the mana base. It opens
    on the category furthest from its target. Each tab lists the cards to add in order: **EDHREC's
    highest synergy** first, then **flexible** cards, then the rest, your own cards first in each part
-   if you like, all re-ranked with every card you add. The Plan tab also holds the chosen playstyle
-   and combos a card away that fit the bracket, and any card can be searched for below the tabs. The
-   Lands tab shows the basics that come with the deck, then what to add on top: **dual lands** for
+   if you like, all re-ranked with every card you add. The Plan tab also holds the rest of the chosen
+   playstyle and combos a card away that fit the bracket, and any card can be searched for below the
+   tabs. The Lands tab shows the basics that come with the deck, then what to add on top: **dual lands** for
    the commander's colors, more fixing, utility lands and lands that enter tapped, each taking a
    basic's place. The deck comes together beside it: its commander, a count to 100, its mana curve,
    its bracket, and the newest cards on a stack.
-6. **Finish**: name it and save it. Basic lands fill the rest of the mana base.
+7. **Finish**: name it and save it. Basic lands fill the rest of the mana base.
 
 A deck in progress is saved as you go, so you can leave and continue later. Saved decks go to
 **My Decks**, each shown by its commander with its name and how many cards you'd need to buy.

@@ -58,6 +58,13 @@ describe("commanderGamePlan", () => {
     expect(plan.focus.join(" ")).toMatch(/Two colors/);
   });
 
+  it("follows a chosen playstyle", () => {
+    const tokens = commanderGamePlan({ commander: lathril, traits: traitsOf(lathril), numDecks: 36240, playstyle: { name: "Tokens", numDecks: 1200 } });
+    expect(tokens.summary.join(" ")).toMatch(/You’re building Tokens, like 1,200 of them/);
+    expect(tokens.focus[0]).toBe("Plan: about 30 cards for Tokens, led by what those decks play most.");
+    expect(plan.summary.join(" ")).not.toMatch(/You’re building/);
+  });
+
   it("asks a payoff commander for enablers", () => {
     const lord = commanderGamePlan({ commander: zombieLord, traits: traitsOf(zombieLord) });
     expect(lord.role).toBe("payoff");

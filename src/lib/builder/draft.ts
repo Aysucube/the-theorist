@@ -6,7 +6,9 @@ import type { DeckCard } from "@/lib/deck";
 import type { Bracket } from "@/lib/deck-beta/bracket";
 import { createLocalStore, useHydrated } from "@/lib/local-store";
 
-export const STEPS = ["Commander", "Bracket", "Synergies", "Lands", "Build", "Finish"] as const;
+export const STEPS = ["Commander", "Playstyle", "Bracket", "Synergies", "Lands", "Build", "Finish"] as const;
+/** Each step's place in STEPS. */
+export const STEP = { commander: 0, playstyle: 1, bracket: 2, synergies: 3, lands: 4, build: 5, finish: 6 } as const;
 
 export interface DraftCommander {
   name: string;

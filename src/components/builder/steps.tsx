@@ -4,9 +4,9 @@ import NumberFlow from "@number-flow/react";
 import { motion } from "motion/react";
 import { AppLink as Link } from "@/components/app-link";
 import { useEffect, useId, useMemo, useState } from "react";
-import type { BuilderResponse } from "@/lib/deck-beta/api";
+import type { BuilderResponse, PlaystyleResponse } from "@/lib/deck-beta/api";
 import { BRACKET_INFO, BRACKETS, type Bracket } from "@/lib/deck-beta/bracket";
-import { MAX_LANDS, MIN_LANDS, splitBasics } from "@/lib/builder/plan";
+import { LEANS_IN, MAX_LANDS, MIN_LANDS, splitBasics } from "@/lib/builder/plan";
 import type { DraftCommander } from "@/lib/builder/draft";
 import type { CacheStatus } from "@/lib/binder/card-cache";
 import { useCardDetails } from "@/lib/binder/card-cache";
@@ -22,6 +22,7 @@ import { ColorIdentity, Pip } from "../mana";
 import { Meter } from "./deck-rail";
 
 type Found = Extract<BuilderResponse, { found: true }>;
+type FoundPlaystyle = Extract<PlaystyleResponse, { found: true }>;
 
 const COLOR_FILTERS = ["W", "U", "B", "R", "G", "C"] as const;
 type ColorMode = "includes" | "exactly" | "within";
@@ -219,14 +220,158 @@ function AnyCommander({ selected, onChoose }: { selected?: string; onChoose: (co
   );
 }
 
-/** 2. Pick the bracket, with how this commander's decks split across them on EDHREC. */
+/** Below this many decks, a playstyle's picks are a small sample. */
+const FEW_DECKS = 20;
+
+/** 2. Every way EDHREC's players build the commander, most decks first. Everything after this follows the one picked. */
+export function PlaystyleStep({
+  commander,
+  data,
+  loading,
+  failed,
+  notFound,
+  onRetry,
+  theme,
+  onTheme,
+  style,
+  styleFailed,
+  onRetryStyle,
+  owned,
+}: {
+  commander: DraftCommander;
+  data: Found | null;
+  loading: string | null;
+  failed: boolean;
+  /** EDHREC has no page for this commander. */
+  notFound: boolean;
+  onRetry: () => void;
+  theme: string;
+  onTheme: (slug: string, name?: string) => void;
+  /** The picked playstyle's cards from EDHREC, once they're in. */
+  style?: FoundPlaystyle;
+  styleFailed: boolean;
+  onRetryStyle: () => void;
+  owned: (name: string) => number;
+}) {
+  const [query, setQuery] = useState("");
+  if (failed) return <EdhrecFailed onRetry={onRetry} />;
+  if (notFound) return <p className="text-sm text-muted">EDHREC has no decks for {commander.name} yet, so there are no playstyles to pick. You’ll build a balanced deck.</p>;
+  if (!data) return <ReadingEdhrec commander={commander} loading={loading} />;
+
+  const shown = data.themes.filter((t) => t.name.toLowerCase().includes(query.trim().toLowerCase()));
+  const picked = data.themes.find((t) => t.slug === theme);
+  const top = style?.cards.filter((c) => style.details[c.name] && !/\bBasic\b/.test(style.details[c.name].typeLine)).slice(0, 12);
+
+  return (
+    <div className="flex flex-col gap-8">
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-baseline justify-between gap-3">
+          <p className="text-sm text-muted">
+            {formatCount(data.themes.length)} ways to build {commander.name}, the most played first.
+          </p>
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Filter playstyles"
+            aria-label="Filter playstyles"
+            className="field h-9 w-full sm:w-56"
+          />
+        </div>
+        <div role="radiogroup" aria-label="Playstyle" className="grid max-h-[26rem] gap-2 overflow-y-auto p-0.5 sm:grid-cols-2 xl:grid-cols-3">
+          <PlaystyleOption name="Balanced" note="All its decks" selected={theme === ""} onChoose={() => onTheme("")} />
+          {shown.map((t) => (
+            <PlaystyleOption
+              key={t.slug}
+              name={t.name}
+              note={`${formatCount(t.numDecks)} ${t.numDecks === 1 ? "deck" : "decks"}`}
+              share={data.numDecks > 0 ? t.numDecks / data.numDecks : undefined}
+              selected={theme === t.slug}
+              onChoose={() => onTheme(t.slug, t.name)}
+            />
+          ))}
+        </div>
+      </div>
+
+      {picked ? (
+        styleFailed ? (
+          <p className="text-sm text-muted">
+            Couldn’t read EDHREC’s {picked.name} decks.{" "}
+            <button type="button" onClick={onRetryStyle} className="link text-foreground">
+              Try again
+            </button>
+          </p>
+        ) : top ? (
+          <div className="flex flex-col gap-3">
+            <CardRow title={`What sets ${picked.name} apart`} note="Every suggestion from here on follows these decks, in your binder or not." cards={top.map((c) => style!.details[c.name])} owned={owned} />
+            {picked.numDecks < FEW_DECKS && <p className="text-xs text-muted">Only {formatCount(picked.numDecks)} of these decks on EDHREC, so this is a small sample.</p>}
+          </div>
+        ) : (
+          <p className="flex items-center gap-2 text-sm text-muted">
+            <span aria-hidden className="spinner size-4" /> Reading EDHREC’s {picked.name} decks…
+          </p>
+        )
+      ) : (
+        <p className="text-sm text-muted">Balanced follows all of {commander.name}’s decks. Pick a playstyle to lean into one.</p>
+      )}
+    </div>
+  );
+}
+
+function PlaystyleOption({ name, note, share, selected, onChoose }: { name: string; note: string; share?: number; selected: boolean; onChoose: () => void }) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={selected}
+      onClick={onChoose}
+      className={`flex min-h-14 flex-col justify-center gap-1.5 rounded-xl border px-3 py-2 text-left text-sm transition-colors duration-150 ${
+        selected ? "border-accent bg-accent text-on-accent shadow-[0_0_16px_-4px_rgb(90_176_255/0.6)]" : "border-line hover:border-line-strong"
+      }`}
+    >
+      <span className="flex items-baseline justify-between gap-2">
+        <span className="min-w-0 font-medium">{name}</span>
+        <span className={`shrink-0 text-[11px] tabular-nums ${selected ? "text-on-accent/70" : "text-muted"}`}>{note}</span>
+      </span>
+      {share !== undefined && (
+        <span className={`block h-1 overflow-hidden rounded-full ${selected ? "bg-background/20" : "bg-subtle"}`}>
+          <span className={`block h-full origin-left rounded-full ${selected ? "bg-on-accent/70" : "bg-accent/60"}`} style={{ transform: `scaleX(${Math.min(1, share)})` }} />
+        </span>
+      )}
+    </button>
+  );
+}
+
+function EdhrecFailed({ onRetry }: { onRetry: () => void }) {
+  return (
+    <p className="text-sm text-muted">
+      Couldn’t reach EDHREC after several tries.{" "}
+      <button type="button" onClick={onRetry} className="link text-foreground">
+        Try again
+      </button>
+    </p>
+  );
+}
+
+function ReadingEdhrec({ commander, loading }: { commander: DraftCommander; loading: string | null }) {
+  return (
+    <div className="flex items-center gap-3 py-10 text-sm text-muted">
+      <span aria-hidden className="spinner size-5" />
+      {loading ?? `Reading EDHREC’s decks for ${commander.name}…`}
+    </div>
+  );
+}
+
+/** 3. Pick the bracket, with how this commander's decks (of the chosen playstyle) split across them on EDHREC. */
 export function BracketStep({
   commander,
+  themeName,
   counts,
   selected,
   onChoose,
 }: {
   commander: string;
+  themeName?: string;
   counts?: Record<string, number>;
   selected?: Bracket;
   onChoose: (bracket: Bracket) => void;
@@ -237,7 +382,8 @@ export function BracketStep({
     <div className="flex flex-col gap-6">
       {most && (
         <p className="text-sm text-muted">
-          Most {commander} decks on EDHREC are Bracket {most} ({formatPercent((counts![String(most)] ?? 0) / total)}).
+          Most {themeName && `${themeName} `}
+          {commander} decks on EDHREC are Bracket {most} ({formatPercent((counts![String(most)] ?? 0) / total)}).
         </p>
       )}
       <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -284,16 +430,17 @@ export function BracketStep({
   );
 }
 
-/** 3. What EDHREC knows: how many decks, the cards that suit the commander best (new ones too), and its playstyles. */
+/** 4. What EDHREC knows, for the chosen playstyle's decks: how many, and the cards that suit the commander best (new ones too). */
 export function SynergyStep({
   commander,
   data,
   loading,
   failed,
+  notFound,
   onRetry,
   owned,
-  theme,
-  onTheme,
+  themeName,
+  onChangeTheme,
   preferOwned,
   onPreferOwned,
   plan,
@@ -302,10 +449,12 @@ export function SynergyStep({
   data: Found | null;
   loading: string | null;
   failed: boolean;
+  /** EDHREC has no page for this commander. */
+  notFound: boolean;
   onRetry: () => void;
   owned: (name: string) => number;
-  theme: string;
-  onTheme: (slug: string, name?: string) => void;
+  themeName?: string;
+  onChangeTheme: () => void;
   preferOwned: boolean;
   onPreferOwned: (value: boolean) => void;
   /** The commander's game plan, once its card and EDHREC's data are in. */
@@ -316,33 +465,29 @@ export function SynergyStep({
     const detailed = data.cards.filter((c) => data.details[c.name] && !/\bBasic\b/.test(data.details[c.name].typeLine));
     const newCards = detailed.filter((c) => c.lists.some((l) => /new/i.test(l)));
     const synergy = [...detailed].sort((a, b) => (b.synergy ?? -1) - (a.synergy ?? -1)).slice(0, 12);
+    const leaning = detailed
+      .filter((c) => (c.lean ?? 0) >= LEANS_IN)
+      .sort((a, b) => b.lean! - a.lean!)
+      .slice(0, 12);
     const ownedCount = data.cards.filter((c) => owned(c.name) > 0).length;
-    return { newCards, synergy, ownedCount };
+    return { newCards, synergy, leaning, ownedCount };
     // Ownership changes only with the binder, which can't change on this step.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
 
-  if (failed) {
-    return (
-      <p className="text-sm text-muted">
-        Couldn’t reach EDHREC after several tries.{" "}
-        <button type="button" onClick={onRetry} className="link text-foreground">
-          Try again
-        </button>
-      </p>
-    );
-  }
-  if (!data || !ranked) {
-    return (
-      <div className="flex items-center gap-3 py-10 text-sm text-muted">
-        <span aria-hidden className="spinner size-5" />
-        {loading ?? `Reading EDHREC’s decks for ${commander.name}…`}
-      </div>
-    );
-  }
+  if (failed) return <EdhrecFailed onRetry={onRetry} />;
+  if (notFound) return <p className="text-sm text-muted">EDHREC has no decks for {commander.name} yet, so suggestions will come from your binder.</p>;
+  if (!data || !ranked) return <ReadingEdhrec commander={commander} loading={loading} />;
 
   return (
     <div className="flex flex-col gap-10">
+      <p className="text-sm text-muted">
+        Playstyle: <span className="font-medium text-foreground">{themeName ?? "Balanced"}</span>.{" "}
+        {themeName ? `Everything here comes from ${themeName} decks.` : "Everything here comes from all its decks."}{" "}
+        <button type="button" onClick={onChangeTheme} className="link text-foreground">
+          Change
+        </button>
+      </p>
       {plan && <GamePlanCard plan={plan} articles={data.articles} edhrecUrl={data.url} />}
       <dl className="grid grid-cols-3 gap-6 border-y border-line py-6">
         <Stat label="Decks on EDHREC" value={data.numDecks} />
@@ -350,6 +495,9 @@ export function SynergyStep({
         <Stat label="Of those, in your binder" value={ranked.ownedCount} />
       </dl>
 
+      {themeName && ranked.leaning.length > 0 && (
+        <CardRow title={`Best for ${themeName}`} note={`What sets ${themeName} decks apart: the cards they play far more than other decks.`} cards={ranked.leaning.map((c) => data.details[c.name])} owned={owned} />
+      )}
       {ranked.newCards.length > 0 && (
         <CardRow title="New cards" note="Recently printed cards EDHREC is seeing in these decks." cards={ranked.newCards.map((c) => data.details[c.name])} owned={owned} />
       )}
@@ -359,24 +507,6 @@ export function SynergyStep({
         cards={ranked.synergy.map((c) => data.details[c.name])}
         owned={owned}
       />
-
-      <div className="flex flex-col gap-3">
-        <div>
-          <h3 className="font-semibold">Playstyle</h3>
-          <p className="text-sm text-muted">How EDHREC players build {commander.name}. Pick one to lean into, or stay balanced.</p>
-        </div>
-        <div role="radiogroup" aria-label="Playstyle" className="flex flex-wrap gap-2">
-          <button type="button" role="radio" aria-checked={theme === ""} onClick={() => onTheme("")} className="pill">
-            Balanced
-          </button>
-          {data.themes.slice(0, 14).map((t) => (
-            <button key={t.slug} type="button" role="radio" aria-checked={theme === t.slug} onClick={() => onTheme(t.slug, t.name)} className="pill">
-              {t.name}
-              <span className="text-[11px] tabular-nums opacity-60">{formatCount(t.numDecks)}</span>
-            </button>
-          ))}
-        </div>
-      </div>
 
       <label className="flex items-center gap-3 text-sm">
         <input type="checkbox" checked={preferOwned} onChange={(e) => onPreferOwned(e.target.checked)} className="size-4 accent-foreground" />
@@ -426,7 +556,7 @@ function CardRow({ title, note, cards, owned }: { title: string; note: string; c
   );
 }
 
-/** 4. How many lands, starting from a recommendation, and how the basics will split. */
+/** 5. How many lands, starting from a recommendation, and how the basics will split. */
 export function LandsStep({
   recommended,
   why,

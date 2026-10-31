@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CardDetails, Combo } from "@/lib/types";
-import { builderRecommendations, fitsIdentity, predictedAverage, recommendLands, splitBasics, type BuilderCandidate } from "./plan";
+import { builderRecommendations, fitsIdentity, predictedAverage, recommendLands, splitBasics, styleLean, withPlaystyle, type BuilderCandidate } from "./plan";
 
 const card = (name: string, typeLine: string, oracleText: string, extra: Partial<CardDetails> = {}): CardDetails => ({
   name,
@@ -40,6 +40,24 @@ describe("splitBasics", () => {
   it("gives colorless decks Wastes, and splits evenly with no spells yet", () => {
     expect(splitBasics(30, [], [])).toEqual({ Wastes: 30 });
     expect(splitBasics(30, ["W", "U", "B"], [])).toEqual({ Plains: 10, Island: 10, Swamp: 10 });
+  });
+});
+
+describe("styleLean", () => {
+  it("is how much more a playstyle's decks play a card than the commander's decks overall", () => {
+    expect(styleLean(0.4, 0.25, 100000, undefined)).toBeCloseTo(0.15, 2);
+    expect(styleLean(0.17, undefined, 100000, undefined)).toBeCloseTo(0.17, 2);
+  });
+
+  it("trusts a few decks less", () => {
+    expect(styleLean(1, 0, 20, undefined)).toBeCloseTo(0.5);
+    expect(styleLean(1, 0, 1, undefined)).toBeLessThan(0.05);
+  });
+
+  it("takes the card's pull in these colors when that's higher, and is never below zero", () => {
+    expect(styleLean(0.5, 0.5, 1000, 0.2)).toBe(0.2);
+    expect(styleLean(undefined, undefined, 0, 0.18)).toBe(0.18);
+    expect(styleLean(0.3, 0.5, 1000, -0.1)).toBe(0);
   });
 });
 
@@ -163,6 +181,112 @@ describe("builderRecommendations", () => {
     expect(names(three.lands.utility)).toEqual(["Gaea's Cradle"]);
     expect(three.lands.utility[0].reason).toBeDefined();
     expect(three.manaBase.colors).toBe(2);
+  });
+
+  describe("with a playstyle chosen", () => {
+    const ramp = (name: string, extra: Partial<BuilderCandidate> = {}) => candidate(card(name, "Creature — Elf Druid", "{T}: Add {G}."), extra);
+    const build = (cards: BuilderCandidate[], playstyle: { name: string; synergy?: number; inclusion?: number; lean?: number }[], preferOwned = false) =>
+      builderRecommendations({
+        deck: [{ card: commander, qty: 1 }],
+        candidates: cards,
+        identity: ["B", "G"],
+        bracket: 3,
+        isGameChanger: () => false,
+        playstyle: playstyle.map((p) => ({ numDecks: 10, ...p })),
+        preferOwned,
+      });
+
+    it("ranks cards by that playstyle's decks, not the commander's", () => {
+      const cards = [ramp("Commander Favorite", { synergy: 0.9 }), ramp("Style Favorite", { synergy: 0.1 })];
+      const style = [
+        { name: "Commander Favorite", synergy: 0.05 },
+        { name: "Style Favorite", synergy: 0.7 },
+      ];
+      const shelfOf = shelf(build(cards, style), "ramp");
+      expect(names(shelfOf.synergy)).toEqual(["Style Favorite", "Commander Favorite"]);
+      expect(shelfOf.synergy[0].reason).toBe("+70% synergy");
+    });
+
+    it("leads with the cards that set it apart, ahead of the commander's core", () => {
+      const cards = [ramp("Core Card", { synergy: 0.8 }), ramp("Burn Card", { synergy: 0.1 }), ramp("Binder Burn Card", { ownedCopies: 1, inclusion: undefined })];
+      const style = [
+        { name: "Core Card", synergy: 0.8, lean: 0.01 },
+        { name: "Burn Card", synergy: 0.1, lean: 0.14 },
+        { name: "Binder Burn Card", synergy: 0.05, lean: 0.2 },
+      ];
+      const shelfOf = shelf(build(cards, style), "ramp");
+      expect(names(shelfOf.leaning)).toEqual(["Binder Burn Card", "Burn Card"]);
+      expect(shelfOf.leaning[0].reason).toBe("+20% in this playstyle");
+      expect(names(shelfOf.synergy)).toEqual(["Core Card"]);
+    });
+
+    it("counts a card that sets it apart toward the plan", () => {
+      const quiet = candidate(card("Parallel Lives", "Enchantment", "If an effect would create tokens, it creates twice that many."));
+      const plain = candidate(card("Sign in Blood", "Sorcery", "Target player draws two cards."));
+      const result = build([quiet, plain], [{ name: "Sign in Blood", synergy: 0.02 }, { name: "Parallel Lives", synergy: 0.02, lean: 0.14 }]);
+      expect(names(shelf(result, "plan").leaning)).toEqual(["Parallel Lives"]);
+      expect(names(shelf(result, "advantage").synergy)).toEqual(["Sign in Blood"]);
+    });
+
+    it("sets aside cards its decks don't play, owned or not, however the commander's decks rate them", () => {
+      const cards = [ramp("Style Card", { ownedCopies: 0 }), ramp("Binder Card", { ownedCopies: 2, inclusion: undefined }), ramp("Commander Card", { synergy: 0.9, inclusion: 0.9 })];
+      const shelfOf = shelf(build(cards, [{ name: "Style Card", inclusion: 0.2 }], true), "ramp");
+      expect(names([...shelfOf.synergy, ...shelfOf.flexible, ...shelfOf.more])).toEqual(["Style Card"]);
+      expect(names(shelfOf.outside)).toEqual(["Binder Card", "Commander Card"]);
+    });
+
+    it("still puts your own cards first among the ones its decks play", () => {
+      const cards = [ramp("Bought", { ownedCopies: 0 }), ramp("Owned", { ownedCopies: 1 })];
+      const style = [
+        { name: "Bought", synergy: 0.6 },
+        { name: "Owned", synergy: 0.3 },
+      ];
+      expect(names(shelf(build(cards, style, true), "ramp").synergy)).toEqual(["Owned", "Bought"]);
+    });
+
+    it("counts a card toward the plan by that playstyle's synergy", () => {
+      const cards = [ramp("Core Card", { synergy: 0 }), ramp("Staple", { synergy: 0.5, lists: ["High Synergy Cards"] })];
+      const style = [
+        { name: "Core Card", synergy: 0.4 },
+        { name: "Staple", synergy: 0.02 },
+      ];
+      expect(names(shelf(build(cards, style), "plan").synergy)).toEqual(["Core Card"]);
+    });
+
+    it("ranks lands its decks play ahead of owned lands they don't", () => {
+      const land = (name: string, extra: Partial<BuilderCandidate>) => candidate(card(name, "Land", "{T}: Add {B} or {G}.", { colorIdentity: ["B", "G"], cmc: 0 }), extra);
+      const result = build([land("Binder Dual", { ownedCopies: 1 }), land("Style Dual", {})], [{ name: "Style Dual", inclusion: 0.5 }], true);
+      expect(names(result.lands.duals)).toEqual(["Style Dual", "Binder Dual"]);
+    });
+
+    it("has nothing outside it without a playstyle", () => {
+      expect(run(3).template.flatMap((g) => g.outside)).toEqual([]);
+    });
+  });
+
+  describe("withPlaystyle", () => {
+    const data = {
+      found: true as const,
+      url: "https://edhrec.com/commanders/x",
+      numDecks: 1000,
+      themes: [{ name: "Elves", slug: "elves", numDecks: 400 }],
+      bracketCounts: { "3": 900 },
+      curveAverage: 3.5,
+      cards: [{ name: "Sol Ring", numDecks: 900, lists: ["Top Cards"] }],
+      details: { "Sol Ring": card("Sol Ring", "Artifact", "") },
+    };
+    const style = { found: true as const, url: "https://edhrec.com/commanders/x/elves", numDecks: 400, curveAverage: 2.8, cards: [{ name: "Elvish Mystic", numDecks: 300 }], listed: [], details: {} };
+
+    it("narrows the numbers to its decks and keeps the commander's playstyles", () => {
+      const narrowed = withPlaystyle(data, { ...style, bracketCounts: { "2": 300 } });
+      expect(narrowed).toMatchObject({ numDecks: 400, curveAverage: 2.8, bracketCounts: { "2": 300 }, url: data.url, themes: data.themes });
+      expect(narrowed.cards).toEqual([{ name: "Elvish Mystic", numDecks: 300, lists: [] }]);
+      expect(narrowed.details["Sol Ring"]).toBeDefined();
+    });
+
+    it("keeps the commander's bracket split when its decks have none", () => {
+      expect(withPlaystyle(data, { ...style, bracketCounts: {} }).bracketCounts).toEqual({ "3": 900 });
+    });
   });
 
   describe("lands", () => {

@@ -18,9 +18,10 @@ const LANDS_COLOR = "#8d9bb8";
 type PickProps = { ownedFor: (name: string) => number; onAdd: (card: CardDetails) => void };
 
 /**
- * 5. Build: the template is the tabs, each with its meter, and each category
+ * 6. Build: the template is the tabs, each with its meter, and each category
  * lists the cards that fill it in the order to add them: EDHREC's highest
- * synergy, then flexible cards, then the rest. The plan also holds the
+ * synergy, then flexible cards, then the rest, all by the chosen playstyle's
+ * decks, with cards they don't play last. The plan also holds the rest of the
  * playstyle's cards and combo pieces; the lands tab shows the basics that come
  * with the deck and the dual lands and others to add on top. It opens on the
  * category furthest from its target. Adding a card sends it into the deck and
@@ -104,10 +105,10 @@ export function BuildStep({
       {/* Keyed by the tab, so each list pops in when its tab is picked. */}
       <div key={tab} className="reveal-fast flex flex-col gap-8">
         {shelf && (
-          <Shelf shelf={shelf} preferOwned={preferOwned} note={tab === "ramp" || tab === "advantage" ? curveAdvice : undefined} {...pickProps}>
+          <Shelf shelf={shelf} preferOwned={preferOwned} themeName={themeName} note={tab === "ramp" || tab === "advantage" ? curveAdvice : undefined} {...pickProps}>
             {tab === "plan" &&
               (themeName ? (
-                <Group title={themeName} note={`EDHREC’s best cards for ${themeName} decks.`} picks={groups.playstyle} {...pickProps} />
+                <Group title={`More for ${themeName}`} note={`The rest of EDHREC’s cards for ${themeName} decks.`} picks={groups.playstyle} {...pickProps} />
               ) : (
                 <p className="text-sm text-muted">
                   You’re building a balanced deck.{" "}
@@ -185,12 +186,13 @@ function TemplateTabs({
 function Shelf({
   shelf,
   preferOwned,
+  themeName,
   note,
   children,
   ...pickProps
-}: PickProps & { shelf: TemplateShelf; preferOwned: boolean; note?: string; children?: ReactNode }) {
+}: PickProps & { shelf: TemplateShelf; preferOwned: boolean; themeName?: string; note?: string; children?: ReactNode }) {
   const info = CATEGORY_INFO[shelf.category];
-  const empty = shelf.synergy.length + shelf.flexible.length + shelf.more.length === 0;
+  const empty = shelf.leaning.length + shelf.synergy.length + shelf.flexible.length + shelf.more.length + shelf.outside.length === 0;
   return (
     <>
       <div>
@@ -204,14 +206,21 @@ function Shelf({
         </p>
       </div>
       <Group
+        title={`Best for ${themeName}`}
+        note={`What sets ${themeName} decks apart: the cards they play far more than other decks${preferOwned ? ", the ones you own first" : ""}.`}
+        picks={shelf.leaning}
+        {...pickProps}
+      />
+      <Group
         title="Highest synergy"
-        note={`EDHREC’s highest-synergy cards for your commander${preferOwned ? ", the ones you own first" : ""}.`}
+        note={`EDHREC’s highest-synergy cards for ${themeName ? `${themeName} decks` : "your commander"}${preferOwned ? ", the ones you own first" : ""}.`}
         picks={shelf.synergy}
         {...pickProps}
       />
       <Group title="Flexible" note="Cards that fill two or more parts of the template, most first: one slot doing two jobs." picks={shelf.flexible} {...pickProps} />
       {children}
       <Group title="Also fits" note="The rest, cheaper and more often played first." picks={shelf.more} {...pickProps} />
+      <Group title="Outside the playstyle" note={`These do the job, but ${themeName} decks on EDHREC don’t usually play them.`} picks={shelf.outside} {...pickProps} />
       {empty && <p className="text-sm text-muted">No cards to suggest here yet. Add more of the commander’s key cards and check back.</p>}
     </>
   );
