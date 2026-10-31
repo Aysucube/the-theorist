@@ -71,7 +71,8 @@ export function CreateDeck() {
   const identity = draft.commander?.colorIdentity ?? [];
   const identityKey = identity.join("");
   const playstyle = usePlaystyle(commanderRef, draft.theme || undefined, identity);
-  const style =playstyle?.state === "done" && playstyle.result.found ? playstyle.result : undefined;
+  const style = playstyle?.state === "done" && playstyle.result.found ? playstyle.result : undefined;
+  const styleFailed = playstyle?.state === "error" || (playstyle?.state === "done" && !playstyle.result.found);
   const themeCards = style?.cards;
   useEffect(() => {
     if (style) rememberDetails(Object.values(style.details));
@@ -300,7 +301,7 @@ export function CreateDeck() {
                       theme={draft.theme}
                       onTheme={(theme, themeName) => update({ theme, themeName })}
                       style={style}
-                      styleFailed={playstyle?.state === "error" || (playstyle?.state === "done" && !playstyle.result.found)}
+                      styleFailed={styleFailed}
                       onRetryStyle={() => requestPlaystyle(commanderRef!, draft.theme, true, identity)}
                       owned={binder.owned}
                     />
@@ -358,7 +359,13 @@ export function CreateDeck() {
                         onAdd={add}
                         spells={spells}
                         spellTarget={spellTarget}
+                        themes={data?.themes ?? []}
+                        theme={draft.theme}
                         themeName={draft.themeName}
+                        onTheme={(theme, themeName) => update({ theme, themeName })}
+                        styleLoading={Boolean(draft.theme) && !style && !styleFailed}
+                        styleFailed={styleFailed}
+                        onRetryStyle={() => requestPlaystyle(commanderRef!, draft.theme, true, identity)}
                         leftOut={plan.leftOut.length}
                         bracket={draft.bracket ?? 3}
                         onPickTheme={() => go(STEP.playstyle)}

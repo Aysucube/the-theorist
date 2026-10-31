@@ -74,7 +74,8 @@ Zone's template and videos on mana curves and mana bases):
    playstyle and combos a card away that fit the bracket, and any card can be searched for below the
    tabs. The Lands tab shows the basics that come with the deck, then what to add on top: **dual lands** for
    the commander's colors, more fixing, utility lands and lands that enter tapped, each taking a
-   basic's place. The deck comes together beside it: its commander, a count to 100, its mana curve,
+   basic's place. Small tabs beside it hold every playstyle, so you can switch at any point and the
+   lists re-rank. The deck comes together on the other side: its commander, a count to 100, its mana curve,
    its bracket, and the newest cards on a stack.
 7. **Finish**: name it and save it. Basic lands fill the rest of the mana base.
 

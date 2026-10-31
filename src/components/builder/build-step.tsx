@@ -2,13 +2,14 @@
 
 import { Tabs } from "@base-ui/react/tabs";
 import { AnimatePresence } from "motion/react";
-import { useEffect, useId, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { CATEGORY_COLORS } from "@/components/deck-beta/template-bits";
 import type { BuilderGroups, BuilderPick, LandShelf, TemplateShelf } from "@/lib/builder/plan";
 import { useCardDetails } from "@/lib/binder/card-cache";
 import { CATEGORIES, CATEGORY_INFO, type Category, type DeckProfile } from "@/lib/deck-beta/roles";
 import { fetchJsonWithRetry } from "@/lib/retry";
-import type { CardDetails } from "@/lib/types";
+import { formatCount } from "@/lib/format";
+import type { CardDetails, EdhrecTheme } from "@/lib/types";
 import { BuildCard } from "./build-card";
 import { Meter } from "./deck-rail";
 
@@ -25,7 +26,8 @@ type PickProps = { ownedFor: (name: string) => number; onAdd: (card: CardDetails
  * playstyle's cards and combo pieces; the lands tab shows the basics that come
  * with the deck and the dual lands and others to add on top. It opens on the
  * category furthest from its target. Adding a card sends it into the deck and
- * the lists re-rank.
+ * the lists re-rank. Every playstyle sits in small tabs beside it, so the deck
+ * can switch to another at any point.
  */
 export function BuildStep({
   groups,
@@ -37,7 +39,13 @@ export function BuildStep({
   onAdd,
   spells,
   spellTarget,
+  themes,
+  theme,
   themeName,
+  onTheme,
+  styleLoading,
+  styleFailed,
+  onRetryStyle,
   leftOut,
   bracket,
   preferOwned,
@@ -56,7 +64,16 @@ export function BuildStep({
   basicSplit: Record<string, number>;
   spells: number;
   spellTarget: number;
+  /** Every playstyle of the commander on EDHREC, most decks first. */
+  themes: EdhrecTheme[];
+  /** The chosen playstyle's slug, or "" for a balanced deck. */
+  theme: string;
   themeName?: string;
+  onTheme: (slug: string, name?: string) => void;
+  /** The chosen playstyle's decks are still being read. */
+  styleLoading: boolean;
+  styleFailed: boolean;
+  onRetryStyle: () => void;
   leftOut: number;
   bracket: number;
   /** The cards you own lead each list. */
@@ -77,77 +94,130 @@ export function BuildStep({
   const pickProps = { ownedFor, onAdd };
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-baseline justify-between gap-3 text-sm">
-        <p className="text-muted">
-          <span className="font-medium text-foreground tabular-nums">{spells}</span> of {spellTarget} spells
-          {spells >= spellTarget && " · the deck is full"}
-        </p>
-        {leftOut > 0 && <p className="text-xs text-muted">{leftOut} strong cards left out for Bracket {bracket}</p>}
-      </div>
+    <div className={`grid gap-6 ${themes.length > 0 ? "lg:grid-cols-[minmax(0,1fr)_9.5rem]" : ""}`}>
+      <div className="flex min-w-0 flex-col gap-6">
+        <div className="flex flex-wrap items-baseline justify-between gap-3 text-sm">
+          <p className="text-muted">
+            <span className="font-medium text-foreground tabular-nums">{spells}</span> of {spellTarget} spells
+            {spells >= spellTarget && " · the deck is full"}
+          </p>
+          {leftOut > 0 && <p className="text-xs text-muted">{leftOut} strong cards left out for Bracket {bracket}</p>}
+        </div>
 
-      <TemplateTabs
-        value={tab}
-        onValueChange={setTab}
-        items={[
-          ...CATEGORIES.map((c) => ({
-            value: c,
-            label: CATEGORY_INFO[c].label,
-            have: profile.categories[c].length,
-            target: CATEGORY_INFO[c].target,
-            color: CATEGORY_COLORS[c],
-            about: CATEGORY_INFO[c].about,
-          })),
-          { value: "lands" as const, label: "Lands", have: profile.lands, target: landTarget, color: LANDS_COLOR, about: "Nonbasic lands. Basics fill the rest." },
-        ]}
-      />
-
-      {/* Keyed by the tab, so each list pops in when its tab is picked. */}
-      <div key={tab} className="reveal-fast flex flex-col gap-8">
-        {shelf && (
-          <Shelf shelf={shelf} preferOwned={preferOwned} themeName={themeName} note={tab === "ramp" || tab === "advantage" ? curveAdvice : undefined} {...pickProps}>
-            {tab === "plan" &&
-              (themeName ? (
-                <Group title={`More for ${themeName}`} note={`The rest of EDHREC’s cards for ${themeName} decks.`} picks={groups.playstyle} {...pickProps} />
-              ) : (
-                <p className="text-sm text-muted">
-                  You’re building a balanced deck.{" "}
-                  <button type="button" onClick={onPickTheme} className="link text-foreground">
-                    Pick a playstyle
-                  </button>{" "}
-                  to see the cards that suit it.
-                </p>
-              ))}
-            {tab === "plan" && (
-              <Group
-                title="Complete a combo"
-                note="Each of these completes a combo with cards already in the deck, within your bracket."
-                picks={groups.combos.map((g) => g.pick)}
-                {...pickProps}
-              />
-            )}
-          </Shelf>
+        {styleLoading && (
+          <p role="status" className="flex items-center gap-2 text-sm text-muted">
+            <span aria-hidden className="spinner size-4" /> Reading EDHREC’s {themeName} decks…
+          </p>
         )}
-        {tab === "lands" && (
-          <>
-            <div>
-              <h3 className="flex items-center gap-2 font-semibold">
-                <span aria-hidden className="size-2 rounded-full" style={{ background: LANDS_COLOR }} />
-                Lands
-                <span className="text-sm font-normal text-muted">{profile.lands < landTarget ? `${landTarget - profile.lands} to go` : "filled"}</span>
-              </h3>
-              <p className="text-sm text-muted">{landAdvice}</p>
-            </div>
-            <BasicsInDeck split={basicSplit} lands={lands} />
-            <LandGroups lands={groups.lands} preferOwned={preferOwned} {...pickProps} />
-          </>
+        {styleFailed && (
+          <p className="text-sm text-muted">
+            Couldn’t read EDHREC’s {themeName} decks.{" "}
+            <button type="button" onClick={onRetryStyle} className="link text-foreground">
+              Try again
+            </button>
+          </p>
         )}
-      </div>
 
-      <div className="border-t border-line pt-6">
-        <AnySearch ownedFor={ownedFor} onAdd={onAdd} has={has} />
+        <TemplateTabs
+          value={tab}
+          onValueChange={setTab}
+          items={[
+            ...CATEGORIES.map((c) => ({
+              value: c,
+              label: CATEGORY_INFO[c].label,
+              have: profile.categories[c].length,
+              target: CATEGORY_INFO[c].target,
+              color: CATEGORY_COLORS[c],
+              about: CATEGORY_INFO[c].about,
+            })),
+            { value: "lands" as const, label: "Lands", have: profile.lands, target: landTarget, color: LANDS_COLOR, about: "Nonbasic lands. Basics fill the rest." },
+          ]}
+        />
+
+        {/* Keyed by the tab, so each list pops in when its tab is picked. */}
+        <div key={tab} className="reveal-fast flex flex-col gap-8">
+          {shelf && (
+            <Shelf shelf={shelf} preferOwned={preferOwned} themeName={themeName} note={tab === "ramp" || tab === "advantage" ? curveAdvice : undefined} {...pickProps}>
+              {tab === "plan" &&
+                (themeName ? (
+                  <Group title={`More for ${themeName}`} note={`The rest of EDHREC’s cards for ${themeName} decks.`} picks={groups.playstyle} {...pickProps} />
+                ) : (
+                  <p className="text-sm text-muted">
+                    You’re building a balanced deck.{" "}
+                    <button type="button" onClick={onPickTheme} className="link text-foreground">
+                      Pick a playstyle
+                    </button>{" "}
+                    to see the cards that suit it.
+                  </p>
+                ))}
+              {tab === "plan" && (
+                <Group
+                  title="Complete a combo"
+                  note="Each of these completes a combo with cards already in the deck, within your bracket."
+                  picks={groups.combos.map((g) => g.pick)}
+                  {...pickProps}
+                />
+              )}
+            </Shelf>
+          )}
+          {tab === "lands" && (
+            <>
+              <div>
+                <h3 className="flex items-center gap-2 font-semibold">
+                  <span aria-hidden className="size-2 rounded-full" style={{ background: LANDS_COLOR }} />
+                  Lands
+                  <span className="text-sm font-normal text-muted">{profile.lands < landTarget ? `${landTarget - profile.lands} to go` : "filled"}</span>
+                </h3>
+                <p className="text-sm text-muted">{landAdvice}</p>
+              </div>
+              <BasicsInDeck split={basicSplit} lands={lands} />
+              <LandGroups lands={groups.lands} preferOwned={preferOwned} {...pickProps} />
+            </>
+          )}
+        </div>
+
+        <div className="border-t border-line pt-6">
+          <AnySearch ownedFor={ownedFor} onAdd={onAdd} has={has} />
+        </div>
       </div>
+      {themes.length > 0 && <PlaystyleTabs themes={themes} theme={theme} onTheme={onTheme} />}
     </div>
+  );
+}
+
+/** Every playstyle of the commander as small tabs, to switch the deck to another at any point. */
+function PlaystyleTabs({ themes, theme, onTheme }: { themes: EdhrecTheme[]; theme: string; onTheme: (slug: string, name?: string) => void }) {
+  const [query, setQuery] = useState("");
+  const list = useRef<HTMLDivElement>(null);
+  const shown = themes.filter((t) => t.name.toLowerCase().includes(query.trim().toLowerCase()));
+
+  // Open with the chosen one in view: it may be far down the list.
+  useEffect(() => {
+    const box = list.current;
+    const picked = box?.querySelector<HTMLElement>('[aria-checked="true"]');
+    if (box && picked) box.scrollTo({ top: picked.offsetTop - box.clientHeight / 2, left: picked.offsetLeft - box.clientWidth / 2 });
+  }, []);
+
+  return (
+    <aside aria-label="Playstyles" className="order-first flex min-w-0 flex-col gap-2 lg:sticky lg:top-20 lg:order-none lg:max-h-[calc(100dvh-6rem)] lg:self-start">
+      <p className="eyebrow">Playstyle</p>
+      <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Filter" aria-label="Filter playstyles" className="field h-8 max-w-xs text-xs" />
+      <div ref={list} role="radiogroup" aria-label="Playstyle" className="no-scrollbar relative flex gap-1.5 overflow-x-auto p-0.5 lg:min-h-0 lg:flex-col lg:overflow-x-hidden lg:overflow-y-auto">
+        <PlaystyleTab name="Balanced" selected={theme === ""} onChoose={() => onTheme("")} />
+        {shown.map((t) => (
+          <PlaystyleTab key={t.slug} name={t.name} decks={t.numDecks} selected={theme === t.slug} onChoose={() => onTheme(t.slug, t.name)} />
+        ))}
+      </div>
+    </aside>
+  );
+}
+
+function PlaystyleTab({ name, decks, selected, onChoose }: { name: string; decks?: number; selected: boolean; onChoose: () => void }) {
+  return (
+    <button type="button" role="radio" aria-checked={selected} title={name} onClick={onChoose} className="pill shrink-0 justify-between lg:w-full lg:rounded-lg lg:px-2.5 lg:py-1 lg:text-xs">
+      <span className="min-w-0 truncate">{name}</span>
+      {decks !== undefined && <span className="shrink-0 text-[10px] tabular-nums opacity-60">{formatCount(decks)}</span>}
+    </button>
   );
 }
 
