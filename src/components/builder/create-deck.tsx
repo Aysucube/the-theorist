@@ -52,6 +52,8 @@ export function CreateDeck() {
   const library = useDeckLibrary();
   const gameChangers = useGameChangers();
   const [direction, setDirection] = useState(1);
+  // The mana curve slot clicked in the Build step, to see the cards at that cost.
+  const [curvePick, setCurvePick] = useState<number>();
 
   const binderNames = useMemo(() => binder.cards.map((c) => c.name), [binder.cards]);
   const deckNames = draft.cards.map((c) => c.name);
@@ -197,6 +199,7 @@ export function CreateDeck() {
   const step = draft.step;
   const go = (next: number) => {
     setDirection(next > step ? 1 : -1);
+    setCurvePick(undefined);
     if (next === STEP.lands && draft.lands === undefined && recommended) update({ step: next, lands: recommended.count });
     else update({ step: next });
     window.scrollTo({ top: 0 });
@@ -265,6 +268,8 @@ export function CreateDeck() {
               basics={step >= STEP.lands ? basics : 0}
               profile={step >= STEP.build ? plan?.profile : undefined}
               template={step === STEP.finish}
+              curvePick={step === STEP.build ? curvePick : undefined}
+              onCurvePick={step === STEP.build ? (slot) => setCurvePick(slot === curvePick ? undefined : slot) : undefined}
               report={step >= STEP.build ? report : undefined}
               combosFound={analysisResult?.combos?.included.length}
               onRemove={removeCard}
@@ -359,6 +364,8 @@ export function CreateDeck() {
                         onAdd={add}
                         spells={spells}
                         spellTarget={spellTarget}
+                        curvePick={curvePick}
+                        onClearCurvePick={() => setCurvePick(undefined)}
                         themes={data?.themes ?? []}
                         theme={draft.theme}
                         themeName={draft.themeName}

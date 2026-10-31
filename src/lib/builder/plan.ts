@@ -137,6 +137,8 @@ export interface TemplateShelf {
   more: BuilderPick[];
   /** With a playstyle chosen, cards that fill it but that its decks don't play. */
   outside: BuilderPick[];
+  /** Every card that fills it, to look through by mana value: the most synergistic first in each part, whether you own them or not. */
+  all: { leaning: BuilderPick[]; synergy: BuilderPick[]; rest: BuilderPick[] };
 }
 
 /** The lands to add on top of the basics that come with the deck, each in the order to add it. */
@@ -307,38 +309,44 @@ export function builderRecommendations(input: BuilderInput): BuilderGroups & { p
   }
 
   // Each shelf in the order to add its cards. Your own cards lead their part of it when you build from the binder.
+  const labelled = (p: Pick, label?: (p: Pick) => string): BuilderPick => ({ ...asPick(p), reason: comboReason.get(cardKey(p.card.name)) ?? label?.(p) });
+  const leanLabel = (p: Pick) => `+${Math.round(leanOf(p.card.name) * 100)}% in this playstyle`;
+  const synergyLabel = (p: Pick) => `+${Math.round(p.synergy! * 100)}% synergy`;
   const arrange = (picks: Pick[], label?: (p: Pick) => string) => {
-    const out = picks.map((p) => ({ ...asPick(p), reason: comboReason.get(cardKey(p.card.name)) ?? label?.(p) }));
+    const out = picks.map((p) => labelled(p, label));
     return preferOwned ? out.sort((a, b) => Number(b.ownedCopies > 0) - Number(a.ownedCopies > 0)) : out;
   };
   const template = CATEGORIES.map((category): TemplateShelf => {
     // Tutors and Game Changers that fill no category go toward the plan.
     const fits = plan.eligible.filter((p) => p.categories.includes(category) || (category === "plan" && p.categories.length === 0));
     const played = fits.filter((p) => inStyle(p.card.name));
+    const outside = fits.filter((p) => !inStyle(p.card.name));
     // Enough to fill the category, so a big gap like the plan's isn't cut short.
     const fill = Math.max(perGroup, gaps[category] ?? 0);
-    const leaning = played
-      .filter((p) => leanOf(p.card.name) >= LEANS_IN)
-      .sort((a, b) => leanOf(b.card.name) - leanOf(a.card.name) || b.score - a.score)
-      .slice(0, fill);
+    const allLeaning = played.filter((p) => leanOf(p.card.name) >= LEANS_IN).sort((a, b) => leanOf(b.card.name) - leanOf(a.card.name) || b.score - a.score);
+    const leaning = allLeaning.slice(0, fill);
     const core = played.filter((p) => !leaning.includes(p));
-    const synergy = core
-      .filter((p) => (p.synergy ?? 0) > 0)
-      .sort((a, b) => b.synergy! - a.synergy! || b.score - a.score)
-      .slice(0, fill);
+    const allSynergy = core.filter((p) => (p.synergy ?? 0) > 0).sort((a, b) => b.synergy! - a.synergy! || b.score - a.score);
+    const synergy = allSynergy.slice(0, fill);
     const flexible = core
       .filter((p) => p.categories.length >= 2 && !synergy.includes(p))
       .sort((a, b) => b.categories.length - a.categories.length || b.score - a.score)
       .slice(0, perGroup);
     const more = core.filter((p) => !synergy.includes(p) && !flexible.includes(p)).slice(0, perGroup);
+    const rest = played.filter((p) => !allLeaning.includes(p) && !allSynergy.includes(p));
     return {
       category,
       short: gaps[category] ?? 0,
-      leaning: arrange(leaning, (p) => `+${Math.round(leanOf(p.card.name) * 100)}% in this playstyle`),
-      synergy: arrange(synergy, (p) => `+${Math.round(p.synergy! * 100)}% synergy`),
+      leaning: arrange(leaning, leanLabel),
+      synergy: arrange(synergy, synergyLabel),
       flexible: arrange(flexible),
       more: arrange(more),
-      outside: arrange(fits.filter((p) => !inStyle(p.card.name)).slice(0, perGroup)),
+      outside: arrange(outside.slice(0, perGroup)),
+      all: {
+        leaning: allLeaning.map((p) => labelled(p, leanLabel)),
+        synergy: allSynergy.filter((p) => !allLeaning.includes(p)).map((p) => labelled(p, synergyLabel)),
+        rest: [...rest, ...outside].map((p) => labelled(p)),
+      },
     };
   });
 

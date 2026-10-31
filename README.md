@@ -75,7 +75,8 @@ Zone's template and videos on mana curves and mana bases):
    tabs. The Lands tab shows the basics that come with the deck, then what to add on top: **dual lands** for
    the commander's colors, more fixing, utility lands and lands that enter tapped, each taking a
    basic's place. Small tabs beside it hold every playstyle, so you can switch at any point and the
-   lists re-rank. The deck comes together on the other side: its commander, a count to 100, its mana curve,
+   lists re-rank. Click a cost on the **mana curve** to see the tab's most synergistic cards at that
+   cost. The deck comes together on the other side: its commander, a count to 100, its mana curve,
    its bracket, and the newest cards on a stack.
 7. **Finish**: name it and save it. Basic lands fill the rest of the mana base.
 

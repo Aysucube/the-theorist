@@ -6,6 +6,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { CATEGORY_COLORS } from "@/components/deck-beta/template-bits";
 import type { BuilderGroups, BuilderPick, LandShelf, TemplateShelf } from "@/lib/builder/plan";
 import { useCardDetails } from "@/lib/binder/card-cache";
+import { CURVE_LABELS, slotOf } from "@/lib/deck-beta/curve";
 import { CATEGORIES, CATEGORY_INFO, type Category, type DeckProfile } from "@/lib/deck-beta/roles";
 import { fetchJsonWithRetry } from "@/lib/retry";
 import { formatCount } from "@/lib/format";
@@ -15,6 +16,8 @@ import { Meter } from "./deck-rail";
 
 type Tab = Category | "lands";
 const LANDS_COLOR = "#8d9bb8";
+/** Cards shown for a cost picked on the mana curve. */
+const COST_CARDS = 24;
 
 type PickProps = { ownedFor: (name: string) => number; onAdd: (card: CardDetails) => void };
 
@@ -27,7 +30,8 @@ type PickProps = { ownedFor: (name: string) => number; onAdd: (card: CardDetails
  * with the deck and the dual lands and others to add on top. It opens on the
  * category furthest from its target. Adding a card sends it into the deck and
  * the lists re-rank. Every playstyle sits in small tabs beside it, so the deck
- * can switch to another at any point.
+ * can switch to another at any point, and clicking a cost on the mana curve
+ * narrows the tab to its most synergistic cards at that cost.
  */
 export function BuildStep({
   groups,
@@ -39,6 +43,8 @@ export function BuildStep({
   onAdd,
   spells,
   spellTarget,
+  curvePick,
+  onClearCurvePick,
   themes,
   theme,
   themeName,
@@ -64,6 +70,9 @@ export function BuildStep({
   basicSplit: Record<string, number>;
   spells: number;
   spellTarget: number;
+  /** The mana curve slot clicked, if any. */
+  curvePick?: number;
+  onClearCurvePick: () => void;
   /** Every playstyle of the commander on EDHREC, most decks first. */
   themes: EdhrecTheme[];
   /** The chosen playstyle's slug, or "" for a balanced deck. */
@@ -92,6 +101,14 @@ export function BuildStep({
   });
   const shelf = groups.template.find((g) => g.category === tab);
   const pickProps = { ownedFor, onAdd };
+  const panel = useRef<HTMLDivElement>(null);
+
+  // The chart stays beside the lists (or far above them on a phone): bring the cards into view.
+  useEffect(() => {
+    if (curvePick === undefined || !panel.current) return;
+    const { top } = panel.current.getBoundingClientRect();
+    if (top < 64 || top > window.innerHeight * 0.6) panel.current.scrollIntoView({ block: "start" });
+  }, [curvePick]);
 
   return (
     <div className={`grid gap-6 ${themes.length > 0 ? "lg:grid-cols-[minmax(0,1fr)_9.5rem]" : ""}`}>
@@ -134,9 +151,10 @@ export function BuildStep({
           ]}
         />
 
-        {/* Keyed by the tab, so each list pops in when its tab is picked. */}
-        <div key={tab} className="reveal-fast flex flex-col gap-8">
-          {shelf && (
+        {/* Keyed by what it shows, so each list pops in when it's picked. */}
+        <div key={`${tab}:${curvePick}`} ref={panel} className="reveal-fast flex scroll-mt-20 flex-col gap-8">
+          {shelf && curvePick !== undefined && <CostShelf shelf={shelf} slot={curvePick} themeName={themeName} onClear={onClearCurvePick} {...pickProps} />}
+          {shelf && curvePick === undefined && (
             <Shelf shelf={shelf} preferOwned={preferOwned} themeName={themeName} note={tab === "ramp" || tab === "advantage" ? curveAdvice : undefined} {...pickProps}>
               {tab === "plan" &&
                 (themeName ? (
@@ -170,6 +188,11 @@ export function BuildStep({
                 </h3>
                 <p className="text-sm text-muted">{landAdvice}</p>
               </div>
+              {curvePick !== undefined && (
+                <p className="text-sm text-muted">
+                  Lands don’t cost mana, so this tab stays as it is. Pick another tab to see its cards at {CURVE_LABELS[curvePick]} mana.
+                </p>
+              )}
               <BasicsInDeck split={basicSplit} lands={lands} />
               <LandGroups lands={groups.lands} preferOwned={preferOwned} {...pickProps} />
             </>
@@ -249,6 +272,48 @@ function TemplateTabs({
         <Tabs.Indicator className="template-tab-indicator" />
       </Tabs.List>
     </Tabs.Root>
+  );
+}
+
+/** One category's cards at the cost picked on the mana curve, the most synergistic first. */
+function CostShelf({ shelf, slot, themeName, onClear, ...pickProps }: PickProps & { shelf: TemplateShelf; slot: number; themeName?: string; onClear: () => void }) {
+  const info = CATEGORY_INFO[shelf.category];
+  const cost = CURVE_LABELS[slot];
+  const at = (picks: BuilderPick[]) => picks.filter((p) => slotOf(p.card.cmc) === slot);
+  const leaning = at(shelf.all.leaning);
+  const synergy = at(shelf.all.synergy);
+  const rest = at(shelf.all.rest);
+  const total = leaning.length + synergy.length + rest.length;
+  // Up to COST_CARDS in all, from the top down.
+  const shownLeaning = leaning.slice(0, COST_CARDS);
+  const shownSynergy = synergy.slice(0, COST_CARDS - shownLeaning.length);
+  const shownRest = rest.slice(0, COST_CARDS - shownLeaning.length - shownSynergy.length);
+  return (
+    <>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="flex flex-wrap items-center gap-x-2 font-semibold">
+            <span aria-hidden className="size-2 rounded-full" style={{ background: CATEGORY_COLORS[shelf.category] }} />
+            {info.label} at {cost} mana
+            <span className="text-sm font-normal text-muted">
+              {total} {total === 1 ? "card" : "cards"}
+            </span>
+          </h3>
+          <p className="text-sm text-muted">The most synergistic at this cost, in your binder or not.</p>
+        </div>
+        <button type="button" onClick={onClear} className="btn btn-ghost btn-sm text-muted">
+          Show all {info.label}
+        </button>
+      </div>
+      {total === 0 && (
+        <p className="text-sm text-muted">
+          No {info.label} cards at {cost} mana to suggest right now.
+        </p>
+      )}
+      <Group title={`Best for ${themeName}`} note={`What sets ${themeName} decks apart at this cost, furthest first.`} picks={shownLeaning} {...pickProps} />
+      <Group title="Highest synergy" note={`EDHREC’s highest-synergy cards for ${themeName ? `${themeName} decks` : "your commander"} at this cost.`} picks={shownSynergy} {...pickProps} />
+      <Group title="Also fits" note="The rest at this cost." picks={shownRest} {...pickProps} />
+    </>
   );
 }
 

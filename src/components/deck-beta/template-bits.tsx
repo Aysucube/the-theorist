@@ -133,8 +133,9 @@ export function TemplateMeters({ profile, onOpen }: { profile: DeckProfile; onOp
 /**
  * The spells by mana value against a low, wide curve: bars for the deck, a
  * tick for the target, with the average, the early plays and the land count.
+ * With `onPick`, each mana value (and its bar) can be clicked.
  */
-export function CurveChart({ curve, compact = false }: { curve: CurveReport; compact?: boolean }) {
+export function CurveChart({ curve, compact = false, picked, onPick }: { curve: CurveReport; compact?: boolean; picked?: number; onPick?: (slot: number) => void }) {
   const top = Math.max(1, ...curve.counts, ...curve.targets);
   const height = compact ? 56 : 112;
   return (
@@ -143,9 +144,9 @@ export function CurveChart({ curve, compact = false }: { curve: CurveReport; com
         {curve.counts.map((n, i) => {
           const over = i >= 4 && n > curve.targets[i];
           return (
-            <div key={i} className="relative flex h-full flex-col justify-end">
+            <div key={i} onClick={onPick && (() => onPick(i))} className={`relative flex h-full flex-col justify-end ${onPick ? "cursor-pointer" : ""}`}>
               <span
-                className={`block w-full origin-bottom rounded-t-md transition-transform duration-300 ease-out ${over ? "bg-amber-400/80" : "bg-accent/80"}`}
+                className={`block w-full origin-bottom rounded-t-md transition-[transform,background-color] duration-300 ease-out ${over ? "bg-amber-400/80" : picked === i ? "bg-accent" : "bg-accent/80"}`}
                 style={{ height: "100%", transform: `scaleY(${n / top})` }}
               />
               <span aria-hidden className="absolute inset-x-0 border-t border-dashed border-foreground/50" style={{ bottom: `${(curve.targets[i] / top) * 100}%` }} />
@@ -155,9 +156,22 @@ export function CurveChart({ curve, compact = false }: { curve: CurveReport; com
         })}
       </div>
       <div className="grid grid-cols-6 gap-2 text-center text-[11px] text-muted">
-        {CURVE_LABELS.map((l) => (
-          <span key={l}>{l}</span>
-        ))}
+        {CURVE_LABELS.map((l, i) =>
+          onPick ? (
+            <button
+              key={l}
+              type="button"
+              onClick={() => onPick(i)}
+              aria-pressed={picked === i}
+              aria-label={`Cards at ${l} mana`}
+              className={`-my-1 rounded-md py-1 tabular-nums transition-colors duration-150 ${picked === i ? "bg-accent font-semibold text-on-accent" : "hover:bg-subtle hover:text-foreground"}`}
+            >
+              {l}
+            </button>
+          ) : (
+            <span key={l}>{l}</span>
+          ),
+        )}
       </div>
       {!compact && (
         <dl className="grid grid-cols-3 gap-3 text-sm">

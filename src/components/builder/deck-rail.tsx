@@ -36,6 +36,8 @@ export function DeckRail({
   basics,
   profile,
   template = false,
+  curvePick,
+  onCurvePick,
   report,
   combosFound,
   onRemove,
@@ -48,6 +50,9 @@ export function DeckRail({
   profile?: DeckProfile;
   /** Show the template's meters. */
   template?: boolean;
+  /** The mana curve slot picked, to see the cards at that cost. */
+  curvePick?: number;
+  onCurvePick?: (slot: number) => void;
   report?: BracketReport;
   combosFound?: number;
   onRemove: (name: string) => void;
@@ -118,7 +123,7 @@ export function DeckRail({
               </p>
             )}
             <p className={`eyebrow ${template || profile.flexible.length > 0 ? "mt-3" : ""}`}>Mana curve</p>
-            <CurveChart curve={profile.curve} compact />
+            <CurveChart curve={profile.curve} compact picked={curvePick} onPick={onCurvePick} />
             <p className="text-xs text-muted tabular-nums">
               {profile.curve.spells ? `Average ${profile.curve.average.toFixed(1)} · ` : ""}
               {profile.curve.early}/{profile.curve.earlyTarget} plays at 2 or less

@@ -220,6 +220,29 @@ describe("builderRecommendations", () => {
       expect(names(shelfOf.synergy)).toEqual(["Core Card"]);
     });
 
+    it("ranks all of a shelf's cards by synergy for looking through by cost, whatever you own", () => {
+      const cards = [
+        ramp("Outside", { ownedCopies: 1 }),
+        ramp("No Synergy", { ownedCopies: 1 }),
+        ramp("Core", { synergy: 0.9 }),
+        ramp("Leaning", { ownedCopies: 0 }),
+        ...Array.from({ length: 13 }, (_, i) => ramp(`Filler ${i}`)),
+      ];
+      const style = [
+        { name: "No Synergy", synergy: -0.1 },
+        { name: "Core", synergy: 0.8 },
+        { name: "Leaning", synergy: 0.2, lean: 0.3 },
+        ...Array.from({ length: 13 }, (_, i) => ({ name: `Filler ${i}`, synergy: 0.5 - i / 100 })),
+      ];
+      const { all } = shelf(build(cards, style, true), "ramp");
+      expect(names(all.leaning)).toEqual(["Leaning"]);
+      expect(all.leaning[0].reason).toBe("+30% in this playstyle");
+      expect(names(all.synergy).slice(0, 2)).toEqual(["Core", "Filler 0"]);
+      expect(all.synergy[0].reason).toBe("+80% synergy");
+      expect(all.synergy).toHaveLength(14);
+      expect(names(all.rest)).toEqual(["No Synergy", "Outside"]);
+    });
+
     it("counts a card that sets it apart toward the plan", () => {
       const quiet = candidate(card("Parallel Lives", "Enchantment", "If an effect would create tokens, it creates twice that many."));
       const plain = candidate(card("Sign in Blood", "Sorcery", "Target player draws two cards."));
