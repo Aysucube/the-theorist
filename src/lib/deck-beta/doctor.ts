@@ -45,7 +45,7 @@ export interface UpgradePlan {
   power: Pick[];
   /** Good candidates left out because they'd push the deck past the bracket. */
   leftOut: { pick: Pick; why: string }[];
-  /** Every card the bracket allows, best first, with only as many Game Changers as it has room for. */
+  /** Every card the bracket allows, best first; Game Changers while it has room for one more. */
   eligible: Pick[];
 }
 
@@ -66,6 +66,8 @@ export interface PlanOptions {
   curve?: CurveReport;
   /** Keeps a card on offer even if it does no job in the template. */
   alwaysOffer?: (candidate: Candidate) => boolean;
+  /** How many of the cards left out to report; by default, twice perGroup. */
+  leftOutLimit?: number;
 }
 
 // Lower brackets favour synergy and flexible cards; higher ones raw strength.
@@ -209,10 +211,10 @@ export function planUpgrades(profile: DeckProfile, candidates: Candidate[], inDe
     }
   }
   power.forEach((p) => used.add(p.card.name));
-  const eligible = picks.filter((p) => !limitGameChangers || !p.gameChanger || power.includes(p));
+  const eligible = picks.filter((p) => !limitGameChangers || !p.gameChanger || room > 0);
 
   leftOut.sort((x, y) => y.pick.score - x.pick.score);
-  return { curve, flexible, categories, power, leftOut: leftOut.slice(0, perGroup * 2), eligible };
+  return { curve, flexible, categories, power, leftOut: leftOut.slice(0, options.leftOutLimit ?? perGroup * 2), eligible };
 }
 
 /**

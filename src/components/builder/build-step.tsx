@@ -185,6 +185,7 @@ export function BuildStep({
               themeName={themeName}
               note={tab === "ramp" || tab === "advantage" ? curveAdvice : undefined}
               combos={tab === "plan" ? groups.combos.map((g) => g.pick) : []}
+              bracket={bracket}
               {...pickProps}
             />
           )}
@@ -384,7 +385,7 @@ function CostShelf({ shelf, slot, themeName, onClear, ...pickProps }: PickProps 
           No {info.label} cards at {cost} mana to suggest right now.
         </p>
       )}
-      <Group title={`Best for ${themeName}`} note={`What sets ${themeName} decks apart at this cost, furthest first.`} picks={shownLeaning} {...pickProps} />
+      <Group title={`Best for ${themeName}`} note={`What sets ${themeName} decks apart at this cost, furthest first.`} picks={shownLeaning} flies={false} {...pickProps} />
       <Group title="Highest synergy" note={`EDHREC’s highest-synergy cards for ${themeName ? `${themeName} decks` : "your commander"} at this cost.`} picks={shownSynergy} {...pickProps} />
       <Group title="Also fits" note="The rest at this cost." picks={shownRest} {...pickProps} />
     </>
@@ -398,14 +399,17 @@ function Shelf({
   themeName,
   note,
   combos,
+  bracket,
   ...pickProps
-}: PickProps & { shelf: TemplateShelf; preferOwned: boolean; themeName?: string; note?: string; combos: BuilderPick[] }) {
+}: PickProps & { shelf: TemplateShelf; preferOwned: boolean; themeName?: string; note?: string; combos: BuilderPick[]; bracket: number }) {
   const info = CATEGORY_INFO[shelf.category];
-  const empty = shelf.leaning.length + shelf.lists.length + shelf.outside.length === 0;
+  const empty = shelf.lists.length + shelf.moreForStyle.length + shelf.outside.length + shelf.heldBack.length === 0;
   const owned = preferOwned ? ", the ones you own first" : "";
   const best = `Best for ${themeName}`;
   const comboTitle = "Complete a combo";
-  const outsideTitle = "Outside the playstyle";
+  const moreTitle = `More for ${themeName}`;
+  const outsideTitle = themeName ? "Outside the playstyle" : "From your binder";
+  const heldTitle = `Left out for Bracket ${bracket}`;
   return (
     <>
       <div className="mb-2">
@@ -423,15 +427,25 @@ function Shelf({
           { title: best, count: shelf.leaning.length },
           ...shelf.lists.map((l) => ({ title: l.title, count: l.picks.length })),
           { title: comboTitle, count: combos.length },
+          { title: moreTitle, count: shelf.moreForStyle.length },
           { title: outsideTitle, count: shelf.outside.length },
+          { title: heldTitle, count: shelf.heldBack.length },
         ]}
       />
-      <Group title={best} note={`What sets ${themeName} decks apart: the cards they play far more than other decks${owned}.`} picks={shelf.leaning} byType {...pickProps} />
+      <Group title={best} note={`What sets ${themeName} decks apart: the ones they lean on most${owned}. They’re in EDHREC’s lists below too.`} picks={shelf.leaning} flies={false} {...pickProps} />
       {shelf.lists.map((list) => (
-        <Group key={list.title} title={list.title} note={LIST_NOTES[list.title] ?? `Highest synergy first${owned}.`} picks={list.picks} {...pickProps} />
+        <Group key={list.title} title={list.title} note={LIST_NOTES[list.title] ?? "EDHREC’s list, the highest synergy first."} picks={list.picks} {...pickProps} />
       ))}
       <Group title={comboTitle} note="Each of these completes a combo with cards already in the deck, within your bracket." picks={combos} {...pickProps} />
-      <Group title={outsideTitle} note={`These do the job, but ${themeName} decks on EDHREC don’t usually play them.`} picks={shelf.outside} byType {...pickProps} />
+      <Group title={moreTitle} note={`${themeName} cards in your colors that these commander’s decks haven’t picked up${owned}.`} picks={shelf.moreForStyle} byType {...pickProps} />
+      <Group
+        title={outsideTitle}
+        note={themeName ? `These do the job, but ${themeName} decks on EDHREC don’t usually play them.` : "These do the job, but EDHREC doesn’t list them for this commander."}
+        picks={shelf.outside}
+        byType
+        {...pickProps}
+      />
+      <Group title={heldTitle} note="Too strong for your bracket, so they’re set apart. Add one only if you mean to." picks={shelf.heldBack} byType {...pickProps} />
       {empty && <p className="text-sm text-muted">No cards to suggest here yet. Add more of the commander’s key cards and check back.</p>}
     </>
   );
@@ -457,7 +471,7 @@ function SectionJumps({ sections }: { sections: { title: string; count: number }
 
 const LIST_NOTES: Record<string, string> = {
   "New Cards": "Recently printed cards EDHREC is seeing in these decks.",
-  "Top Cards": "What these decks play most.",
+  "Top Cards": "What these decks play most, the most played first.",
   "High Lift Cards": "Cards these decks play far more than you’d expect.",
   "High Synergy Cards": "Cards that suit these decks far more than others of their colors.",
 };
@@ -530,6 +544,7 @@ function Group({
   note,
   picks,
   byType = false,
+  flies = true,
   ownedFor,
   onAdd,
 }: PickProps & {
@@ -537,6 +552,8 @@ function Group({
   note?: string;
   picks: SectionCard[];
   byType?: boolean;
+  /** Off for a section whose cards also show in another, so only one copy flies into the deck. */
+  flies?: boolean;
 }) {
   const [open, setOpen] = useState(true);
   if (picks.length === 0) return null;
@@ -545,7 +562,7 @@ function Group({
     <ul className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 xl:grid-cols-4">
       <AnimatePresence mode="popLayout" initial={false}>
         {cards.map((p, i) => (
-          <BuildCard key={p.card.name} card={p.card} ownedCopies={ownedFor(p.card.name)} categories={p.categories} reason={p.reason} index={i} onAdd={onAdd} />
+          <BuildCard key={p.card.name} card={p.card} ownedCopies={ownedFor(p.card.name)} categories={p.categories} reason={p.reason} index={i} flies={flies} onAdd={onAdd} />
         ))}
       </AnimatePresence>
     </ul>

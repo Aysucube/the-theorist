@@ -194,7 +194,7 @@ describe("styleLean", () => {
 
 describe("builderRecommendations", () => {
   const commander = card("Lathril, Blade of the Elves", "Legendary Creature — Elf Noble", "Menace", { colorIdentity: ["B", "G"] });
-  const candidate = (c: CardDetails, extra: Partial<BuilderCandidate> = {}): BuilderCandidate => ({ card: c, ownedCopies: 0, lists: [], inclusion: 0.3, ...extra });
+  const candidate = (c: CardDetails, extra: Partial<BuilderCandidate> = {}): BuilderCandidate => ({ card: c, ownedCopies: 0, lists: ["Creatures"], inclusion: 0.3, ...extra });
   const candidates = [
     candidate(card("Llanowar Elves", "Creature — Elf Druid", "{T}: Add {G}."), { ownedCopies: 1 }),
     candidate(card("Elvish Mystic", "Creature — Elf Druid", "{T}: Add {G}."), { inclusion: 0.8 }),
@@ -257,11 +257,17 @@ describe("builderRecommendations", () => {
     expect(shelf(three, "mass").short).toBe(6);
   });
 
-  it("lays each shelf out like EDHREC, its lists in EDHREC's order and the highest synergy first", () => {
+  it("lays each shelf out like EDHREC, the highest synergy first", () => {
     const ramp = shelf(run(3, false), "ramp");
-    expect(ramp.lists.map((l) => l.title)).toEqual(["Creatures", "Utility Artifacts"].filter((title) => ramp.lists.some((l) => l.title === title)));
+    expect(ramp.lists.map((l) => l.title)).toEqual(["Creatures"]);
     expect(inList(ramp, "Creatures").slice(0, 2)).toEqual(["Elvish Archdruid", "Priest of the Grove"]);
     expect(ramp.lists[0].picks[0].reason).toBe("10% of decks · +40% synergy");
+  });
+
+  it("orders Top Cards by how many decks play them", () => {
+    const top = (name: string, inclusion: number, synergy: number) => candidate(card(name, "Creature — Elf", "{T}: Add {G}."), { lists: ["Top Cards"], inclusion, synergy });
+    const result = builderRecommendations({ deck: [{ card: commander, qty: 1 }], candidates: [top("Popular", 0.9, 0.1), top("Niche", 0.3, 0.8)], identity: ["B", "G"], bracket: 3, isGameChanger: () => false, preferOwned: false });
+    expect(inList(shelf(result, "ramp"), "Top Cards")).toEqual(["Popular", "Niche"]);
   });
 
   it("puts a card in EDHREC's special lists first, and once", () => {
@@ -274,12 +280,20 @@ describe("builderRecommendations", () => {
     ]);
   });
 
-  it("files a card EDHREC doesn't list by its type", () => {
-    const rock = candidate(card("Mind Stone", "Artifact", "{T}: Add {C}."), { inclusion: undefined });
-    const spell = candidate(card("Farseek", "Sorcery", "Search your library for a land card, put it onto the battlefield tapped."), { inclusion: undefined });
+  it("files a card by its type when its EDHREC list isn't one of the usual ones", () => {
+    const rock = candidate(card("Mind Stone", "Artifact", "{T}: Add {C}."), { lists: ["Lands"] });
+    const spell = candidate(card("Farseek", "Sorcery", "Search your library for a land card, put it onto the battlefield tapped."), { lists: ["Lands"] });
     const result = builderRecommendations({ deck: [{ card: commander, qty: 1 }], candidates: [rock, spell], identity: ["B", "G"], bracket: 3, isGameChanger: () => false, preferOwned: false });
     expect(inList(shelf(result, "ramp"), "Mana Artifacts")).toEqual(["Mind Stone"]);
     expect(inList(shelf(result, "ramp"), "Sorceries")).toEqual(["Farseek"]);
+  });
+
+  it("keeps cards EDHREC doesn't list out of its lists, in a section of their own", () => {
+    const edhrec = candidate(card("Elvish Mystic", "Creature — Elf", "{T}: Add {G}."), { synergy: 0.5 });
+    const binder = candidate(card("Gyre Sage", "Creature — Elf", "{T}: Add {G}."), { lists: [], inclusion: undefined, ownedCopies: 1 });
+    const result = builderRecommendations({ deck: [{ card: commander, qty: 1 }], candidates: [binder, edhrec], identity: ["B", "G"], bracket: 3, isGameChanger: () => false, preferOwned: true });
+    expect(listed(shelf(result, "ramp"))).toEqual(["Elvish Mystic"]);
+    expect(names(shelf(result, "ramp").outside)).toEqual(["Gyre Sage"]);
   });
 
   it("offers everything EDHREC lists, however many, with no cap on a shelf", () => {
@@ -290,9 +304,10 @@ describe("builderRecommendations", () => {
 
   it("keeps cards EDHREC lists that do no job on the plan's shelf, but not ones only the binder suggests", () => {
     const jobless = candidate(card("Quiet Elf", "Creature — Elf", ""), { lists: ["Creatures"], synergy: 0.01 });
-    const binderOnly = candidate(card("Binder Filler", "Creature — Elf", ""), { inclusion: undefined, ownedCopies: 1 });
+    const binderOnly = candidate(card("Binder Filler", "Creature — Elf", ""), { inclusion: undefined, ownedCopies: 1, lists: [] });
     const result = builderRecommendations({ deck: [{ card: commander, qty: 1 }], candidates: [jobless, binderOnly], identity: ["B", "G"], bracket: 3, isGameChanger: () => false, preferOwned: false });
     expect(listed(shelf(result, "plan"))).toEqual(["Quiet Elf"]);
+    expect(shelf(result, "plan").outside).toEqual([]);
   });
 
   it("offers a flexible card in each category it fills", () => {
@@ -301,17 +316,23 @@ describe("builderRecommendations", () => {
     expect(listed(shelf(three, "advantage"))).toContain("Dryad Arbor Scout");
   });
 
-  it("puts owned cards ahead within each list when asked", () => {
-    expect(inList(shelf(run(3), "ramp"), "Creatures").slice(0, 2)).toEqual(["Priest of the Grove", "Llanowar Elves"]);
+  it("keeps EDHREC's lists in their order whatever you own", () => {
+    expect(inList(shelf(run(3), "ramp"), "Creatures").slice(0, 2)).toEqual(["Elvish Archdruid", "Priest of the Grove"]);
   });
 
-  it("offers Game Changers only as far as the bracket has room", () => {
-    const gameChanger = candidate(card("Crop Rotation", "Instant", "Search your library for a land card, put that card onto the battlefield."), { synergy: 0.5 });
-    const build = (bracket: 2 | 3) =>
-      builderRecommendations({ deck: [{ card: commander, qty: 1 }], candidates: [gameChanger], identity: ["B", "G"], bracket, isGameChanger: () => true, preferOwned: false });
-    expect(listed(shelf(build(3), "ramp"))).toEqual(["Crop Rotation"]);
+  it("offers every Game Changer while the bracket has room, and sets them apart after that", () => {
+    const changer = (name: string) => candidate(card(name, "Instant", "Search your library for a land card, put that card onto the battlefield."), { synergy: 0.5 });
+    const changers = ["Crop Rotation", "Natural Order", "Worldly Tutor", "Demonic Tutor", "Vampiric Tutor"].map(changer);
+    const build = (bracket: 2 | 3, inDeck: string[] = []) =>
+      builderRecommendations({ deck: [{ card: commander, qty: 1 }, ...inDeck.map((name) => ({ card: card(name, "Instant", ""), qty: 1 }))], candidates: changers, identity: ["B", "G"], bracket, isGameChanger: (name) => name !== commander.name, preferOwned: false });
+    expect(listed(shelf(build(3), "ramp"))).toHaveLength(5);
+    expect(build(3).leftOut).toEqual([]);
     expect(listed(shelf(build(2), "ramp"))).toEqual([]);
-    expect(build(2).leftOut.map((l) => l.pick.card.name)).toEqual(["Crop Rotation"]);
+    expect(names(shelf(build(2), "ramp").heldBack)).toHaveLength(5);
+    expect(shelf(build(2), "ramp").heldBack[0].reason).toMatch(/Bracket 2 allows none/);
+    expect(build(2).leftOut).toHaveLength(5);
+    expect(listed(shelf(build(3, ["One", "Two", "Three"]), "ramp"))).toEqual([]);
+    expect(shelf(build(3, ["One", "Two", "Three"]), "ramp").heldBack).toHaveLength(5);
   });
 
   it("leaves a combo piece on the plan's shelf rather than showing it twice", () => {
@@ -405,22 +426,45 @@ describe("builderRecommendations", () => {
       expect(shelfOf.lists[0].picks[0].reason).toBe("30% of decks · +70% synergy");
     });
 
-    it("sorts cards into that playstyle's own EDHREC lists", () => {
-      const cards = [ramp("Staple", { lists: ["Top Cards"] })];
-      expect(inList(shelf(build(cards, [{ name: "Staple", lists: ["Creatures"] }]), "ramp"), "Creatures")).toEqual(["Staple"]);
+    it("keeps the commander's lists, as a playstyle's page has no High Lift", () => {
+      const cards = [ramp("Sleeper", { lists: ["High Lift Cards", "Creatures"] })];
+      expect(inList(shelf(build(cards, [{ name: "Sleeper", lists: ["Creatures"] }]), "ramp"), "High Lift Cards")).toEqual(["Sleeper"]);
     });
 
-    it("leads with the cards that set it apart, ahead of the commander's core", () => {
-      const cards = [ramp("Core Card", { synergy: 0.8 }), ramp("Burn Card", { synergy: 0.1 }), ramp("Binder Burn Card", { ownedCopies: 1, inclusion: undefined })];
+    it("sorts a card into the playstyle's own lists too", () => {
+      const cards = [ramp("Staple", { lists: ["Creatures"] })];
+      expect(inList(shelf(build(cards, [{ name: "Staple", lists: ["Top Cards"] }]), "ramp"), "Top Cards")).toEqual(["Staple"]);
+    });
+
+    it("leads with the cards that set it apart, and leaves EDHREC's lists whole", () => {
+      const cards = [ramp("Core Card", { synergy: 0.8 }), ramp("Burn Card", { synergy: 0.1 }), ramp("Other Burn Card", { ownedCopies: 1 })];
       const style = [
         { name: "Core Card", synergy: 0.8, lean: 0.01 },
         { name: "Burn Card", synergy: 0.1, lean: 0.14 },
-        { name: "Binder Burn Card", synergy: 0.05, lean: 0.2 },
+        { name: "Other Burn Card", synergy: 0.05, lean: 0.2 },
       ];
       const shelfOf = shelf(build(cards, style), "ramp");
-      expect(names(shelfOf.leaning)).toEqual(["Binder Burn Card", "Burn Card"]);
+      expect(names(shelfOf.leaning)).toEqual(["Other Burn Card", "Burn Card"]);
       expect(shelfOf.leaning[0].reason).toBe("+20% in this playstyle");
-      expect(listed(shelfOf)).toEqual(["Core Card"]);
+      expect(listed(shelfOf)).toEqual(["Core Card", "Burn Card", "Other Burn Card"]);
+    });
+
+    it("keeps that lead short", () => {
+      const cards = Array.from({ length: 20 }, (_, i) => ramp(`Card ${i}`));
+      const style = cards.map((c) => ({ name: c.card.name, synergy: 0.1, lean: 0.2 }));
+      const shelfOf = shelf(build(cards, style), "ramp");
+      expect(shelfOf.leaning).toHaveLength(12);
+      expect(listed(shelfOf)).toHaveLength(20);
+    });
+
+    it("sets apart cards the playstyle plays in these colors that this commander's decks don't", () => {
+      const cards = [ramp("Their Card", { synergy: 0.4 }), ramp("Color Card", { lists: [], inclusion: undefined }), ramp("Binder Color Card", { lists: [], inclusion: undefined, ownedCopies: 1 })];
+      const style = [{ name: "Their Card", lists: ["Creatures"], synergy: 0.4 }, { name: "Color Card", lean: 0.3, lists: [] }, { name: "Binder Color Card", lean: 0.1, lists: [] }];
+      const shelfOf = shelf(build(cards, style, true), "ramp");
+      expect(listed(shelfOf)).toEqual(["Their Card"]);
+      expect(shelfOf.leaning).toEqual([]);
+      expect(names(shelfOf.moreForStyle)).toEqual(["Binder Color Card", "Color Card"]);
+      expect(shelfOf.outside).toEqual([]);
     });
 
     it("names the playstyles a card suits when there are several", () => {
@@ -452,19 +496,20 @@ describe("builderRecommendations", () => {
     });
 
     it("sets aside cards its decks don't play, owned or not, however the commander's decks rate them", () => {
-      const cards = [ramp("Style Card", { ownedCopies: 0 }), ramp("Binder Card", { ownedCopies: 2, inclusion: undefined }), ramp("Commander Card", { synergy: 0.9, inclusion: 0.9 })];
+      const cards = [ramp("Style Card", { ownedCopies: 0 }), ramp("Binder Card", { ownedCopies: 2, inclusion: undefined, lists: [] }), ramp("Commander Card", { synergy: 0.9, inclusion: 0.9 })];
       const shelfOf = shelf(build(cards, [{ name: "Style Card", inclusion: 0.2 }], true), "ramp");
-      expect(listed(shelfOf)).toEqual(["Style Card"]);
-      expect(names(shelfOf.outside)).toEqual(["Binder Card", "Commander Card"]);
+      expect(listed(shelfOf)).toEqual(["Style Card", "Commander Card"]);
+      expect(shelfOf.lists[0].picks[1].reason).toBe("Not in these playstyle decks");
+      expect(names(shelfOf.outside)).toEqual(["Binder Card"]);
     });
 
-    it("still puts your own cards first among the ones its decks play", () => {
+    it("puts your own cards first among those that set it apart", () => {
       const cards = [ramp("Bought", { ownedCopies: 0 }), ramp("Owned", { ownedCopies: 1 })];
       const style = [
-        { name: "Bought", synergy: 0.6 },
-        { name: "Owned", synergy: 0.3 },
+        { name: "Bought", lean: 0.6 },
+        { name: "Owned", lean: 0.3 },
       ];
-      expect(inList(shelf(build(cards, style, true), "ramp"), "Creatures")).toEqual(["Owned", "Bought"]);
+      expect(names(shelf(build(cards, style, true), "ramp").leaning)).toEqual(["Owned", "Bought"]);
     });
 
     it("counts a card toward the plan by that playstyle's synergy", () => {
@@ -478,12 +523,13 @@ describe("builderRecommendations", () => {
 
     it("ranks lands its decks play ahead of owned lands they don't", () => {
       const land = (name: string, extra: Partial<BuilderCandidate>) => candidate(card(name, "Land", "{T}: Add {B} or {G}.", { colorIdentity: ["B", "G"], cmc: 0 }), extra);
-      const result = build([land("Binder Dual", { ownedCopies: 1 }), land("Style Dual", {})], [{ name: "Style Dual", inclusion: 0.5 }], true);
+      const result = build([land("Binder Dual", { ownedCopies: 1, lists: [] }), land("Style Dual", {})], [{ name: "Style Dual", inclusion: 0.5 }], true);
       expect(names(result.lands.duals)).toEqual(["Style Dual", "Binder Dual"]);
     });
 
-    it("has nothing outside it without a playstyle", () => {
+    it("has nothing outside it without a playstyle, when everything is on EDHREC", () => {
       expect(run(3).template.flatMap((g) => g.outside)).toEqual([]);
+      expect(run(3).template.flatMap((g) => g.leaning)).toEqual([]);
     });
   });
 
@@ -514,7 +560,7 @@ describe("builderRecommendations", () => {
 
   describe("lands", () => {
     const land = (name: string, oracleText: string, colorIdentity: string[] = [], extra: Partial<BuilderCandidate> = {}, typeLine = "Land") =>
-      candidate(card(name, typeLine, oracleText, { colorIdentity, cmc: 0 }), { inclusion: undefined, ...extra });
+      candidate(card(name, typeLine, oracleText, { colorIdentity, cmc: 0 }), { inclusion: undefined, lists: [], ...extra });
     const cemetery = land("Woodland Cemetery", "This land enters tapped unless you control a Swamp or a Forest.\n{T}: Add {B} or {G}.", ["B", "G"], { inclusion: 0.6 });
     const tomb = land("Overgrown Tomb", "({T}: Add {B} or {G}.)\nAs this land enters, you may pay 2 life. If you don't, it enters tapped.", ["B", "G"], { inclusion: 0.7 }, "Land — Swamp Forest");
     const bayou = land("Bayou", "({T}: Add {B} or {G}.)", ["B", "G"], {}, "Land — Swamp Forest");
@@ -548,6 +594,12 @@ describe("builderRecommendations", () => {
     it("leaves out fetch lands that can't find the deck's colors", () => {
       const lands = Object.values(build(all)).flat();
       expect(names(lands)).not.toContain("Flooded Strand");
+    });
+
+    it("keeps EDHREC's lands in order ahead of the ones you own", () => {
+      const listed = (name: string, inclusion: number) => land(name, "{T}: Add {B} or {G}.", ["B", "G"], { inclusion, lists: ["Lands"] });
+      const owned = { ...bayou, ownedCopies: 1 };
+      expect(names(build([owned, listed("Lesser", 0.2), listed("Greater", 0.6)], ["B", "G"], { preferOwned: true }).duals)).toEqual(["Greater", "Lesser", "Bayou"]);
     });
 
     it("puts the lands you own ahead when asked", () => {

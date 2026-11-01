@@ -509,7 +509,7 @@ export function SynergyStep({
     const newCards = detailed.filter((c) => c.lists.some((l) => /new/i.test(l)));
     const synergy = [...detailed].sort((a, b) => (b.synergy ?? -1) - (a.synergy ?? -1)).slice(0, 12);
     const leaning = detailed
-      .filter((c) => (c.lean ?? 0) >= LEANS_IN)
+      .filter((c) => (c.lean ?? 0) >= LEANS_IN && c.lists.length > 0)
       .sort((a, b) => b.lean! - a.lean!)
       .slice(0, 12);
     const ownedCount = data.cards.filter((c) => owned(c.name) > 0).length;

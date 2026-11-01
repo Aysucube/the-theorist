@@ -132,7 +132,7 @@ export function rememberDetails(cards: CardDetails[]) {
  * null when Scryfall doesn't know the name.
  */
 export function useCardDetails(names: string[]) {
-  useSyncExternalStore(subscribe, () => version, () => 0);
+  const known = useSyncExternalStore(subscribe, () => version, () => 0);
   const current = useSyncExternalStore(subscribe, () => status, () => status);
   const missingKey = names.filter((n) => !memory.has(key(n))).join("\n");
 
@@ -148,5 +148,7 @@ export function useCardDetails(names: string[]) {
   return {
     detailsFor: (name: string): CardDetails | null | undefined => memory.get(key(name)),
     status: current,
+    /** Changes whenever more details are known, including when a saved copy loads. */
+    known,
   };
 }

@@ -70,11 +70,13 @@ Zone's template and videos on mana curves and mana bases):
 6. **Build**: the template is the tabs: **Ramp**, **Card advantage**, **Targeted disruption**, **Mass
    disruption** and **Plan**, each with its count and meter, plus **Lands** for the mana base. It opens
    on the category furthest from its target. Each tab holds everything EDHREC lists that fills it,
-   laid out like EDHREC: **Best for** your playstyle, then **New Cards**, **Top Cards**, **High Lift**,
-   **Creatures**, **Instants**, **Sorceries**, artifacts, **Enchantments** and **Planeswalkers**, with
-   how many decks play each card and its synergy, your own cards first in each list if you like, all
-   re-ranked with every card you add. Each list is its own section that folds away, with shortcuts to
-   jump between them, and long mixed lists are split by card type. The Plan tab also holds combos a
+   laid out like EDHREC: **New Cards**, **Top Cards**, **High Lift**, **Creatures**, **Instants**,
+   **Sorceries**, artifacts, **Enchantments** and **Planeswalkers**, whole and strongest first under any
+   playstyle, with how many decks play each card and its synergy. With a playstyle, a short **Best for**
+   list leads with what sets it apart. After EDHREC's lists come **More for** that playstyle (its cards
+   in your colors that this commander's decks haven't picked up), **From your binder** (cards EDHREC
+   doesn't list) and **Left out** (too strong for the bracket, with why). Each list is its own section
+   that folds away, with shortcuts to jump between them, and mixed lists are split by card type. The Plan tab also holds combos a
    card away that fit the bracket. A **search** above the tabs finds your suggestions by name or rules
    text, then any other card in the commander's colors. The Lands tab shows the basics that come with the
    deck, then what to add on top: **dual lands** for the commander's colors, more fixing, utility lands

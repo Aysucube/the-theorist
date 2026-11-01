@@ -32,7 +32,7 @@ const ANALYSIS_SETTLE_MS = 1500;
 const HEADINGS = [
   { title: "Choose your commander", note: "Every deck starts here. These are the commanders in your binder." },
   { title: "Choose a playstyle", note: "Every way players build this commander. The whole deck follows the one you pick." },
-  { title: "Pick a bracket", note: "How strong should it be? Every recommendation will stay inside it." },
+  { title: "Pick a bracket", note: "How strong should it be? Recommendations stay inside it, and anything stronger is set apart." },
   { title: "What EDHREC knows", note: "The cards that suit your commander best, and the ways players build it." },
   { title: "Set your lands", note: "Start from the recommendation; basics re-balance as the deck grows." },
   { title: "Build the deck", note: "Recommendations follow the deck: each card you add changes what it needs next." },
@@ -60,7 +60,7 @@ export function CreateDeck() {
   const binderNames = useMemo(() => binder.cards.map((c) => c.name), [binder.cards]);
   const deckNames = draft.cards.map((c) => c.name);
   const commanderName = draft.commander?.name;
-  const { detailsFor, status } = useCardDetails([...binderNames, ...deckNames, ...(commanderName ? [commanderName] : [])]);
+  const { detailsFor, status, known } = useCardDetails([...binderNames, ...deckNames, ...(commanderName ? [commanderName] : [])]);
 
   const commanderRef = useMemo(
     () => (draft.commander ? ({ name: draft.commander.name, layout: draft.commander.layout } as CardDetails) : undefined),
@@ -127,8 +127,8 @@ export function CreateDeck() {
       seen.add(cardKey(card.name));
       out.push({ card, lists: [], ownedCopies: binder.owned(card.name), ...extra });
     };
-    // The playstyle's cards, then the commander's other cards, which the plan ranks after them.
-    for (const source of [styled, data]) {
+    // The commander's cards with their EDHREC lists, then what only the playstyle plays; the plan puts the playstyle's numbers on them.
+    for (const source of [data, styled]) {
       for (const c of source?.cards ?? []) {
         const card = source!.details[c.name] ?? detailsFor(c.name);
         if (card) push(card, { synergy: c.synergy, inclusion: c.inclusion, lists: c.lists });
@@ -141,9 +141,9 @@ export function CreateDeck() {
     }
     for (const card of Object.values(analysisResult?.missing ?? {})) push(card);
     return out;
-    // The cache's status changes as details arrive, which is when this needs redoing.
+    // \`known\` changes as details arrive, which is when this needs redoing.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [styled, data, fixingLands, binder.cards, analysisResult, status.state, identityKey]);
+  }, [styled, data, fixingLands, binder.cards, analysisResult, known, identityKey]);
 
   // Lands by the curve: EDHREC's decks for the commander, or (until a deck has
   // spells) the curve of the cards those decks play most.

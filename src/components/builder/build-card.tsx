@@ -22,6 +22,7 @@ export function BuildCard({
   categories = [],
   reason,
   index,
+  flies = true,
   onAdd,
 }: {
   card: CardDetails;
@@ -30,13 +31,15 @@ export function BuildCard({
   categories?: Category[];
   reason?: string;
   index: number;
+  /** Shares a layout id with the deck's copy; off when the card shows twice, so only one of them flies in. */
+  flies?: boolean;
   onAdd: (card: CardDetails) => void;
 }) {
   const { trigger, preview } = useHoverPreview(card.name);
   const owned = ownedCopies > 0;
   return (
     <motion.li
-      layoutId={`card:${card.name}`}
+      layoutId={flies ? `card:${card.name}` : undefined}
       initial={{ opacity: 0, transform: "translateY(8px)" }}
       animate={{ opacity: 1, transform: "translateY(0px)" }}
       exit={{ opacity: 0, transform: "scale(0.96)", transition: { duration: 0.15 } }}
