@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CardDetails, Combo } from "@/lib/types";
-import { builderRecommendations, fitsIdentity, predictedAverage, recommendLands, splitBasics, styleLean, withPlaystyle, type BuilderCandidate } from "./plan";
+import { builderRecommendations, fitsIdentity, mergePlaystyles, predictedAverage, recommendLands, scaledCurve, splitBasics, styleLean, withPlaystyle, type BuilderCandidate } from "./plan";
 
 const card = (name: string, typeLine: string, oracleText: string, extra: Partial<CardDetails> = {}): CardDetails => ({
   name,
@@ -40,6 +40,78 @@ describe("splitBasics", () => {
   it("gives colorless decks Wastes, and splits evenly with no spells yet", () => {
     expect(splitBasics(30, [], [])).toEqual({ Wastes: 30 });
     expect(splitBasics(30, ["W", "U", "B"], [])).toEqual({ Plains: 10, Island: 10, Swamp: 10 });
+  });
+
+  it("adds up in three or more colors too", () => {
+    const split = splitBasics(23, ["W", "U", "B", "R", "G"], ["{W}", "{U}{U}", "{B}", "{R}{R}{R}"]);
+    expect(Object.values(split).reduce((a, b) => a + b, 0)).toBe(23);
+  });
+});
+
+describe("scaledCurve", () => {
+  it("fits an average deck's curve to this deck's spells in whole cards", () => {
+    const curve = scaledCurve([8, 18, 14, 10, 5, 5], 61);
+    expect(curve.reduce((a, b) => a + b, 0)).toBe(61);
+    expect(curve[1]).toBeGreaterThan(curve[0]);
+  });
+
+  it("is empty for an empty curve", () => {
+    expect(scaledCurve([0, 0, 0, 0, 0, 0], 60)).toEqual([0, 0, 0, 0, 0, 0]);
+  });
+});
+
+describe("mergePlaystyles", () => {
+  const style = (numDecks: number, cards: { name: string; lean?: number; synergy?: number; inclusion?: number; lists?: string[] }[], extra = {}) => ({
+    found: true as const,
+    url: "https://edhrec.com/x",
+    numDecks,
+    cards: cards.map((c) => ({ numDecks: 1, ...c })),
+    listed: cards.map((c) => c.name),
+    details: {},
+    ...extra,
+  });
+
+  it("is the playstyle itself for one, and nothing for none", () => {
+    const one = style(10, [{ name: "A", lean: 0.2 }]);
+    expect(mergePlaystyles([{ name: "Tokens", style: one }])).toBe(one);
+    expect(mergePlaystyles([])).toBeUndefined();
+  });
+
+  it("measures each against its own top card, so a big playstyle doesn't drown out a small one", () => {
+    const elves = style(100, [{ name: "Elvish Archdruid", lean: 0.8 }, { name: "Priest of Titania", lean: 0.4 }]);
+    const tokens = style(50, [{ name: "Mirkwood Bats", lean: 0.2 }, { name: "Second Harvest", lean: 0.1 }]);
+    const merged = mergePlaystyles([{ name: "Elves", style: elves }, { name: "Tokens", style: tokens }])!;
+    expect(merged.cards.slice(0, 2).map((c) => c.lean)).toEqual([1, 1]);
+    expect(merged.cards.find((c) => c.name === "Second Harvest")?.styles).toEqual(["Tokens"]);
+  });
+
+  it("ranks a card two playstyles share above one that suits a single playstyle, with its best numbers", () => {
+    const merged = mergePlaystyles([
+      { name: "Tokens", style: style(10, [{ name: "Shared", lean: 0.1, synergy: 0.2, inclusion: 0.4, lists: ["Creatures"] }, { name: "Top", lean: 0.2 }]) },
+      { name: "Elves", style: style(10, [{ name: "Shared", lean: 0.1, synergy: 0.5, inclusion: 0.3, lists: ["Top Cards"] }, { name: "Peak", lean: 0.2 }]) },
+    ])!;
+    const shared = merged.cards[0];
+    expect(shared).toMatchObject({ name: "Shared", synergy: 0.5, inclusion: 0.4, styles: ["Tokens", "Elves"] });
+    expect(shared.lists).toEqual(["Creatures", "Top Cards"]);
+  });
+
+  it("leaves out of the lean a card that barely leans in", () => {
+    const merged = mergePlaystyles([
+      { name: "Tokens", style: style(10, [{ name: "Staple", lean: 0.01 }, { name: "Top", lean: 0.2 }]) },
+      { name: "Elves", style: style(10, [{ name: "Peak", lean: 0.2 }]) },
+    ])!;
+    expect(merged.cards.find((c) => c.name === "Staple")).toMatchObject({ lean: 0, styles: [] });
+  });
+
+  it("adds up the decks and weighs the curve by them", () => {
+    const merged = mergePlaystyles([
+      { name: "Tokens", style: style(30, [], { curveAverage: 2, curveCounts: [1, 0, 0, 0, 0, 0], bracketCounts: { "3": 2 } }) },
+      { name: "Elves", style: style(10, [], { curveAverage: 4, curveCounts: [0, 1, 0, 0, 0, 0], bracketCounts: { "3": 1, "4": 5 } }) },
+    ])!;
+    expect(merged.numDecks).toBe(40);
+    expect(merged.curveAverage).toBe(2.5);
+    expect(merged.curveCounts).toEqual([30, 10, 0, 0, 0, 0]);
+    expect(merged.bracketCounts).toEqual({ "3": 3, "4": 5 });
   });
 });
 
@@ -89,6 +161,8 @@ describe("builderRecommendations", () => {
   };
   const shelf = (result: ReturnType<typeof run>, category: string) => result.template.find((g) => g.category === category)!;
   const names = (picks: { card: CardDetails }[]) => picks.map((p) => p.card.name);
+  const inList = (s: ReturnType<typeof shelf>, title: string) => names(s.lists.find((l) => l.title === title)?.picks ?? []);
+  const listed = (s: ReturnType<typeof shelf>) => names(s.lists.flatMap((l) => l.picks));
   const run = (bracket: 2 | 3, preferOwned = true) =>
     builderRecommendations({
       deck: [
@@ -117,60 +191,77 @@ describe("builderRecommendations", () => {
     expect(shelf(three, "mass").short).toBe(6);
   });
 
-  it("leads each shelf with EDHREC's highest synergy, then flexible cards, then the rest", () => {
+  it("lays each shelf out like EDHREC, its lists in EDHREC's order and the highest synergy first", () => {
     const ramp = shelf(run(3, false), "ramp");
-    expect(names(ramp.synergy)).toEqual(["Elvish Archdruid", "Priest of the Grove"]);
-    expect(ramp.synergy[0].reason).toBe("+40% synergy");
-    expect(names(ramp.flexible)).toEqual(["Dryad Arbor Scout"]);
-    expect(names(ramp.more)).toEqual(["Elvish Mystic", "Llanowar Elves"]);
+    expect(ramp.lists.map((l) => l.title)).toEqual(["Creatures", "Utility Artifacts"].filter((title) => ramp.lists.some((l) => l.title === title)));
+    expect(inList(ramp, "Creatures").slice(0, 2)).toEqual(["Elvish Archdruid", "Priest of the Grove"]);
+    expect(ramp.lists[0].picks[0].reason).toBe("10% of decks · +40% synergy");
   });
 
-  it("lists enough high-synergy cards to fill a category's gap", () => {
-    const result = builderRecommendations({ deck: [{ card: commander, qty: 1 }], candidates, identity: ["B", "G"], bracket: 3, isGameChanger: () => false, preferOwned: false, perGroup: 1 });
-    expect(names(shelf(result, "ramp").synergy)).toEqual(["Elvish Archdruid", "Priest of the Grove"]);
-    expect(shelf(result, "ramp").flexible).toHaveLength(1);
+  it("puts a card in EDHREC's special lists first, and once", () => {
+    const top = candidate(card("Birds of Paradise", "Creature — Bird", "{T}: Add one mana of any color."), { lists: ["Creatures", "Top Cards"], synergy: 0.3 });
+    const fresh = candidate(card("Fresh Dork", "Creature — Elf", "{T}: Add {G}."), { lists: ["New Cards", "Creatures"] });
+    const result = builderRecommendations({ deck: [{ card: commander, qty: 1 }], candidates: [top, fresh], identity: ["B", "G"], bracket: 3, isGameChanger: () => false, preferOwned: false });
+    expect(shelf(result, "ramp").lists.map((l) => [l.title, names(l.picks)])).toEqual([
+      ["New Cards", ["Fresh Dork"]],
+      ["Top Cards", ["Birds of Paradise"]],
+    ]);
+  });
+
+  it("files a card EDHREC doesn't list by its type", () => {
+    const rock = candidate(card("Mind Stone", "Artifact", "{T}: Add {C}."), { inclusion: undefined });
+    const spell = candidate(card("Farseek", "Sorcery", "Search your library for a land card, put it onto the battlefield tapped."), { inclusion: undefined });
+    const result = builderRecommendations({ deck: [{ card: commander, qty: 1 }], candidates: [rock, spell], identity: ["B", "G"], bracket: 3, isGameChanger: () => false, preferOwned: false });
+    expect(inList(shelf(result, "ramp"), "Mana Artifacts")).toEqual(["Mind Stone"]);
+    expect(inList(shelf(result, "ramp"), "Sorceries")).toEqual(["Farseek"]);
+  });
+
+  it("offers everything EDHREC lists, however many, with no cap on a shelf", () => {
+    const many = Array.from({ length: 40 }, (_, i) => candidate(card(`Dork ${i}`, "Creature — Elf", "{T}: Add {G}."), { lists: ["Creatures"] }));
+    const result = builderRecommendations({ deck: [{ card: commander, qty: 1 }], candidates: many, identity: ["B", "G"], bracket: 3, isGameChanger: () => false, preferOwned: false, perGroup: 1 });
+    expect(inList(shelf(result, "ramp"), "Creatures")).toHaveLength(40);
+  });
+
+  it("keeps cards EDHREC lists that do no job on the plan's shelf, but not ones only the binder suggests", () => {
+    const jobless = candidate(card("Quiet Elf", "Creature — Elf", ""), { lists: ["Creatures"], synergy: 0.01 });
+    const binderOnly = candidate(card("Binder Filler", "Creature — Elf", ""), { inclusion: undefined, ownedCopies: 1 });
+    const result = builderRecommendations({ deck: [{ card: commander, qty: 1 }], candidates: [jobless, binderOnly], identity: ["B", "G"], bracket: 3, isGameChanger: () => false, preferOwned: false });
+    expect(listed(shelf(result, "plan"))).toEqual(["Quiet Elf"]);
   });
 
   it("offers a flexible card in each category it fills", () => {
     const three = run(3, false);
-    expect(names(shelf(three, "ramp").flexible)).toContain("Dryad Arbor Scout");
-    expect(names(shelf(three, "advantage").flexible)).toContain("Dryad Arbor Scout");
+    expect(listed(shelf(three, "ramp"))).toContain("Dryad Arbor Scout");
+    expect(listed(shelf(three, "advantage"))).toContain("Dryad Arbor Scout");
   });
 
-  it("puts owned cards ahead within each part of a shelf when asked", () => {
-    const ramp = shelf(run(3), "ramp");
-    expect(names(ramp.synergy)).toEqual(["Priest of the Grove", "Elvish Archdruid"]);
-    expect(names(ramp.more)).toEqual(["Llanowar Elves", "Elvish Mystic"]);
+  it("puts owned cards ahead within each list when asked", () => {
+    expect(inList(shelf(run(3), "ramp"), "Creatures").slice(0, 2)).toEqual(["Priest of the Grove", "Llanowar Elves"]);
   });
 
   it("offers Game Changers only as far as the bracket has room", () => {
     const gameChanger = candidate(card("Crop Rotation", "Instant", "Search your library for a land card, put that card onto the battlefield."), { synergy: 0.5 });
     const build = (bracket: 2 | 3) =>
       builderRecommendations({ deck: [{ card: commander, qty: 1 }], candidates: [gameChanger], identity: ["B", "G"], bracket, isGameChanger: () => true, preferOwned: false });
-    expect(names(shelf(build(3), "ramp").synergy)).toEqual(["Crop Rotation"]);
-    expect(names(shelf(build(2), "ramp").synergy)).toEqual([]);
+    expect(listed(shelf(build(3), "ramp"))).toEqual(["Crop Rotation"]);
+    expect(listed(shelf(build(2), "ramp"))).toEqual([]);
     expect(build(2).leftOut.map((l) => l.pick.card.name)).toEqual(["Crop Rotation"]);
   });
 
-  it("keeps a card out of the plan's later parts once it's shown higher up", () => {
+  it("leaves a combo piece on the plan's shelf rather than showing it twice", () => {
     const staff = candidate(card("Staff of Domination", "Artifact", "{3}, {T}: Untap target creature.", { colorIdentity: [] }), { synergy: 0.6 });
-    const elves = candidate(card("Wirewood Symbiote", "Creature — Elf", "Return an Elf you control to its owner's hand."), { inclusion: 0.2 });
     const result = builderRecommendations({
       deck: [{ card: commander, qty: 1 }],
-      candidates: [staff, elves],
+      candidates: [staff],
       identity: ["B", "G"],
       bracket: 3,
       isGameChanger: () => false,
       combos: { included: [], almostIncluded: [staffCombo] },
-      playstyle: [{ name: "Staff of Domination" }, { name: "Wirewood Symbiote" }] as never,
       preferOwned: false,
-      perGroup: 1,
     });
-    expect(names(shelf(result, "plan").synergy)).toEqual(["Staff of Domination"]);
-    expect(shelf(result, "plan").synergy[0].reason).toMatch(/Infinite green mana/);
+    expect(listed(shelf(result, "plan"))).toEqual(["Staff of Domination"]);
+    expect(shelf(result, "plan").lists[0].picks[0].reason).toMatch(/Infinite green mana/);
     expect(result.combos).toEqual([]);
-    expect(names(result.playstyle)).toEqual(["Wirewood Symbiote"]);
-    expect(names(shelf(result, "plan").more)).toEqual([]);
   });
 
   it("offers combo pieces the bracket allows, lands, and plans the mana base by colors", () => {
@@ -183,9 +274,50 @@ describe("builderRecommendations", () => {
     expect(three.manaBase.colors).toBe(2);
   });
 
+  describe("the curve", () => {
+    const spell = (name: string, cmc: number, oracleText: string) => card(name, "Sorcery", oracleText, { cmc, colorIdentity: ["G"] });
+    const deck = (cards: CardDetails[]) => [{ card: commander, qty: 1 }, ...cards.map((c) => ({ card: c, qty: 1 }))];
+    const build = (cards: CardDetails[], extra: Partial<Parameters<typeof builderRecommendations>[0]> = {}) =>
+      builderRecommendations({ deck: deck(cards), candidates: [], identity: ["B", "G"], bracket: 3, isGameChanger: () => false, preferOwned: false, commander: commander.name, lands: 38, ...extra });
+
+    it("aims for the average deck's curve, scaled to this deck's spells", () => {
+      const { curveSlots } = build([], { curveCounts: [10, 20, 15, 8, 4, 3] });
+      expect(curveSlots.map((s) => s.target).reduce((a, b) => a + b, 0)).toBe(61);
+      expect(curveSlots[1].target).toBe(21);
+    });
+
+    it("falls back on a low, wide curve", () => {
+      expect(build([]).curveSlots.map((s) => s.target)).toEqual(build([]).profile.curve.targets);
+    });
+
+    it("counts the deck's spells at each cost, leaving out the commander and lands", () => {
+      const land = card("Forest Grove", "Land", "{T}: Add {G}.", { cmc: 0 });
+      const { curveSlots } = build([spell("Six", 6, "Draw two cards."), land]);
+      expect(curveSlots[5]).toMatchObject({ slot: 5, have: 1 });
+      expect(curveSlots.flatMap((s) => names(s.cards))).toEqual(["Six"]);
+    });
+
+    it("puts the weakest cards first: no job, off the playstyle, then low synergy", () => {
+      const filler = spell("Filler", 6, "");
+      const drawer = spell("Drawer", 6, "Draw three cards.");
+      const core = spell("Core", 6, "Draw three cards.");
+      const candidates = [candidate(drawer, { synergy: 0.1 }), candidate(core, { synergy: 0.7 })];
+      const { curveSlots } = build([core, drawer, filler], { candidates });
+      expect(names(curveSlots[5].cards)).toEqual(["Filler", "Drawer", "Core"]);
+      expect(curveSlots[5].cards[0].why).toBe("Fills no part of the template");
+      expect(curveSlots[5].cards[1].why).toBe("Keeps Card advantage filled");
+    });
+
+    it("says when a card's job is already covered", () => {
+      const ramps = Array.from({ length: 11 }, (_, i) => card(`Dork ${i}`, "Creature — Elf", "{T}: Add {G}.", { cmc: 1 }));
+      const { curveSlots } = build(ramps);
+      expect(curveSlots[0].cards[0].why).toBe("Ramp has plenty");
+    });
+  });
+
   describe("with a playstyle chosen", () => {
     const ramp = (name: string, extra: Partial<BuilderCandidate> = {}) => candidate(card(name, "Creature — Elf Druid", "{T}: Add {G}."), extra);
-    const build = (cards: BuilderCandidate[], playstyle: { name: string; synergy?: number; inclusion?: number; lean?: number }[], preferOwned = false) =>
+    const build = (cards: BuilderCandidate[], playstyle: { name: string; synergy?: number; inclusion?: number; lean?: number; lists?: string[]; styles?: string[] }[], preferOwned = false) =>
       builderRecommendations({
         deck: [{ card: commander, qty: 1 }],
         candidates: cards,
@@ -203,8 +335,13 @@ describe("builderRecommendations", () => {
         { name: "Style Favorite", synergy: 0.7 },
       ];
       const shelfOf = shelf(build(cards, style), "ramp");
-      expect(names(shelfOf.synergy)).toEqual(["Style Favorite", "Commander Favorite"]);
-      expect(shelfOf.synergy[0].reason).toBe("+70% synergy");
+      expect(inList(shelfOf, "Creatures")).toEqual(["Style Favorite", "Commander Favorite"]);
+      expect(shelfOf.lists[0].picks[0].reason).toBe("30% of decks · +70% synergy");
+    });
+
+    it("sorts cards into that playstyle's own EDHREC lists", () => {
+      const cards = [ramp("Staple", { lists: ["Top Cards"] })];
+      expect(inList(shelf(build(cards, [{ name: "Staple", lists: ["Creatures"] }]), "ramp"), "Creatures")).toEqual(["Staple"]);
     });
 
     it("leads with the cards that set it apart, ahead of the commander's core", () => {
@@ -217,17 +354,16 @@ describe("builderRecommendations", () => {
       const shelfOf = shelf(build(cards, style), "ramp");
       expect(names(shelfOf.leaning)).toEqual(["Binder Burn Card", "Burn Card"]);
       expect(shelfOf.leaning[0].reason).toBe("+20% in this playstyle");
-      expect(names(shelfOf.synergy)).toEqual(["Core Card"]);
+      expect(listed(shelfOf)).toEqual(["Core Card"]);
     });
 
-    it("ranks all of a shelf's cards by synergy for looking through by cost, whatever you own", () => {
-      const cards = [
-        ramp("Outside", { ownedCopies: 1 }),
-        ramp("No Synergy", { ownedCopies: 1 }),
-        ramp("Core", { synergy: 0.9 }),
-        ramp("Leaning", { ownedCopies: 0 }),
-        ...Array.from({ length: 13 }, (_, i) => ramp(`Filler ${i}`)),
-      ];
+    it("names the playstyles a card suits when there are several", () => {
+      const result = build([ramp("Shared")], [{ name: "Shared", lean: 1.5, styles: ["Tokens", "Elves"] }]);
+      expect(shelf(result, "ramp").leaning[0].reason).toBe("For Tokens + Elves");
+    });
+
+    it("groups all of a shelf's cards by synergy for looking through by cost, whatever you own", () => {
+      const cards = [ramp("Outside", { ownedCopies: 1 }), ramp("No Synergy", { ownedCopies: 1 }), ramp("Core", { synergy: 0.9 }), ramp("Leaning"), ...Array.from({ length: 13 }, (_, i) => ramp(`Filler ${i}`))];
       const style = [
         { name: "No Synergy", synergy: -0.1 },
         { name: "Core", synergy: 0.8 },
@@ -236,9 +372,7 @@ describe("builderRecommendations", () => {
       ];
       const { all } = shelf(build(cards, style, true), "ramp");
       expect(names(all.leaning)).toEqual(["Leaning"]);
-      expect(all.leaning[0].reason).toBe("+30% in this playstyle");
       expect(names(all.synergy).slice(0, 2)).toEqual(["Core", "Filler 0"]);
-      expect(all.synergy[0].reason).toBe("+80% synergy");
       expect(all.synergy).toHaveLength(14);
       expect(names(all.rest)).toEqual(["No Synergy", "Outside"]);
     });
@@ -248,13 +382,13 @@ describe("builderRecommendations", () => {
       const plain = candidate(card("Sign in Blood", "Sorcery", "Target player draws two cards."));
       const result = build([quiet, plain], [{ name: "Sign in Blood", synergy: 0.02 }, { name: "Parallel Lives", synergy: 0.02, lean: 0.14 }]);
       expect(names(shelf(result, "plan").leaning)).toEqual(["Parallel Lives"]);
-      expect(names(shelf(result, "advantage").synergy)).toEqual(["Sign in Blood"]);
+      expect(listed(shelf(result, "advantage"))).toEqual(["Sign in Blood"]);
     });
 
     it("sets aside cards its decks don't play, owned or not, however the commander's decks rate them", () => {
       const cards = [ramp("Style Card", { ownedCopies: 0 }), ramp("Binder Card", { ownedCopies: 2, inclusion: undefined }), ramp("Commander Card", { synergy: 0.9, inclusion: 0.9 })];
       const shelfOf = shelf(build(cards, [{ name: "Style Card", inclusion: 0.2 }], true), "ramp");
-      expect(names([...shelfOf.synergy, ...shelfOf.flexible, ...shelfOf.more])).toEqual(["Style Card"]);
+      expect(listed(shelfOf)).toEqual(["Style Card"]);
       expect(names(shelfOf.outside)).toEqual(["Binder Card", "Commander Card"]);
     });
 
@@ -264,16 +398,16 @@ describe("builderRecommendations", () => {
         { name: "Bought", synergy: 0.6 },
         { name: "Owned", synergy: 0.3 },
       ];
-      expect(names(shelf(build(cards, style, true), "ramp").synergy)).toEqual(["Owned", "Bought"]);
+      expect(inList(shelf(build(cards, style, true), "ramp"), "Creatures")).toEqual(["Owned", "Bought"]);
     });
 
     it("counts a card toward the plan by that playstyle's synergy", () => {
-      const cards = [ramp("Core Card", { synergy: 0 }), ramp("Staple", { synergy: 0.5, lists: ["High Synergy Cards"] })];
+      const cards = [ramp("Core Card", { synergy: 0 }), ramp("Staple", { synergy: 0.5, lists: ["High Lift Cards"] })];
       const style = [
         { name: "Core Card", synergy: 0.4 },
         { name: "Staple", synergy: 0.02 },
       ];
-      expect(names(shelf(build(cards, style), "plan").synergy)).toEqual(["Core Card"]);
+      expect(names(shelf(build(cards, style), "plan").all.synergy)).toEqual(["Core Card"]);
     });
 
     it("ranks lands its decks play ahead of owned lands they don't", () => {

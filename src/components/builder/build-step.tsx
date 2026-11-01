@@ -4,6 +4,7 @@ import { Tabs } from "@base-ui/react/tabs";
 import { AnimatePresence } from "motion/react";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { CATEGORY_COLORS } from "@/components/deck-beta/template-bits";
+import { MAX_PLAYSTYLES, type DraftPlaystyle } from "@/lib/builder/draft";
 import type { BuilderGroups, BuilderPick, LandShelf, TemplateShelf } from "@/lib/builder/plan";
 import { useCardDetails } from "@/lib/binder/card-cache";
 import { CURVE_LABELS, slotOf } from "@/lib/deck-beta/curve";
@@ -11,8 +12,10 @@ import { CATEGORIES, CATEGORY_INFO, type Category, type DeckProfile } from "@/li
 import { fetchJsonWithRetry } from "@/lib/retry";
 import { formatCount } from "@/lib/format";
 import type { CardDetails, EdhrecTheme } from "@/lib/types";
+import { ArrowDownIcon } from "../theme/icons";
 import { BuildCard } from "./build-card";
 import { Meter } from "./deck-rail";
+import { usePlaystyleHover, type PlaystyleContext } from "./playstyle-hover";
 
 type Tab = Category | "lands";
 const LANDS_COLOR = "#8d9bb8";
@@ -23,15 +26,14 @@ type PickProps = { ownedFor: (name: string) => number; onAdd: (card: CardDetails
 
 /**
  * 6. Build: the template is the tabs, each with its meter, and each category
- * lists the cards that fill it in the order to add them: EDHREC's highest
- * synergy, then flexible cards, then the rest, all by the chosen playstyle's
- * decks, with cards they don't play last. The plan also holds the rest of the
- * playstyle's cards and combo pieces; the lands tab shows the basics that come
- * with the deck and the dual lands and others to add on top. It opens on the
- * category furthest from its target. Adding a card sends it into the deck and
- * the lists re-rank. Every playstyle sits in small tabs beside it, so the deck
- * can switch to another at any point, and clicking a cost on the mana curve
- * narrows the tab to its most synergistic cards at that cost.
+ * lists everything EDHREC has that fills it, the way EDHREC lays it out: New
+ * Cards, Top Cards, High Lift, then by card type, after the cards that set the
+ * chosen playstyles apart, with cards their decks don't play last. The plan
+ * also holds combo pieces; the lands tab shows the basics that come with the
+ * deck and the dual lands and others to add on top. It opens on the category
+ * furthest from its target. Adding a card sends it into the deck and the lists
+ * re-rank. A dropdown switches playstyles at any point, and clicking a cost on
+ * the mana curve narrows the tab to its most synergistic cards at that cost.
  */
 export function BuildStep({
   groups,
@@ -46,16 +48,17 @@ export function BuildStep({
   curvePick,
   onClearCurvePick,
   themes,
-  theme,
+  chosen,
   themeName,
-  onTheme,
+  onToggleTheme,
+  onClearThemes,
+  playstyleContext,
   styleLoading,
   styleFailed,
   onRetryStyle,
   leftOut,
   bracket,
   preferOwned,
-  onPickTheme,
   has,
   curveAdvice,
   landAdvice,
@@ -75,11 +78,14 @@ export function BuildStep({
   onClearCurvePick: () => void;
   /** Every playstyle of the commander on EDHREC, most decks first. */
   themes: EdhrecTheme[];
-  /** The chosen playstyle's slug, or "" for a balanced deck. */
-  theme: string;
+  /** The playstyles chosen; none for a balanced deck. */
+  chosen: DraftPlaystyle[];
+  /** Their names together, e.g. "Tokens + Elves". */
   themeName?: string;
-  onTheme: (slug: string, name?: string) => void;
-  /** The chosen playstyle's decks are still being read. */
+  onToggleTheme: (theme: DraftPlaystyle) => void;
+  onClearThemes: () => void;
+  playstyleContext: PlaystyleContext;
+  /** The chosen playstyles' decks are still being read. */
   styleLoading: boolean;
   styleFailed: boolean;
   onRetryStyle: () => void;
@@ -87,7 +93,6 @@ export function BuildStep({
   bracket: number;
   /** The cards you own lead each list. */
   preferOwned: boolean;
-  onPickTheme: () => void;
   /** In the deck already. */
   has: (name: string) => boolean;
   /** What the curve needs, in a line. */
@@ -111,136 +116,197 @@ export function BuildStep({
   }, [curvePick]);
 
   return (
-    <div className={`grid gap-6 ${themes.length > 0 ? "lg:grid-cols-[minmax(0,1fr)_9.5rem]" : ""}`}>
-      <div className="flex min-w-0 flex-col gap-6">
-        <div className="flex flex-wrap items-baseline justify-between gap-3 text-sm">
+    <div className="flex min-w-0 flex-col gap-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+        {themes.length > 0 && <PlaystyleMenu themes={themes} chosen={chosen} onToggle={onToggleTheme} onClear={onClearThemes} context={playstyleContext} />}
+        <div className="text-right">
           <p className="text-muted">
             <span className="font-medium text-foreground tabular-nums">{spells}</span> of {spellTarget} spells
             {spells >= spellTarget && " · the deck is full"}
           </p>
-          {leftOut > 0 && <p className="text-xs text-muted">{leftOut} strong cards left out for Bracket {bracket}</p>}
-        </div>
-
-        {styleLoading && (
-          <p role="status" className="flex items-center gap-2 text-sm text-muted">
-            <span aria-hidden className="spinner size-4" /> Reading EDHREC’s {themeName} decks…
-          </p>
-        )}
-        {styleFailed && (
-          <p className="text-sm text-muted">
-            Couldn’t read EDHREC’s {themeName} decks.{" "}
-            <button type="button" onClick={onRetryStyle} className="link text-foreground">
-              Try again
-            </button>
-          </p>
-        )}
-
-        <TemplateTabs
-          value={tab}
-          onValueChange={setTab}
-          items={[
-            ...CATEGORIES.map((c) => ({
-              value: c,
-              label: CATEGORY_INFO[c].label,
-              have: profile.categories[c].length,
-              target: CATEGORY_INFO[c].target,
-              color: CATEGORY_COLORS[c],
-              about: CATEGORY_INFO[c].about,
-            })),
-            { value: "lands" as const, label: "Lands", have: profile.lands, target: landTarget, color: LANDS_COLOR, about: "Nonbasic lands. Basics fill the rest." },
-          ]}
-        />
-
-        {/* Keyed by what it shows, so each list pops in when it's picked. */}
-        <div key={`${tab}:${curvePick}`} ref={panel} className="reveal-fast flex scroll-mt-20 flex-col gap-8">
-          {shelf && curvePick !== undefined && <CostShelf shelf={shelf} slot={curvePick} themeName={themeName} onClear={onClearCurvePick} {...pickProps} />}
-          {shelf && curvePick === undefined && (
-            <Shelf shelf={shelf} preferOwned={preferOwned} themeName={themeName} note={tab === "ramp" || tab === "advantage" ? curveAdvice : undefined} {...pickProps}>
-              {tab === "plan" &&
-                (themeName ? (
-                  <Group title={`More for ${themeName}`} note={`The rest of EDHREC’s cards for ${themeName} decks.`} picks={groups.playstyle} {...pickProps} />
-                ) : (
-                  <p className="text-sm text-muted">
-                    You’re building a balanced deck.{" "}
-                    <button type="button" onClick={onPickTheme} className="link text-foreground">
-                      Pick a playstyle
-                    </button>{" "}
-                    to see the cards that suit it.
-                  </p>
-                ))}
-              {tab === "plan" && (
-                <Group
-                  title="Complete a combo"
-                  note="Each of these completes a combo with cards already in the deck, within your bracket."
-                  picks={groups.combos.map((g) => g.pick)}
-                  {...pickProps}
-                />
-              )}
-            </Shelf>
+          {leftOut > 0 && (
+            <p className="text-xs text-muted">
+              {leftOut} strong cards left out for Bracket {bracket}
+            </p>
           )}
-          {tab === "lands" && (
-            <>
-              <div>
-                <h3 className="flex items-center gap-2 font-semibold">
-                  <span aria-hidden className="size-2 rounded-full" style={{ background: LANDS_COLOR }} />
-                  Lands
-                  <span className="text-sm font-normal text-muted">{profile.lands < landTarget ? `${landTarget - profile.lands} to go` : "filled"}</span>
-                </h3>
-                <p className="text-sm text-muted">{landAdvice}</p>
-              </div>
-              {curvePick !== undefined && (
-                <p className="text-sm text-muted">
-                  Lands don’t cost mana, so this tab stays as it is. Pick another tab to see its cards at {CURVE_LABELS[curvePick]} mana.
-                </p>
-              )}
-              <BasicsInDeck split={basicSplit} lands={lands} />
-              <LandGroups lands={groups.lands} preferOwned={preferOwned} {...pickProps} />
-            </>
-          )}
-        </div>
-
-        <div className="border-t border-line pt-6">
-          <AnySearch ownedFor={ownedFor} onAdd={onAdd} has={has} />
         </div>
       </div>
-      {themes.length > 0 && <PlaystyleTabs themes={themes} theme={theme} onTheme={onTheme} />}
+
+      {styleLoading && (
+        <p role="status" className="flex items-center gap-2 text-sm text-muted">
+          <span aria-hidden className="spinner size-4" /> Reading EDHREC’s {themeName} decks…
+        </p>
+      )}
+      {styleFailed && (
+        <p className="text-sm text-muted">
+          Couldn’t read EDHREC’s {themeName} decks.{" "}
+          <button type="button" onClick={onRetryStyle} className="link text-foreground">
+            Try again
+          </button>
+        </p>
+      )}
+
+      <TemplateTabs
+        value={tab}
+        onValueChange={setTab}
+        items={[
+          ...CATEGORIES.map((c) => ({
+            value: c,
+            label: CATEGORY_INFO[c].label,
+            have: profile.categories[c].length,
+            target: CATEGORY_INFO[c].target,
+            color: CATEGORY_COLORS[c],
+            about: CATEGORY_INFO[c].about,
+          })),
+          { value: "lands" as const, label: "Lands", have: profile.lands, target: landTarget, color: LANDS_COLOR, about: "Nonbasic lands. Basics fill the rest." },
+        ]}
+      />
+
+      {/* Keyed by what it shows, so each list pops in when it's picked. */}
+      <div key={`${tab}:${curvePick}`} ref={panel} className="reveal-fast flex scroll-mt-20 flex-col gap-8">
+        {shelf && curvePick !== undefined && <CostShelf shelf={shelf} slot={curvePick} themeName={themeName} onClear={onClearCurvePick} {...pickProps} />}
+        {shelf && curvePick === undefined && (
+          <Shelf shelf={shelf} preferOwned={preferOwned} themeName={themeName} note={tab === "ramp" || tab === "advantage" ? curveAdvice : undefined} {...pickProps}>
+            {tab === "plan" && (
+              <Group
+                title="Complete a combo"
+                note="Each of these completes a combo with cards already in the deck, within your bracket."
+                picks={groups.combos.map((g) => g.pick)}
+                {...pickProps}
+              />
+            )}
+          </Shelf>
+        )}
+        {tab === "lands" && (
+          <>
+            <div>
+              <h3 className="flex items-center gap-2 font-semibold">
+                <span aria-hidden className="size-2 rounded-full" style={{ background: LANDS_COLOR }} />
+                Lands
+                <span className="text-sm font-normal text-muted">{profile.lands < landTarget ? `${landTarget - profile.lands} to go` : "filled"}</span>
+              </h3>
+              <p className="text-sm text-muted">{landAdvice}</p>
+            </div>
+            {curvePick !== undefined && (
+              <p className="text-sm text-muted">
+                Lands don’t cost mana, so this tab stays as it is. Pick another tab to see its cards at {CURVE_LABELS[curvePick]} mana.
+              </p>
+            )}
+            <BasicsInDeck split={basicSplit} lands={lands} />
+            <LandGroups lands={groups.lands} preferOwned={preferOwned} {...pickProps} />
+          </>
+        )}
+      </div>
+
+      <div className="border-t border-line pt-6">
+        <AnySearch ownedFor={ownedFor} onAdd={onAdd} has={has} />
+      </div>
     </div>
   );
 }
 
-/** Every playstyle of the commander as small tabs, to switch the deck to another at any point. */
-function PlaystyleTabs({ themes, theme, onTheme }: { themes: EdhrecTheme[]; theme: string; onTheme: (slug: string, name?: string) => void }) {
+/** The commander's playstyles in a dropdown, up to three at a time; hovering one shows what it does and how it wins. */
+function PlaystyleMenu({
+  themes,
+  chosen,
+  onToggle,
+  onClear,
+  context,
+}: {
+  themes: EdhrecTheme[];
+  chosen: DraftPlaystyle[];
+  onToggle: (theme: DraftPlaystyle) => void;
+  onClear: () => void;
+  context: PlaystyleContext;
+}) {
+  const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const list = useRef<HTMLDivElement>(null);
+  const box = useRef<HTMLDivElement>(null);
   const shown = themes.filter((t) => t.name.toLowerCase().includes(query.trim().toLowerCase()));
+  const full = chosen.length >= MAX_PLAYSTYLES;
 
-  // Open with the chosen one in view: it may be far down the list.
   useEffect(() => {
-    const box = list.current;
-    const picked = box?.querySelector<HTMLElement>('[aria-checked="true"]');
-    if (box && picked) box.scrollTo({ top: picked.offsetTop - box.clientHeight / 2, left: picked.offsetLeft - box.clientWidth / 2 });
-  }, []);
+    if (!open) return;
+    const outside = (e: PointerEvent) => {
+      if (!box.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const escape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("pointerdown", outside);
+    window.addEventListener("keydown", escape);
+    return () => {
+      window.removeEventListener("pointerdown", outside);
+      window.removeEventListener("keydown", escape);
+    };
+  }, [open]);
 
   return (
-    <aside aria-label="Playstyles" className="order-first flex min-w-0 flex-col gap-2 lg:sticky lg:top-20 lg:order-none lg:max-h-[calc(100dvh-6rem)] lg:self-start">
-      <p className="eyebrow">Playstyle</p>
-      <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Filter" aria-label="Filter playstyles" className="field h-8 max-w-xs text-xs" />
-      <div ref={list} role="radiogroup" aria-label="Playstyle" className="no-scrollbar relative flex gap-1.5 overflow-x-auto p-0.5 lg:min-h-0 lg:flex-col lg:overflow-x-hidden lg:overflow-y-auto">
-        <PlaystyleTab name="Balanced" selected={theme === ""} onChoose={() => onTheme("")} />
-        {shown.map((t) => (
-          <PlaystyleTab key={t.slug} name={t.name} decks={t.numDecks} selected={theme === t.slug} onChoose={() => onTheme(t.slug, t.name)} />
-        ))}
-      </div>
-    </aside>
+    <div ref={box} className="relative min-w-0">
+      <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="btn btn-secondary h-9 max-w-full gap-2 px-3">
+        <span className="text-muted">Playstyle</span>
+        <span className="min-w-0 truncate">{chosen.length > 0 ? chosen.map((t) => t.name).join(" + ") : "Balanced"}</span>
+        <ArrowDownIcon className={`size-4 shrink-0 transition-transform duration-150 ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div className="pop-in absolute top-full left-0 z-30 mt-2 flex w-72 max-w-[calc(100vw-2rem)] flex-col gap-2 rounded-xl border border-line-strong bg-surface p-3 shadow-[0_24px_60px_-16px_rgb(0_0_0/0.75),0_0_40px_-16px_rgb(90_176_255/0.3)] [--transform-origin:left_top]">
+          <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Filter playstyles" aria-label="Filter playstyles" className="field h-8 text-xs" />
+          <p className="text-xs text-muted">
+            Pick up to {MAX_PLAYSTYLES}. Hover one to see how it wins.
+          </p>
+          <div role="group" aria-label="Playstyles" className="no-scrollbar flex max-h-80 flex-col gap-0.5 overflow-y-auto">
+            <PlaystyleRow name="Balanced" checked={chosen.length === 0} onToggle={onClear} context={context} />
+            {shown.map((t) => {
+              const checked = chosen.some((c) => c.slug === t.slug);
+              return <PlaystyleRow key={t.slug} slug={t.slug} name={t.name} decks={t.numDecks} checked={checked} locked={full && !checked} onToggle={() => onToggle({ slug: t.slug, name: t.name })} context={context} />;
+            })}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
-function PlaystyleTab({ name, decks, selected, onChoose }: { name: string; decks?: number; selected: boolean; onChoose: () => void }) {
+function PlaystyleRow({
+  slug,
+  name,
+  decks,
+  checked,
+  locked = false,
+  onToggle,
+  context,
+}: {
+  slug?: string;
+  name: string;
+  decks?: number;
+  checked: boolean;
+  /** Three are chosen already. */
+  locked?: boolean;
+  onToggle: () => void;
+  context: PlaystyleContext;
+}) {
+  const { trigger, preview } = usePlaystyleHover({ slug, name }, context);
   return (
-    <button type="button" role="radio" aria-checked={selected} title={name} onClick={onChoose} className="pill shrink-0 justify-between lg:w-full lg:rounded-lg lg:px-2.5 lg:py-1 lg:text-xs">
-      <span className="min-w-0 truncate">{name}</span>
-      {decks !== undefined && <span className="shrink-0 text-[10px] tabular-nums opacity-60">{formatCount(decks)}</span>}
-    </button>
+    <>
+      <button
+        type="button"
+        role="checkbox"
+        aria-checked={checked}
+        aria-disabled={locked}
+        {...trigger}
+        onClick={() => {
+          if (!locked) onToggle();
+        }}
+        className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors duration-150 ${locked ? "cursor-not-allowed text-muted/60" : "hover:bg-subtle"}`}
+      >
+        <span aria-hidden className={`flex size-4 shrink-0 items-center justify-center rounded border text-[10px] font-bold ${checked ? "border-accent bg-accent text-on-accent" : "border-line-strong"}`}>
+          {checked && "✓"}
+        </span>
+        <span className="min-w-0 flex-1 truncate">{name}</span>
+        {decks !== undefined && <span className="shrink-0 text-[11px] text-muted tabular-nums">{formatCount(decks)}</span>}
+      </button>
+      {preview}
+    </>
   );
 }
 
@@ -317,7 +383,7 @@ function CostShelf({ shelf, slot, themeName, onClear, ...pickProps }: PickProps 
   );
 }
 
-/** One category's cards in the order to add them. `children` sit between the flexible cards and the rest. */
+/** One category's cards, laid out like EDHREC's page for the commander. `children` sit after its lists. */
 function Shelf({
   shelf,
   preferOwned,
@@ -327,7 +393,8 @@ function Shelf({
   ...pickProps
 }: PickProps & { shelf: TemplateShelf; preferOwned: boolean; themeName?: string; note?: string; children?: ReactNode }) {
   const info = CATEGORY_INFO[shelf.category];
-  const empty = shelf.leaning.length + shelf.synergy.length + shelf.flexible.length + shelf.more.length + shelf.outside.length === 0;
+  const empty = shelf.leaning.length + shelf.lists.length + shelf.outside.length === 0;
+  const owned = preferOwned ? ", the ones you own first" : "";
   return (
     <>
       <div>
@@ -340,26 +407,23 @@ function Shelf({
           {info.about} {note}
         </p>
       </div>
-      <Group
-        title={`Best for ${themeName}`}
-        note={`What sets ${themeName} decks apart: the cards they play far more than other decks${preferOwned ? ", the ones you own first" : ""}.`}
-        picks={shelf.leaning}
-        {...pickProps}
-      />
-      <Group
-        title="Highest synergy"
-        note={`EDHREC’s highest-synergy cards for ${themeName ? `${themeName} decks` : "your commander"}${preferOwned ? ", the ones you own first" : ""}.`}
-        picks={shelf.synergy}
-        {...pickProps}
-      />
-      <Group title="Flexible" note="Cards that fill two or more parts of the template, most first: one slot doing two jobs." picks={shelf.flexible} {...pickProps} />
+      <Group title={`Best for ${themeName}`} note={`What sets ${themeName} decks apart: the cards they play far more than other decks${owned}.`} picks={shelf.leaning} {...pickProps} />
+      {shelf.lists.map((list) => (
+        <Group key={list.title} title={list.title} note={LIST_NOTES[list.title] ?? `Highest synergy first${owned}.`} picks={list.picks} {...pickProps} />
+      ))}
       {children}
-      <Group title="Also fits" note="The rest, cheaper and more often played first." picks={shelf.more} {...pickProps} />
       <Group title="Outside the playstyle" note={`These do the job, but ${themeName} decks on EDHREC don’t usually play them.`} picks={shelf.outside} {...pickProps} />
       {empty && <p className="text-sm text-muted">No cards to suggest here yet. Add more of the commander’s key cards and check back.</p>}
     </>
   );
 }
+
+const LIST_NOTES: Record<string, string> = {
+  "New Cards": "Recently printed cards EDHREC is seeing in these decks.",
+  "Top Cards": "What these decks play most.",
+  "High Lift Cards": "Cards these decks play far more than you’d expect.",
+  "High Synergy Cards": "Cards that suit these decks far more than others of their colors.",
+};
 
 /** The basics the deck is filled out with, as they stand. */
 function BasicsInDeck({ split, lands }: { split: Record<string, number>; lands: number }) {

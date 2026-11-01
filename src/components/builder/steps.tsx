@@ -7,7 +7,7 @@ import { useEffect, useId, useMemo, useState } from "react";
 import type { BuilderResponse, PlaystyleResponse } from "@/lib/deck-beta/api";
 import { BRACKET_INFO, BRACKETS, type Bracket } from "@/lib/deck-beta/bracket";
 import { LEANS_IN, MAX_LANDS, MIN_LANDS, splitBasics } from "@/lib/builder/plan";
-import type { DraftCommander } from "@/lib/builder/draft";
+import { MAX_PLAYSTYLES, type DraftCommander, type DraftPlaystyle } from "@/lib/builder/draft";
 import type { CacheStatus } from "@/lib/binder/card-cache";
 import { useCardDetails } from "@/lib/binder/card-cache";
 import { fetchJsonWithRetry } from "@/lib/retry";
@@ -20,6 +20,7 @@ import { GamePlanCard } from "../deck-beta/template-bits";
 import { GameChangerTag } from "../game-changer-tag";
 import { ColorIdentity, Pip } from "../mana";
 import { Meter } from "./deck-rail";
+import { usePlaystyleHover, type PlaystyleContext } from "./playstyle-hover";
 
 type Found = Extract<BuilderResponse, { found: true }>;
 type FoundPlaystyle = Extract<PlaystyleResponse, { found: true }>;
@@ -223,7 +224,7 @@ function AnyCommander({ selected, onChoose }: { selected?: string; onChoose: (co
 /** Below this many decks, a playstyle's picks are a small sample. */
 const FEW_DECKS = 20;
 
-/** 2. Every way EDHREC's players build the commander, most decks first. Everything after this follows the one picked. */
+/** 2. Every way EDHREC's players build the commander, most decks first. Pick up to three; everything after this follows them. */
 export function PlaystyleStep({
   commander,
   data,
@@ -231,12 +232,16 @@ export function PlaystyleStep({
   failed,
   notFound,
   onRetry,
-  theme,
-  onTheme,
+  chosen,
+  themeName,
+  onToggle,
+  onClear,
   style,
+  styleLoading,
   styleFailed,
   onRetryStyle,
   owned,
+  context,
 }: {
   commander: DraftCommander;
   data: Found | null;
@@ -245,13 +250,19 @@ export function PlaystyleStep({
   /** EDHREC has no page for this commander. */
   notFound: boolean;
   onRetry: () => void;
-  theme: string;
-  onTheme: (slug: string, name?: string) => void;
-  /** The picked playstyle's cards from EDHREC, once they're in. */
+  /** The playstyles chosen; none for a balanced deck. */
+  chosen: DraftPlaystyle[];
+  /** Their names together, e.g. "Tokens + Elves". */
+  themeName?: string;
+  onToggle: (theme: DraftPlaystyle) => void;
+  onClear: () => void;
+  /** The chosen playstyles' cards from EDHREC, once they're in. */
   style?: FoundPlaystyle;
+  styleLoading: boolean;
   styleFailed: boolean;
   onRetryStyle: () => void;
   owned: (name: string) => number;
+  context: PlaystyleContext;
 }) {
   const [query, setQuery] = useState("");
   if (failed) return <EdhrecFailed onRetry={onRetry} />;
@@ -259,7 +270,8 @@ export function PlaystyleStep({
   if (!data) return <ReadingEdhrec commander={commander} loading={loading} />;
 
   const shown = data.themes.filter((t) => t.name.toLowerCase().includes(query.trim().toLowerCase()));
-  const picked = data.themes.find((t) => t.slug === theme);
+  const full = chosen.length >= MAX_PLAYSTYLES;
+  const fewDecks = (style?.numDecks ?? FEW_DECKS) < FEW_DECKS;
   const top = style?.cards.filter((c) => style.details[c.name] && !/\bBasic\b/.test(style.details[c.name].typeLine)).slice(0, 12);
 
   return (
@@ -267,7 +279,7 @@ export function PlaystyleStep({
       <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <p className="text-sm text-muted">
-            {formatCount(data.themes.length)} ways to build {commander.name}, the most played first.
+            {formatCount(data.themes.length)} ways to build {commander.name}, the most played first. Pick up to {MAX_PLAYSTYLES}, and hover one to see how it wins.
           </p>
           <input
             type="search"
@@ -278,67 +290,98 @@ export function PlaystyleStep({
             className="field h-9 w-full sm:w-56"
           />
         </div>
-        <div role="radiogroup" aria-label="Playstyle" className="grid max-h-[26rem] gap-2 overflow-y-auto p-0.5 sm:grid-cols-2 xl:grid-cols-3">
-          <PlaystyleOption name="Balanced" note="All its decks" selected={theme === ""} onChoose={() => onTheme("")} />
-          {shown.map((t) => (
-            <PlaystyleOption
-              key={t.slug}
-              name={t.name}
-              note={`${formatCount(t.numDecks)} ${t.numDecks === 1 ? "deck" : "decks"}`}
-              share={data.numDecks > 0 ? t.numDecks / data.numDecks : undefined}
-              selected={theme === t.slug}
-              onChoose={() => onTheme(t.slug, t.name)}
-            />
-          ))}
+        <div role="group" aria-label="Playstyles" className="grid max-h-[26rem] gap-2 overflow-y-auto p-0.5 sm:grid-cols-2 xl:grid-cols-3">
+          <PlaystyleOption name="Balanced" note="All its decks" selected={chosen.length === 0} onChoose={onClear} context={context} />
+          {shown.map((t) => {
+            const selected = chosen.some((c) => c.slug === t.slug);
+            return (
+              <PlaystyleOption
+                key={t.slug}
+                slug={t.slug}
+                name={t.name}
+                note={`${formatCount(t.numDecks)} ${t.numDecks === 1 ? "deck" : "decks"}`}
+                share={data.numDecks > 0 ? t.numDecks / data.numDecks : undefined}
+                selected={selected}
+                locked={full && !selected}
+                onChoose={() => onToggle({ slug: t.slug, name: t.name })}
+                context={context}
+              />
+            );
+          })}
         </div>
       </div>
 
-      {picked ? (
-        styleFailed ? (
-          <p className="text-sm text-muted">
-            Couldn’t read EDHREC’s {picked.name} decks.{" "}
-            <button type="button" onClick={onRetryStyle} className="link text-foreground">
-              Try again
-            </button>
-          </p>
-        ) : top ? (
-          <div className="flex flex-col gap-3">
-            <CardRow title={`What sets ${picked.name} apart`} note="Every suggestion from here on follows these decks, in your binder or not." cards={top.map((c) => style!.details[c.name])} owned={owned} />
-            {picked.numDecks < FEW_DECKS && <p className="text-xs text-muted">Only {formatCount(picked.numDecks)} of these decks on EDHREC, so this is a small sample.</p>}
-          </div>
-        ) : (
-          <p className="flex items-center gap-2 text-sm text-muted">
-            <span aria-hidden className="spinner size-4" /> Reading EDHREC’s {picked.name} decks…
-          </p>
-        )
-      ) : (
+      {chosen.length === 0 ? (
         <p className="text-sm text-muted">Balanced follows all of {commander.name}’s decks. Pick a playstyle to lean into one.</p>
+      ) : styleFailed ? (
+        <p className="text-sm text-muted">
+          Couldn’t read EDHREC’s {themeName} decks.{" "}
+          <button type="button" onClick={onRetryStyle} className="link text-foreground">
+            Try again
+          </button>
+        </p>
+      ) : top && !styleLoading ? (
+        <div className="flex flex-col gap-3">
+          <CardRow title={`What sets ${themeName} apart`} note="Every suggestion from here on follows these decks, in your binder or not." cards={top.map((c) => style!.details[c.name])} owned={owned} />
+          {fewDecks && <p className="text-xs text-muted">Only {formatCount(style!.numDecks)} of these decks on EDHREC, so this is a small sample.</p>}
+        </div>
+      ) : (
+        <p className="flex items-center gap-2 text-sm text-muted">
+          <span aria-hidden className="spinner size-4" /> Reading EDHREC’s {themeName} decks…
+        </p>
       )}
     </div>
   );
 }
 
-function PlaystyleOption({ name, note, share, selected, onChoose }: { name: string; note: string; share?: number; selected: boolean; onChoose: () => void }) {
+function PlaystyleOption({
+  slug,
+  name,
+  note,
+  share,
+  selected,
+  locked = false,
+  onChoose,
+  context,
+}: {
+  slug?: string;
+  name: string;
+  note: string;
+  share?: number;
+  selected: boolean;
+  /** Three are chosen already. */
+  locked?: boolean;
+  onChoose: () => void;
+  context: PlaystyleContext;
+}) {
+  const { trigger, preview } = usePlaystyleHover({ slug, name }, context);
   return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={selected}
-      onClick={onChoose}
-      className={`flex min-h-14 flex-col justify-center gap-1.5 rounded-xl border px-3 py-2 text-left text-sm transition-colors duration-150 ${
-        selected ? "border-accent bg-accent text-on-accent shadow-[0_0_16px_-4px_rgb(90_176_255/0.6)]" : "border-line hover:border-line-strong"
-      }`}
-    >
-      <span className="flex items-baseline justify-between gap-2">
-        <span className="min-w-0 font-medium">{name}</span>
-        <span className={`shrink-0 text-[11px] tabular-nums ${selected ? "text-on-accent/70" : "text-muted"}`}>{note}</span>
-      </span>
-      {share !== undefined && (
-        <span className={`block h-1 overflow-hidden rounded-full ${selected ? "bg-background/20" : "bg-subtle"}`}>
-          <span className={`block h-full origin-left rounded-full ${selected ? "bg-on-accent/70" : "bg-accent/60"}`} style={{ transform: `scaleX(${Math.min(1, share)})` }} />
+    <>
+      <button
+        type="button"
+        role="checkbox"
+        aria-checked={selected}
+        aria-disabled={locked}
+        {...trigger}
+        onClick={() => {
+          if (!locked) onChoose();
+        }}
+        className={`flex min-h-14 flex-col justify-center gap-1.5 rounded-xl border px-3 py-2 text-left text-sm transition-colors duration-150 ${
+          selected ? "border-accent bg-accent text-on-accent shadow-[0_0_16px_-4px_rgb(90_176_255/0.6)]" : locked ? "cursor-not-allowed border-line opacity-50" : "border-line hover:border-line-strong"
+        }`}
+      >
+        <span className="flex items-baseline justify-between gap-2">
+          <span className="min-w-0 font-medium">{name}</span>
+          <span className={`shrink-0 text-[11px] tabular-nums ${selected ? "text-on-accent/70" : "text-muted"}`}>{note}</span>
         </span>
-      )}
-    </button>
+        {share !== undefined && (
+          <span className={`block h-1 overflow-hidden rounded-full ${selected ? "bg-background/20" : "bg-subtle"}`}>
+            <span className={`block h-full origin-left rounded-full ${selected ? "bg-on-accent/70" : "bg-accent/60"}`} style={{ transform: `scaleX(${Math.min(1, share)})` }} />
+          </span>
+        )}
+      </button>
+      {preview}
+    </>
   );
 }
 

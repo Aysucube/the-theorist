@@ -2,20 +2,21 @@
 // how the basics split, how the commander's colors shape the mana base) and
 // the recommendations that grow with the deck, one shelf per category of the
 // deckbuilding template (ramp, card advantage, targeted and mass disruption,
-// its plan). Each shelf leads with EDHREC's highest-synergy cards, then
-// flexible cards that fill several categories, then the rest. The plan also
-// takes the playstyle's cards and combo pieces, and lands get a shelf of their
-// own, dual lands first, rated for the commander's colors. A chosen playstyle
-// steers all of it: every card, in the binder or not, is judged by that
-// playstyle's decks, and cards they don't play come last. Kept free of React
-// so it's easy to test.
+// its plan). Each shelf holds everything EDHREC lists that fills the category,
+// sorted into EDHREC's own lists: New Cards, Top Cards, High Lift, then by card
+// type. The plan also takes combo pieces, and lands get a shelf of their own,
+// dual lands first, rated for the commander's colors. Chosen playstyles steer
+// all of it: every card, in the binder or not, is judged by those playstyles'
+// decks, and cards they don't play come last. Then the deck's curve is held
+// against the average deck's, to see what to cut. Kept free of React so it's
+// easy to test.
 import type { BuilderResponse, PlaystyleCard, PlaystyleResponse } from "@/lib/deck-beta/api";
 import { comboBracket, isMassLandDenial, type Bracket } from "@/lib/deck-beta/bracket";
-import { landTarget } from "@/lib/deck-beta/curve";
+import { landTarget, slotOf } from "@/lib/deck-beta/curve";
 import { planUpgrades, scoreCandidate, type Candidate, type Pick, type UpgradePlan } from "@/lib/deck-beta/doctor";
 import { fetchedColors, fixesColors, LAND_KIND_LABEL, landFit, landKind, manaBasePlan, type ManaBasePlan } from "@/lib/deck-beta/lands";
 import { cardKey } from "@/lib/deck-beta/recommend";
-import { CATEGORIES, categoryGaps, deckProfile, type Category, type DeckProfile } from "@/lib/deck-beta/roles";
+import { CATEGORIES, CATEGORY_INFO, categoryGaps, deckProfile, type Category, type DeckProfile } from "@/lib/deck-beta/roles";
 import { byImpact } from "@/lib/deck-beta/walkthrough";
 import type { CardDetails, Combo, DeckCombos } from "@/lib/types";
 
@@ -104,7 +105,8 @@ export function splitBasics(total: number, colors: string[], manaCosts: string[]
   const counts = exact.map(Math.floor);
   // Hand out what's left to the largest remainders.
   const order = exact.map((e, i) => ({ i, r: e - Math.floor(e) })).sort((a, b) => b.r - a.r);
-  for (let k = 0; k < total - counts.reduce((a, b) => a + b, 0); k++) counts[order[k % order.length].i]++;
+  const left = total - counts.reduce((a, b) => a + b, 0);
+  for (let k = 0; k < left; k++) counts[order[k % order.length].i]++;
   return Object.fromEntries(own.map((c, i) => [BASIC_FOR[c], counts[i]]).filter(([, n]) => (n as number) > 0));
 }
 
@@ -122,23 +124,51 @@ export interface BuilderPick extends Pick {
   reason?: string;
 }
 
-/** One category of the template, and the cards that fill it in the order to add them. */
+/** EDHREC's lists on a commander's page, in its order. */
+const EDHREC_LISTS = ["New Cards", "Top Cards", "High Lift Cards", "High Synergy Cards", "Game Changers", "Creatures", "Instants", "Sorceries", "Utility Artifacts", "Mana Artifacts", "Enchantments", "Planeswalkers", "Battles"];
+
+/** The EDHREC list a card sits in, the first if it's in several; for a card EDHREC doesn't list, the one for its type. */
+function listFor(pick: BuilderPick): string {
+  const listed = EDHREC_LISTS.find((list) => pick.lists.includes(list));
+  if (listed) return listed;
+  const type = pick.card.typeLine.split(" // ")[0];
+  if (/\bCreature\b/.test(type)) return "Creatures";
+  if (/\bPlaneswalker\b/.test(type)) return "Planeswalkers";
+  if (/\bInstant\b/.test(type)) return "Instants";
+  if (/\bSorcery\b/.test(type)) return "Sorceries";
+  if (/\bEnchantment\b/.test(type)) return "Enchantments";
+  if (/\bBattle\b/.test(type)) return "Battles";
+  return pick.roles.includes("ramp") ? "Mana Artifacts" : "Utility Artifacts";
+}
+
+/** One category of the template, and every card that fills it. */
 export interface TemplateShelf {
   category: Category;
   /** How many more it wants; 0 once it's filled. */
   short: number;
   /** With a playstyle chosen, the cards that set it apart, leaning furthest first. */
   leaning: BuilderPick[];
-  /** EDHREC's highest-synergy cards for it, highest first. */
-  synergy: BuilderPick[];
-  /** Then cards that fill two or more categories, most first. */
-  flexible: BuilderPick[];
-  /** Then the rest that fill it, best first. */
-  more: BuilderPick[];
+  /** The rest in EDHREC's lists, in its order, each card once and the highest synergy first. */
+  lists: { title: string; picks: BuilderPick[] }[];
   /** With a playstyle chosen, cards that fill it but that its decks don't play. */
   outside: BuilderPick[];
   /** Every card that fills it, to look through by mana value: the most synergistic first in each part, whether you own them or not. */
   all: { leaning: BuilderPick[]; synergy: BuilderPick[]; rest: BuilderPick[] };
+}
+
+/** A spell in the deck, and what a cut would cost. */
+export interface CurveCut {
+  card: CardDetails;
+  why: string;
+}
+
+/** One mana value of the deck against the curve it's aiming for. */
+export interface CurveSlot {
+  slot: number;
+  have: number;
+  target: number;
+  /** The deck's spells at this cost, the first to cut at the front. */
+  cards: CurveCut[];
 }
 
 /** The lands to add on top of the basics that come with the deck, each in the order to add it. */
@@ -157,8 +187,6 @@ export interface BuilderGroups {
   template: TemplateShelf[];
   /** Pieces for combos a card away, for the plan (those not already on its shelf above them). */
   combos: { pick: BuilderPick; combo: Combo }[];
-  /** The chosen playstyle's cards, for the plan (likewise). */
-  playstyle: BuilderPick[];
   lands: LandShelf;
   leftOut: UpgradePlan["leftOut"];
 }
@@ -172,8 +200,10 @@ export interface BuilderInput {
   isGameChanger: (name: string) => boolean;
   /** The deck's combos (Commander Spellbook and EDHREC), once known. */
   combos?: DeckCombos | null;
-  /** The chosen playstyle's cards from EDHREC, best first. */
+  /** The chosen playstyles' cards from EDHREC, best first. */
   playstyle?: PlaystylePick[];
+  /** The average deck's spells at each mana value, from EDHREC: the curve to aim for. */
+  curveCounts?: number[];
   /** Favour cards in the binder. */
   preferOwned: boolean;
   /** The commander, left out of the curve. */
@@ -185,23 +215,83 @@ export interface BuilderInput {
 type PlaystylePick = PlaystyleCard;
 type CommanderData = Extract<BuilderResponse, { found: true }>;
 
-/** What EDHREC knows about a commander, narrowed to the decks of one playstyle. */
-export function withPlaystyle(data: CommanderData, style: Extract<PlaystyleResponse, { found: true }>): CommanderData {
+type FoundPlaystyle = Extract<PlaystyleResponse, { found: true }>;
+
+/** What EDHREC knows about a commander, narrowed to the decks of a playstyle. */
+export function withPlaystyle(data: CommanderData, style: FoundPlaystyle): CommanderData {
   return {
     ...data,
     numDecks: style.numDecks,
     averages: style.averages ?? data.averages,
     bracketCounts: Object.keys(style.bracketCounts ?? {}).length > 0 ? style.bracketCounts : data.bracketCounts,
     curveAverage: style.curveAverage ?? data.curveAverage,
+    curveCounts: style.curveCounts ?? data.curveCounts,
     cards: style.cards.map((c) => ({ ...c, lists: c.lists ?? [] })),
     details: { ...data.details, ...style.details },
   };
 }
 
+/**
+ * Several playstyles read as one: every card any of them plays, with its best
+ * numbers. How far a card leans in is measured against each playstyle's own top
+ * card, or a playstyle built on a creature type would drown out the rest, and
+ * added up, so a card that suits two of them rises above one that suits one.
+ */
+export function mergePlaystyles(chosen: { name: string; style: FoundPlaystyle }[]): FoundPlaystyle | undefined {
+  if (chosen.length <= 1) return chosen[0]?.style;
+  const cards = new Map<string, PlaystyleCard>();
+  for (const { name, style } of chosen) {
+    const top = Math.max(LEANS_IN, ...style.cards.map((c) => c.lean ?? 0));
+    for (const card of style.cards) {
+      const seen = cards.get(card.name);
+      const leans = (card.lean ?? 0) >= LEANS_IN;
+      cards.set(card.name, {
+        ...card,
+        synergy: seen?.synergy !== undefined && (card.synergy ?? -1) < seen.synergy ? seen.synergy : card.synergy,
+        inclusion: Math.max(seen?.inclusion ?? 0, card.inclusion ?? 0),
+        numDecks: (seen?.numDecks ?? 0) + card.numDecks,
+        lists: [...new Set([...(seen?.lists ?? []), ...(card.lists ?? [])])],
+        lean: (seen?.lean ?? 0) + (leans ? card.lean! / top : 0),
+        styles: [...(seen?.styles ?? []), ...(leans ? [name] : [])],
+      });
+    }
+  }
+  const numDecks = chosen.reduce((sum, c) => sum + c.style.numDecks, 0);
+  const weighted = chosen.filter((c) => c.style.curveAverage !== undefined);
+  const weight = weighted.reduce((sum, c) => sum + c.style.numDecks, 0);
+  const curved = chosen.filter((c) => c.style.curveCounts);
+  const bracketCounts: Record<string, number> = {};
+  for (const { style } of chosen) for (const [bracket, count] of Object.entries(style.bracketCounts ?? {})) bracketCounts[bracket] = (bracketCounts[bracket] ?? 0) + count;
+  return {
+    found: true,
+    url: chosen[0].style.url,
+    numDecks,
+    averages: [...chosen].sort((a, b) => b.style.numDecks - a.style.numDecks)[0].style.averages,
+    bracketCounts,
+    curveAverage: weight > 0 ? weighted.reduce((sum, c) => sum + c.style.curveAverage! * c.style.numDecks, 0) / weight : undefined,
+    curveCounts: curved.length > 0 ? [0, 1, 2, 3, 4, 5].map((slot) => curved.reduce((sum, c) => sum + c.style.curveCounts![slot] * c.style.numDecks, 0)) : undefined,
+    cards: [...cards.values()].sort((a, b) => (b.lean ?? 0) - (a.lean ?? 0) || (b.synergy ?? -1) - (a.synergy ?? -1)),
+    listed: [...cards.keys()],
+    details: Object.assign({}, ...chosen.map((c) => c.style.details)),
+  };
+}
+
+/** An average deck's curve, scaled to this many spells, in whole cards that add up. */
+export function scaledCurve(counts: number[], spells: number): number[] {
+  const total = counts.reduce((a, b) => a + b, 0);
+  if (total === 0) return counts.map(() => 0);
+  const exact = counts.map((n) => (n / total) * spells);
+  const out = exact.map(Math.floor);
+  const order = exact.map((e, i) => ({ i, r: e - Math.floor(e) })).sort((a, b) => b.r - a.r);
+  const left = spells - out.reduce((a, b) => a + b, 0);
+  for (let k = 0; k < left; k++) out[order[k % order.length].i]++;
+  return out;
+}
+
 /** Recommendations for the deck as it stands; they change as cards go in. */
-export function builderRecommendations(input: BuilderInput): BuilderGroups & { profile: DeckProfile; manaBase: ManaBasePlan } {
+export function builderRecommendations(input: BuilderInput): BuilderGroups & { profile: DeckProfile; manaBase: ManaBasePlan; curveSlots: CurveSlot[] } {
   const { deck, identity, bracket, isGameChanger, combos, preferOwned, perGroup = 12 } = input;
-  // A chosen playstyle decides everything below: its decks' numbers stand in for
+  // Chosen playstyles decide everything below: their decks' numbers stand in for
   // the commander's, and a card they don't play (from EDHREC's other decks or
   // only the binder) counts as unseen.
   const style = new Map((input.playstyle ?? []).map((p) => [cardKey(p.name), p]));
@@ -213,12 +303,18 @@ export function builderRecommendations(input: BuilderInput): BuilderGroups & { p
       const owned = c.ownedCopies > 0;
       if (style.size === 0) return { ...c, owned };
       const played = style.get(cardKey(c.card.name));
-      return { ...c, owned, synergy: played ? (played.synergy ?? c.synergy) : undefined, inclusion: played ? (played.inclusion ?? c.inclusion) : undefined };
+      return {
+        ...c,
+        owned,
+        synergy: played ? (played.synergy ?? c.synergy) : undefined,
+        inclusion: played ? (played.inclusion ?? c.inclusion) : undefined,
+        lists: played?.lists?.length ? played.lists : c.lists,
+      };
     });
   const byName = new Map(candidates.map((c) => [cardKey(c.card.name), c]));
   // The plan: the high-synergy cards of the commander's decks, or of the chosen playstyle's.
   const isPlanCandidate = (c: Candidate) =>
-    (c.synergy ?? 0) >= PLAN_SYNERGY || leanOf(c.card.name) >= LEANS_IN || (style.size === 0 && (byName.get(cardKey(c.card.name))?.lists.includes("High Synergy Cards") ?? false));
+    (c.synergy ?? 0) >= PLAN_SYNERGY || leanOf(c.card.name) >= LEANS_IN || (style.size === 0 && (byName.get(cardKey(c.card.name))?.lists.some((l) => l === "High Lift Cards" || l === "High Synergy Cards") ?? false));
   const profile = deckProfile(deck, {
     commander: input.commander,
     isPlan: (name) => {
@@ -248,13 +344,14 @@ export function builderRecommendations(input: BuilderInput): BuilderGroups & { p
     isPlan: isPlanCandidate,
     curve: profile.curve,
     perGroup,
+    // Everything EDHREC lists is on offer, whether or not it fills a category.
+    alwaysOffer: (c: Candidate) => c.inclusion !== undefined || (byName.get(cardKey(c.card.name))?.lists.length ?? 0) > 0,
   };
   const asPick = (p: Pick): BuilderPick => {
     const c = byName.get(cardKey(p.card.name));
     return { ...p, ownedCopies: c?.ownedCopies ?? 0, lists: c?.lists ?? [] };
   };
   const plan = planUpgrades(profile, candidates, has, options);
-  const tooStrong = new Set(plan.leftOut.map((l) => cardKey(l.pick.card.name)));
   const gaps = categoryGaps(profile);
   const score = (c: BuilderCandidate) => asPick(scoreCandidate(c, gaps, options));
   const ownedFirst = (a: BuilderPick, b: BuilderPick) => Number(b.ownedCopies > 0) - Number(a.ownedCopies > 0) || b.score - a.score;
@@ -276,15 +373,6 @@ export function builderRecommendations(input: BuilderInput): BuilderGroups & { p
     if (combosGroup.length >= perGroup) break;
   }
 
-  // The chosen playstyle's cards, in EDHREC's order for it, the ones you own first.
-  const playstyle = (input.playstyle ?? [])
-    .flatMap((p) => {
-      const c = byName.get(cardKey(p.name));
-      return c && !has(c.card.name) && !tooStrong.has(cardKey(c.card.name)) && !isLand(c.card) ? [c] : [];
-    })
-    .map(score)
-    .sort(ownedFirst);
-
   // Lands beyond the basics, rated for the commander's colors: untapped fixing
   // up in more colors, utility lands up in fewer, always-tapped lands down.
   // A fetch land has no colors of its own, so it has to find the deck's.
@@ -304,64 +392,80 @@ export function builderRecommendations(input: BuilderInput): BuilderGroups & { p
   const lands: LandShelf = { duals: [], fixing: [], utility: [], slow: [] };
   for (const { kind, pick } of rated) {
     const shelf = kind === "dual" ? lands.duals : kind === "tapped" ? lands.slow : fixesColors(kind) && identity.length >= 2 ? lands.fixing : lands.utility;
-    // Enough duals to fill the mana base, so a big gap in many colors isn't cut short.
-    if (shelf.length < (shelf === lands.duals ? Math.max(perGroup, manaBase.nonbasics - profile.lands) : perGroup)) shelf.push(pick);
+    // Everything EDHREC lists, and enough others to fill the mana base, so a big gap in many colors isn't cut short.
+    if (pick.inclusion !== undefined || shelf.length < (shelf === lands.duals ? Math.max(perGroup, manaBase.nonbasics - profile.lands) : perGroup)) shelf.push(pick);
   }
 
-  // Each shelf in the order to add its cards. Your own cards lead their part of it when you build from the binder.
-  const labelled = (p: Pick, label?: (p: Pick) => string): BuilderPick => ({ ...asPick(p), reason: comboReason.get(cardKey(p.card.name)) ?? label?.(p) });
-  const leanLabel = (p: Pick) => `+${Math.round(leanOf(p.card.name) * 100)}% in this playstyle`;
-  const synergyLabel = (p: Pick) => `+${Math.round(p.synergy! * 100)}% synergy`;
-  const arrange = (picks: Pick[], label?: (p: Pick) => string) => {
+  // Each shelf with everything that fills its category. Your own cards lead each part of it when you build from the binder.
+  const labelled = (p: Pick, label?: (p: Pick) => string | undefined): BuilderPick => ({ ...asPick(p), reason: comboReason.get(cardKey(p.card.name)) ?? label?.(p) });
+  const leanLabel = (p: Pick) => {
+    const styles = style.get(cardKey(p.card.name))?.styles;
+    return styles ? `For ${styles.join(" + ")}` : `+${Math.round(leanOf(p.card.name) * 100)}% in this playstyle`;
+  };
+  const statsLabel = (p: Pick) => {
+    const parts = [];
+    if (p.inclusion !== undefined) parts.push(`${Math.round(p.inclusion * 100)}% of decks`);
+    if (p.synergy !== undefined) parts.push(`${p.synergy >= 0 ? "+" : ""}${Math.round(p.synergy * 100)}% synergy`);
+    return parts.join(" · ") || undefined;
+  };
+  const arrange = (picks: Pick[], label?: (p: Pick) => string | undefined) => {
     const out = picks.map((p) => labelled(p, label));
     return preferOwned ? out.sort((a, b) => Number(b.ownedCopies > 0) - Number(a.ownedCopies > 0)) : out;
   };
   const template = CATEGORIES.map((category): TemplateShelf => {
-    // Tutors and Game Changers that fill no category go toward the plan.
+    // Tutors and Game Changers that fill no category go toward the plan, as does anything else EDHREC lists.
     const fits = plan.eligible.filter((p) => p.categories.includes(category) || (category === "plan" && p.categories.length === 0));
     const played = fits.filter((p) => inStyle(p.card.name));
     const outside = fits.filter((p) => !inStyle(p.card.name));
-    // Enough to fill the category, so a big gap like the plan's isn't cut short.
-    const fill = Math.max(perGroup, gaps[category] ?? 0);
-    const allLeaning = played.filter((p) => leanOf(p.card.name) >= LEANS_IN).sort((a, b) => leanOf(b.card.name) - leanOf(a.card.name) || b.score - a.score);
-    const leaning = allLeaning.slice(0, fill);
-    const core = played.filter((p) => !leaning.includes(p));
-    const allSynergy = core.filter((p) => (p.synergy ?? 0) > 0).sort((a, b) => b.synergy! - a.synergy! || b.score - a.score);
-    const synergy = allSynergy.slice(0, fill);
-    const flexible = core
-      .filter((p) => p.categories.length >= 2 && !synergy.includes(p))
-      .sort((a, b) => b.categories.length - a.categories.length || b.score - a.score)
-      .slice(0, perGroup);
-    const more = core.filter((p) => !synergy.includes(p) && !flexible.includes(p)).slice(0, perGroup);
-    const rest = played.filter((p) => !allLeaning.includes(p) && !allSynergy.includes(p));
+    const leaning = played.filter((p) => leanOf(p.card.name) >= LEANS_IN).sort((a, b) => leanOf(b.card.name) - leanOf(a.card.name) || b.score - a.score);
+    const others = played.filter((p) => !leaning.includes(p)).sort((a, b) => (b.synergy ?? -1) - (a.synergy ?? -1) || b.score - a.score);
+    const listed = arrange(others, statsLabel);
     return {
       category,
       short: gaps[category] ?? 0,
       leaning: arrange(leaning, leanLabel),
-      synergy: arrange(synergy, synergyLabel),
-      flexible: arrange(flexible),
-      more: arrange(more),
-      outside: arrange(outside.slice(0, perGroup)),
+      lists: EDHREC_LISTS.map((title) => ({ title, picks: listed.filter((p) => listFor(p) === title) })).filter((list) => list.picks.length > 0),
+      outside: arrange(outside),
       all: {
-        leaning: allLeaning.map((p) => labelled(p, leanLabel)),
-        synergy: allSynergy.filter((p) => !allLeaning.includes(p)).map((p) => labelled(p, synergyLabel)),
-        rest: [...rest, ...outside].map((p) => labelled(p)),
+        leaning: leaning.map((p) => labelled(p, leanLabel)),
+        synergy: others.filter((p) => (p.synergy ?? 0) > 0).map((p) => labelled(p, statsLabel)),
+        rest: [...others.filter((p) => (p.synergy ?? 0) <= 0), ...outside].map((p) => labelled(p, statsLabel)),
       },
     };
   });
 
-  // The plan's shelf shows each card once: the playstyle and combos sit below its first two parts and above the rest.
+  // The plan's tab shows each card once: combo pieces already on its shelf stay there.
   const planShelf = template.find((g) => g.category === "plan")!;
-  const shown = new Set([...planShelf.leaning, ...planShelf.synergy, ...planShelf.flexible].map((p) => cardKey(p.card.name)));
-  const notShown = <T,>(items: T[], name: (item: T) => string) => {
-    const out = items.filter((item) => !shown.has(cardKey(name(item)))).slice(0, perGroup);
-    out.forEach((item) => shown.add(cardKey(name(item))));
-    return out;
-  };
-  const playstyleLeft = notShown(playstyle, (p) => p.card.name);
-  const combosLeft = notShown(combosGroup, (g) => g.pick.card.name);
-  planShelf.more = notShown(planShelf.more, (p) => p.card.name);
-  planShelf.outside = notShown(planShelf.outside, (p) => p.card.name);
+  const shown = new Set([...planShelf.leaning, ...planShelf.lists.flatMap((l) => l.picks), ...planShelf.outside].map((p) => cardKey(p.card.name)));
+  const combosLeft = combosGroup.filter((g) => !shown.has(cardKey(g.pick.card.name)));
 
-  return { template, combos: combosLeft, playstyle: playstyleLeft, lands, leftOut: plan.leftOut, profile, manaBase };
+  // The curve to aim for: the average deck's on EDHREC, for this deck's spells; failing that, a low, wide one.
+  const spellTarget = 99 - manaBase.lands;
+  const targets = input.curveCounts ? scaledCurve(input.curveCounts, spellTarget) : profile.curve.targets;
+  const jobsOf = (name: string) => CATEGORIES.filter((c) => profile.categories[c].includes(name));
+  const needed = (c: Category) => profile.categories[c].length <= CATEGORY_INFO[c].target;
+  // What a card is worth to the deck: its synergy, how far it leans into the playstyle, and the jobs it does.
+  const worth = (card: CardDetails) => {
+    const jobs = jobsOf(card.name);
+    return (byName.get(cardKey(card.name))?.synergy ?? 0) + leanOf(card.name) * 2 + jobs.length * 0.25 + (jobs.some(needed) ? 0.3 : 0);
+  };
+  const whyCut = (card: CardDetails) => {
+    const jobs = jobsOf(card.name);
+    if (jobs.length === 0) return "Fills no part of the template";
+    if (!inStyle(card.name)) return "Outside your playstyle";
+    const needs = jobs.find(needed);
+    return needs ? `Keeps ${CATEGORY_INFO[needs].label} filled` : `${CATEGORY_INFO[jobs[0]].label} has plenty`;
+  };
+  const spells = deck.map((d) => d.card).filter((card) => !isLand(card) && cardKey(card.name) !== cardKey(input.commander ?? ""));
+  const curveSlots = targets.map((target, slot): CurveSlot => ({
+    slot,
+    have: profile.curve.counts[slot],
+    target,
+    cards: spells
+      .filter((card) => slotOf(card.cmc) === slot)
+      .sort((a, b) => worth(a) - worth(b))
+      .map((card) => ({ card, why: whyCut(card) })),
+  }));
+
+  return { template, combos: combosLeft, lands, leftOut: plan.leftOut, profile, manaBase, curveSlots };
 }

@@ -114,3 +114,22 @@ describe("deckProfile", () => {
     expect(categoryGaps(profile)).toEqual({ ramp: 8, advantage: 12, targeted: 11, mass: 6, plan: 29 });
   });
 });
+
+describe("the crystals", () => {
+  const crystal = (name: string, color: string, rest: string): CardDetails => ({
+    name,
+    typeLine: "Legendary Artifact",
+    oracleText: `${color} spells you cast cost {1} less to cast.\n${rest}`,
+    colorIdentity: [],
+    layout: "normal",
+    keywords: [],
+    cmc: 4,
+  });
+
+  it("count as ramp", () => {
+    const water = crystal("The Water Crystal", "Blue", "If an opponent would mill one or more cards, they mill that many cards plus four instead.\n{4}{U}{U}, {T}: Each opponent mills cards equal to the number of cards in your hand.");
+    const wind = crystal("The Wind Crystal", "White", "If you would gain life, you gain twice that much life instead.\n{4}{W}{W}, {T}: Creatures you control gain flying and lifelink until end of turn.");
+    expect(cardRoles(water).has("ramp")).toBe(true);
+    expect(cardRoles(wind).has("ramp")).toBe(true);
+  });
+});

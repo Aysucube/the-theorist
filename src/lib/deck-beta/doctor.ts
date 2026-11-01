@@ -64,6 +64,8 @@ export interface PlanOptions {
   isPlan?: (candidate: Candidate) => boolean;
   /** The deck's curve: one that's top-heavy or short of early plays leans harder on cheap cards. */
   curve?: CurveReport;
+  /** Keeps a card on offer even if it does no job in the template. */
+  alwaysOffer?: (candidate: Candidate) => boolean;
 }
 
 // Lower brackets favour synergy and flexible cards; higher ones raw strength.
@@ -153,7 +155,7 @@ export function planUpgrades(profile: DeckProfile, candidates: Candidate[], inDe
     .filter((c) => !inDeck(c.card.name) && !/\bLand\b/.test(c.card.typeLine.split(" // ")[0]))
     .map((c) => scoreCandidate(c, gaps, opts))
     // A card has to do a job in the template, or be strong enough for the higher brackets (tutors, Game Changers).
-    .filter((p) => p.categories.length > 0 || p.gameChanger || p.roles.includes("tutor"))
+    .filter((p) => p.categories.length > 0 || p.gameChanger || p.roles.includes("tutor") || options.alwaysOffer?.(p))
     .sort((a, b) => b.score - a.score || a.card.name.localeCompare(b.card.name));
 
   const leftOut: UpgradePlan["leftOut"] = [];

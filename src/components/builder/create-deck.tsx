@@ -7,21 +7,22 @@ import { BRACKET_STYLE } from "@/components/deck-beta/bracket-badge";
 import { useBinder } from "@/lib/binder/store";
 import { rememberDetails, useCardDetails } from "@/lib/binder/card-cache";
 import { isBasicLandName } from "@/lib/binder/collection";
-import { STEP, STEPS, useBuilderDraft } from "@/lib/builder/draft";
-import { builderRecommendations, fitsIdentity, predictedAverage, recommendLands, splitBasics, withPlaystyle, type BuilderCandidate } from "@/lib/builder/plan";
+import { STEP, STEPS, togglePlaystyle, useBuilderDraft, type DraftPlaystyle } from "@/lib/builder/draft";
+import { builderRecommendations, fitsIdentity, mergePlaystyles, predictedAverage, recommendLands, splitBasics, withPlaystyle, type BuilderCandidate } from "@/lib/builder/plan";
 import { commanderGamePlan } from "@/lib/deck-beta/game-plan";
 import { manaBasePlan } from "@/lib/deck-beta/lands";
 import { cardTraits, subtypeVocabulary } from "@/lib/deck-beta/synergy";
 import { curveAdvice } from "../deck-beta/template-bits";
 import { bracketLabel, estimateDeckBracket } from "@/lib/deck-beta/bracket";
 import { cardKey } from "@/lib/deck-beta/recommend";
-import { requestPlaystyle, retryBuilderData, useBuilderData, useDeckAnalysis, useDeckLibrary, useFixingLands, usePlaystyle } from "@/lib/deck-beta/store";
+import { requestPlaystyle, retryBuilderData, useBuilderData, useDeckAnalysis, useDeckLibrary, useFixingLands, usePlaystyles } from "@/lib/deck-beta/store";
 import { useGameChangers } from "@/lib/use-game-changers";
 import type { CardDetails } from "@/lib/types";
 import { AppLink as Link, useAppRouter } from "../app-link";
 import { FEATURES, morphName } from "../theme/features";
 import { FeatureBadge } from "../theme/page-header";
 import { BuildStep, RecommendedLands } from "./build-step";
+import { CurveStep } from "./curve-step";
 import { DeckRail } from "./deck-rail";
 import { BracketStep, CommanderStep, LandsStep, PlaystyleStep, SynergyStep } from "./steps";
 
@@ -35,6 +36,7 @@ const HEADINGS = [
   { title: "What EDHREC knows", note: "The cards that suit your commander best, and the ways players build it." },
   { title: "Set your lands", note: "Start from the recommendation; basics re-balance as the deck grows." },
   { title: "Build the deck", note: "Recommendations follow the deck: each card you add changes what it needs next." },
+  { title: "Perfect the mana curve", note: "Cut what pushes your deck past the average curve, the weakest cards first." },
   { title: "Name it", note: "Save it to My Decks. You can price what’s missing from there." },
 ];
 
@@ -72,9 +74,19 @@ export function CreateDeck() {
 
   const identity = draft.commander?.colorIdentity ?? [];
   const identityKey = identity.join("");
-  const playstyle = usePlaystyle(commanderRef, draft.theme || undefined, identity);
-  const style = playstyle?.state === "done" && playstyle.result.found ? playstyle.result : undefined;
-  const styleFailed = playstyle?.state === "error" || (playstyle?.state === "done" && !playstyle.result.found);
+  const chosen = draft.themes;
+  const themeName = chosen.length > 0 ? chosen.map((t) => t.name).join(" + ") : undefined;
+  const playstyles = usePlaystyles(commanderRef, chosen.map((t) => t.slug), identity);
+  const stylesFound = chosen.flatMap((t, i) => {
+    const state = playstyles[i];
+    return state?.state === "done" && state.result.found ? [{ name: t.name, style: state.result }] : [];
+  });
+  const styleFailed = playstyles.some((p) => p?.state === "error" || (p?.state === "done" && !p.result.found));
+  const styleLoading = !styleFailed && stylesFound.length < chosen.length;
+  const stylesKey = stylesFound.map((s) => s.name).join("\n");
+  // Recomputed when the set of playstyles in hand changes; each one's data stays as it came.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const style = useMemo(() => mergePlaystyles(stylesFound), [stylesKey]);
   const themeCards = style?.cards;
   useEffect(() => {
     if (style) rememberDetails(Object.values(style.details));
@@ -153,7 +165,7 @@ export function CreateDeck() {
         numDecks: data?.numDecks,
         averages: styled?.averages,
         curveAverage: styled?.curveAverage,
-        playstyle: style && draft.themeName ? { name: draft.themeName, numDecks: style.numDecks } : undefined,
+        playstyle: style && themeName ? { name: themeName, numDecks: style.numDecks } : undefined,
       })
     : undefined;
 
@@ -167,13 +179,14 @@ export function CreateDeck() {
       isGameChanger: gameChangers.has,
       combos: analysisResult?.combos,
       playstyle: themeCards,
+      curveCounts: styled?.curveCounts,
       preferOwned: draft.preferOwned,
       commander: commanderName,
       lands,
     });
     // The deck key and the inputs above capture what the plan depends on.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [candidates, deckKey, commanderCard, draft.bracket, analysisResult, themeCards, draft.preferOwned, gameChangers, lands]);
+  }, [candidates, deckKey, commanderCard, draft.bracket, analysisResult, themeCards, styled, draft.preferOwned, gameChangers, lands]);
 
   const report = useMemo(
     () =>
@@ -206,7 +219,10 @@ export function CreateDeck() {
   };
   const edhrecDone = builder?.state === "done" || builder?.state === "error";
   const notFound = builder?.state === "done" && !builder.result.found;
-  const canContinue = [Boolean(draft.commander), edhrecDone, Boolean(draft.bracket), edhrecDone, true, true, false][step];
+  const canContinue = [Boolean(draft.commander), edhrecDone, Boolean(draft.bracket), edhrecDone, true, true, true, false][step];
+  const toggleTheme = (theme: DraftPlaystyle) => update({ themes: togglePlaystyle(draft.themes, theme) });
+  const retryStyles = () => chosen.forEach((t, i) => playstyles[i]?.state !== "done" && requestPlaystyle(commanderRef!, t.slug, true, identity));
+  const playstyleContext = { commander: commanderRef, colors: identity };
   const edhrecWait = builder?.state === "waiting" ? `Waiting ${builder.seconds}s because ${builder.reason}…` : null;
 
   function add(card: CardDetails) {
@@ -221,7 +237,7 @@ export function CreateDeck() {
       commander: draft.commander.name,
       cards: [{ name: draft.commander.name, qty: 1 }, ...draft.cards, ...Object.entries(basicSplit).map(([basic, qty]) => ({ name: basic, qty }))],
       bracket: draft.bracket,
-      theme: draft.themeName,
+      theme: themeName,
       commanderImage: draft.commander.imageUrl,
     });
     toast.success(`${name} saved to My Decks`);
@@ -303,18 +319,22 @@ export function CreateDeck() {
                       failed={builder?.state === "error"}
                       notFound={notFound}
                       onRetry={() => retryBuilderData(draft.commander!)}
-                      theme={draft.theme}
-                      onTheme={(theme, themeName) => update({ theme, themeName })}
+                      chosen={chosen}
+                      themeName={themeName}
+                      onToggle={toggleTheme}
+                      onClear={() => update({ themes: [] })}
                       style={style}
+                      styleLoading={styleLoading}
                       styleFailed={styleFailed}
-                      onRetryStyle={() => requestPlaystyle(commanderRef!, draft.theme, true, identity)}
+                      onRetryStyle={retryStyles}
                       owned={binder.owned}
+                      context={playstyleContext}
                     />
                   )}
                   {step === STEP.bracket && draft.commander && (
                     <BracketStep
                       commander={draft.commander.name}
-                      themeName={draft.themeName}
+                      themeName={themeName}
                       counts={styled?.bracketCounts}
                       selected={draft.bracket}
                       onChoose={(bracket) => update({ bracket })}
@@ -329,7 +349,7 @@ export function CreateDeck() {
                       notFound={notFound}
                       onRetry={() => retryBuilderData(draft.commander!)}
                       owned={binder.owned}
-                      themeName={draft.themeName}
+                      themeName={themeName}
                       onChangeTheme={() => go(STEP.playstyle)}
                       preferOwned={draft.preferOwned}
                       onPreferOwned={(preferOwned) => update({ preferOwned })}
@@ -367,15 +387,16 @@ export function CreateDeck() {
                         curvePick={curvePick}
                         onClearCurvePick={() => setCurvePick(undefined)}
                         themes={data?.themes ?? []}
-                        theme={draft.theme}
-                        themeName={draft.themeName}
-                        onTheme={(theme, themeName) => update({ theme, themeName })}
-                        styleLoading={Boolean(draft.theme) && !style && !styleFailed}
+                        chosen={chosen}
+                        themeName={themeName}
+                        onToggleTheme={toggleTheme}
+                        onClearThemes={() => update({ themes: [] })}
+                        playstyleContext={playstyleContext}
+                        styleLoading={styleLoading}
                         styleFailed={styleFailed}
-                        onRetryStyle={() => requestPlaystyle(commanderRef!, draft.theme, true, identity)}
+                        onRetryStyle={retryStyles}
                         leftOut={plan.leftOut.length}
                         bracket={draft.bracket ?? 3}
-                        onPickTheme={() => go(STEP.playstyle)}
                         has={(name) => deckCards.some((c) => cardKey(c.name) === cardKey(name)) || cardKey(name) === cardKey(commanderName ?? "")}
                         curveAdvice={curveAdvice(plan.profile.curve)}
                         landAdvice={plan.manaBase.advice}
@@ -385,9 +406,30 @@ export function CreateDeck() {
                         <span aria-hidden className="spinner size-4" /> Getting the recommendations ready…
                       </p>
                     ))}
+                  {step === STEP.curve &&
+                    (plan ? (
+                      <CurveStep
+                        curve={plan.profile.curve}
+                        slots={plan.curveSlots}
+                        averageTarget={styled?.curveAverage}
+                        usesEdhrec={Boolean(styled?.curveCounts)}
+                        themeName={themeName}
+                        total={1 + deckCards.length + basics}
+                        ownedFor={binder.owned}
+                        onRemove={removeCard}
+                        onFind={(slot) => {
+                          go(STEP.build);
+                          setCurvePick(slot);
+                        }}
+                      />
+                    ) : (
+                      <p className="flex items-center gap-2 text-sm text-muted">
+                        <span aria-hidden className="spinner size-4" /> Reading the deck’s curve…
+                      </p>
+                    ))}
                   {step === STEP.finish && draft.commander && (
                     <FinishStep
-                      defaultName={`${draft.commander.name.split(",")[0]}${draft.themeName ? ` · ${draft.themeName}` : ""}`}
+                      defaultName={`${draft.commander.name.split(",")[0]}${themeName ? ` · ${themeName}` : ""}`}
                       total={1 + deckCards.length + basics}
                       spells={spells}
                       nonbasicLands={nonbasicLands}
@@ -413,7 +455,7 @@ export function CreateDeck() {
                     </Link>
                   )}
                   <button type="button" disabled={!canContinue} onClick={() => go(step + 1)} data-cast className="btn btn-primary btn-lg">
-                    {step === STEP.build ? "Finish" : "Continue"}
+                    {step === STEP.curve ? "Finish" : "Continue"}
                   </button>
                 </div>
               )}
@@ -456,7 +498,7 @@ function Stepper({ step, reached, onGo }: { step: number; reached: number; onGo:
             <span className="whitespace-nowrap">{label}</span>
           </button>
           {i < STEPS.length - 1 && (
-            <span aria-hidden className="block h-px w-6 overflow-hidden bg-line">
+            <span aria-hidden className="block h-px w-4 overflow-hidden bg-line">
               <span className="block h-full origin-left bg-accent transition-transform duration-300 ease-out" style={{ transform: `scaleX(${i < step ? 1 : 0})` }} />
             </span>
           )}

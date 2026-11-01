@@ -322,13 +322,18 @@ export function useDeckAnalysis(commander: CardDetails | undefined, cards: strin
   return key ? (remote.get(key) as RemoteState<AnalysisResponse> | undefined) : undefined;
 }
 
-/** "" asks for the commander's cards across all its decks rather than one playstyle. With colors, it also asks how far each card leans into it. */
-function playstyleUrl(commander: CardDetails, theme: string, colors?: string[]) {
+/**
+ * "" asks for the commander's cards across all its decks rather than one
+ * playstyle. With colors, it also asks how far each card leans into it. With
+ * limit, only that many cards come with details.
+ */
+function playstyleUrl(commander: CardDetails, theme: string, colors?: string[], limit?: number) {
   return `/api/deck-beta/playstyle?${new URLSearchParams({
     commander: commander.name,
     layout: commander.layout,
     ...(theme ? { theme } : {}),
     ...(colors ? { colors: colors.join("") } : {}),
+    ...(limit ? { limit: String(limit) } : {}),
   })}`;
 }
 
@@ -338,13 +343,24 @@ export function requestPlaystyle(commander: CardDetails, theme: string, force = 
 }
 
 /** The best cards for one of the commander's playstyles ("" for all its decks; undefined for none yet). */
-export function usePlaystyle(commander: CardDetails | undefined, theme: string | undefined, colors?: string[]): RemoteState<PlaystyleResponse> | undefined {
+export function usePlaystyle(commander: CardDetails | undefined, theme: string | undefined, colors?: string[], limit?: number): RemoteState<PlaystyleResponse> | undefined {
   useSyncExternalStore(subscribePairings, () => pairingsVersion, () => 0);
-  const url = commander && theme !== undefined ? playstyleUrl(commander, theme, colors) : "";
+  const url = commander && theme !== undefined ? playstyleUrl(commander, theme, colors, limit) : "";
   useEffect(() => {
     if (url) loadRemote<PlaystyleResponse>(url, url, undefined, "EDHREC is busy");
   }, [url]);
   return url ? (remote.get(url) as RemoteState<PlaystyleResponse> | undefined) : undefined;
+}
+
+/** Several of the commander's playstyles, in the order given. */
+export function usePlaystyles(commander: CardDetails | undefined, themes: string[], colors?: string[]): (RemoteState<PlaystyleResponse> | undefined)[] {
+  useSyncExternalStore(subscribePairings, () => pairingsVersion, () => 0);
+  const urls = commander ? themes.map((theme) => playstyleUrl(commander, theme, colors)) : [];
+  const key = urls.join("\n");
+  useEffect(() => {
+    if (key) for (const url of key.split("\n")) loadRemote<PlaystyleResponse>(url, url, undefined, "EDHREC is busy");
+  }, [key]);
+  return urls.map((url) => remote.get(url) as RemoteState<PlaystyleResponse> | undefined);
 }
 
 // --- Land artwork for the network's background --------------------------------------

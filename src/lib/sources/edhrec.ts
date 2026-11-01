@@ -279,6 +279,8 @@ export function parseCommanderStats(page: RawPage, path: string): EdhrecCommande
   );
   const spells = curve.reduce((sum, c) => sum + c.count, 0);
   const curveAverage = spells > 0 ? curve.reduce((sum, c) => sum + c.cmc * c.count, 0) / spells : undefined;
+  const curveCounts = spells > 0 ? [0, 0, 0, 0, 0, 0] : undefined;
+  for (const { cmc, count } of curve) if (curveCounts) curveCounts[Math.min(5, Math.max(0, cmc - 1))] += count;
 
   return {
     url: `${SITE}/${path}`,
@@ -289,6 +291,7 @@ export function parseCommanderStats(page: RawPage, path: string): EdhrecCommande
     averages,
     bracketCounts: page.bracket_counts && typeof page.bracket_counts === "object" ? page.bracket_counts : undefined,
     curveAverage,
+    curveCounts,
   };
 }
 

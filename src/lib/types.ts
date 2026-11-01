@@ -235,6 +235,8 @@ export interface EdhrecCommanderStats {
   bracketCounts?: Record<string, number>;
   /** The average mana value of its average deck's spells (from EDHREC's mana curve). */
   curveAverage?: number;
+  /** Its average deck's spells at each mana value (0–1, 2, 3, 4, 5, 6+). */
+  curveCounts?: number[];
 }
 
 export interface EdhrecDeckAverages {

@@ -19,12 +19,14 @@ const cardsIn = (lists: EdhrecCardList[] | undefined) => (lists ?? []).flatMap((
 // the commander's cards across all its decks (for the Recommendations tab), lands left out.
 // With the deck's colors, Create Commander Deck also learns how far each card leans into the
 // playstyle, and gets the cards the playstyle plays in those colors that this commander's decks don't.
+// With limit, only that many cards get details: enough for a quick look at a playstyle.
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
   const commander = params.get("commander")?.trim() ?? "";
   const layout = params.get("layout")?.trim() || "normal";
   const theme = params.get("theme")?.trim() ?? "";
   const colors = params.get("colors")?.toUpperCase();
+  const limit = Number(params.get("limit")) || DETAILED_THEME;
   if (!commander || commander.length > 150 || (theme && !/^[a-z0-9-]{1,80}$/.test(theme)) || layout.length > 40 || (colors && !/^[WUBRG]{0,5}$/.test(colors))) {
     return Response.json({ error: "Give a commander (and optionally a playstyle)." }, { status: 400 });
   }
@@ -73,7 +75,7 @@ export async function GET(request: NextRequest) {
     );
     // For the whole commander, detail the most played and highest-synergy cards.
     const toDetail = theme
-      ? cards.slice(0, DETAILED_THEME)
+      ? cards.slice(0, Math.min(limit, DETAILED_THEME))
       : [...cards]
           .sort((a, b) => (b.inclusion ?? 0) + Math.max(0, b.synergy ?? 0) - ((a.inclusion ?? 0) + Math.max(0, a.synergy ?? 0)))
           .slice(0, DETAILED_ALL);
@@ -85,6 +87,7 @@ export async function GET(request: NextRequest) {
       averages: stats.averages,
       bracketCounts: stats.bracketCounts,
       curveAverage: stats.curveAverage,
+      curveCounts: stats.curveCounts,
       cards,
       listed: [...best.keys()],
       details,

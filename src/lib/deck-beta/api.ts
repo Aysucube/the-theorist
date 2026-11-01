@@ -48,6 +48,8 @@ export interface PlaystyleCard {
   lists?: string[];
   /** How far it leans into the playstyle (see styleLean); asked for with the deck's colors. */
   lean?: number;
+  /** With several playstyles chosen, the ones it leans into. */
+  styles?: string[];
 }
 
 /** GET /api/deck-beta/land-art */
@@ -74,6 +76,8 @@ export type PlaystyleResponse =
       bracketCounts?: Record<string, number>;
       /** The average mana value of these decks' spells. */
       curveAverage?: number;
+      /** Their average deck's spells at each mana value (0–1, 2, 3, 4, 5, 6+). */
+      curveCounts?: number[];
       /** The playstyle's best cards for this commander, highest synergy first. */
       cards: PlaystyleCard[];
       /** Every card EDHREC lists for it, to spot deck cards that don't fit. */
@@ -105,6 +109,8 @@ export type BuilderResponse =
       bracketCounts?: Record<string, number>;
       /** The average mana value of its decks' spells. */
       curveAverage?: number;
+      /** Its average deck's spells at each mana value (0–1, 2, 3, 4, 5, 6+). */
+      curveCounts?: number[];
       /** EDHREC articles about the commander, for how it's played. */
       articles?: EdhrecArticle[];
       cards: BuilderCard[];

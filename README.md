@@ -57,8 +57,9 @@ Zone's template and videos on mana curves and mana bases):
 1. **Commander**: every commander in your binder, filtered by color (including, exactly or within
    those colors) or by name, or any commander at all if you'd rather.
 2. **Playstyle**: every way EDHREC's players build the commander, most decks first, or **Balanced**
-   for all its decks. Everything after this step follows the one you pick: every suggestion, in your
-   binder or not, is ranked by that playstyle's decks, and cards they don't play sit last, under
+   for all its decks. Pick up to three, and hover one for what the deck does, how it wins and the
+   finishers those decks play. Everything after this step follows your picks: every suggestion, in
+   your binder or not, is ranked by those playstyles' decks, and cards they don't play sit last, under
    **Outside the playstyle**. The land count and bracket split come from those decks too.
 3. **Bracket**: the bracket you're building for (1 to 5), with how EDHREC's decks split across them.
 4. **Synergies**: the commander's **game plan**, then EDHREC's cards for it, highest synergy and new
@@ -68,17 +69,21 @@ Zone's template and videos on mana curves and mana bases):
    add on top of them.
 6. **Build**: the template is the tabs: **Ramp**, **Card advantage**, **Targeted disruption**, **Mass
    disruption** and **Plan**, each with its count and meter, plus **Lands** for the mana base. It opens
-   on the category furthest from its target. Each tab lists the cards to add in order: **EDHREC's
-   highest synergy** first, then **flexible** cards, then the rest, your own cards first in each part
-   if you like, all re-ranked with every card you add. The Plan tab also holds the rest of the chosen
-   playstyle and combos a card away that fit the bracket, and any card can be searched for below the
-   tabs. The Lands tab shows the basics that come with the deck, then what to add on top: **dual lands** for
-   the commander's colors, more fixing, utility lands and lands that enter tapped, each taking a
-   basic's place. Small tabs beside it hold every playstyle, so you can switch at any point and the
-   lists re-rank. Click a cost on the **mana curve** to see the tab's most synergistic cards at that
-   cost. The deck comes together on the other side: its commander, a count to 100, its mana curve,
-   its bracket, and the newest cards on a stack.
-7. **Finish**: name it and save it. Basic lands fill the rest of the mana base.
+   on the category furthest from its target. Each tab holds everything EDHREC lists that fills it,
+   laid out like EDHREC: **Best for** your playstyle, then **New Cards**, **Top Cards**, **High Lift**,
+   **Creatures**, **Instants**, **Sorceries**, artifacts, **Enchantments** and **Planeswalkers**, with
+   how many decks play each card and its synergy, your own cards first in each list if you like, all
+   re-ranked with every card you add. The Plan tab also holds combos a card away that fit the bracket,
+   and any card can be searched for below the tabs. The Lands tab shows the basics that come with the
+   deck, then what to add on top: **dual lands** for the commander's colors, more fixing, utility lands
+   and lands that enter tapped, each taking a basic's place. A **Playstyle** dropdown above the tabs
+   switches at any point, with the same hover, and the lists re-rank. Click a cost on the **mana
+   curve** to see the tab's most synergistic cards at that cost. The deck comes together on the other
+   side: its commander, a count to 100, its mana curve, its bracket, and the newest cards on a stack.
+7. **Mana curve**: the deck's curve against the average deck's on EDHREC for your playstyles, scaled
+   to your spells. Each cost that's over its line lists its cards, the weakest first, with why and a
+   **Remove** button; costs that are under take you back to Build for cards at that cost.
+8. **Finish**: name it and save it. Basic lands fill the rest of the mana base.
 
 A deck in progress is saved as you go, so you can leave and continue later. Saved decks go to
 **My Decks**, each shown by its commander with its name and how many cards you'd need to buy.

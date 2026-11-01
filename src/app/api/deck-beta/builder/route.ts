@@ -6,8 +6,8 @@ import { reportSourceError } from "@/lib/sources/http";
 import { getCardDetails } from "@/lib/sources/scryfall";
 import { edhrecSlug } from "@/lib/slugs";
 
-/** Cards that get full details: four Scryfall requests' worth. */
-const DETAILED = 300;
+/** Cards that get full details: all EDHREC lists, as the Build step offers them all (six Scryfall requests). */
+const DETAILED = 450;
 
 // GET /api/deck-beta/builder?commander=Lathril%2C%20Blade%20of%20the%20Elves&layout=normal
 // Create Commander Deck: everything EDHREC has for a commander — every card its
@@ -56,6 +56,7 @@ export async function GET(request: NextRequest) {
       averages: stats.averages,
       bracketCounts: stats.bracketCounts,
       curveAverage: stats.curveAverage,
+      curveCounts: stats.curveCounts,
       articles,
       cards,
       details,
