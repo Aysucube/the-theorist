@@ -141,7 +141,7 @@ export function CreateDeck() {
     }
     for (const card of Object.values(analysisResult?.missing ?? {})) push(card);
     return out;
-    // \`known\` changes as details arrive, which is when this needs redoing.
+    // "known" changes as details arrive, which is when this needs redoing.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [styled, data, fixingLands, binder.cards, analysisResult, known, identityKey]);
 
