@@ -1,6 +1,21 @@
 import { describe, expect, it } from "vitest";
 import type { CardDetails, Combo } from "@/lib/types";
-import { builderRecommendations, fitsIdentity, mergePlaystyles, predictedAverage, recommendLands, scaledCurve, splitBasics, styleLean, withPlaystyle, type BuilderCandidate } from "./plan";
+import {
+  allOffered,
+  builderRecommendations,
+  byCardType,
+  cardTypeOf,
+  fitsIdentity,
+  mergePlaystyles,
+  predictedAverage,
+  recommendLands,
+  scaledCurve,
+  searchCards,
+  splitBasics,
+  styleLean,
+  withPlaystyle,
+  type BuilderCandidate,
+} from "./plan";
 
 const card = (name: string, typeLine: string, oracleText: string, extra: Partial<CardDetails> = {}): CardDetails => ({
   name,
@@ -45,6 +60,50 @@ describe("splitBasics", () => {
   it("adds up in three or more colors too", () => {
     const split = splitBasics(23, ["W", "U", "B", "R", "G"], ["{W}", "{U}{U}", "{B}", "{R}{R}{R}"]);
     expect(Object.values(split).reduce((a, b) => a + b, 0)).toBe(23);
+  });
+});
+
+describe("sectioning cards by type", () => {
+  const of = (name: string, typeLine: string) => ({ card: card(name, typeLine, "") });
+
+  it("keeps an artifact creature with creatures, and a land with lands", () => {
+    expect(cardTypeOf(of("Solemn Simulacrum", "Artifact Creature — Golem").card)).toBe("Creatures");
+    expect(cardTypeOf(of("Dryad Arbor", "Land Creature — Forest Dryad").card)).toBe("Lands");
+    expect(cardTypeOf(of("Sol Ring", "Artifact").card)).toBe("Artifacts");
+    expect(cardTypeOf(of("Harmonize", "Sorcery").card)).toBe("Sorceries");
+  });
+
+  it("goes by a double-faced card's front, so a spell with a land on its back is a spell", () => {
+    expect(cardTypeOf(of("Bala Ged Recovery // Bala Ged Sanctuary", "Sorcery // Land").card)).toBe("Sorceries");
+  });
+
+  it("sections cards in the usual order, keeping their order inside each", () => {
+    const parts = byCardType([of("Sign in Blood", "Sorcery"), of("Elf A", "Creature — Elf"), of("Night's Whisper", "Sorcery"), of("Elf B", "Creature — Elf")]);
+    expect(parts.map((p) => [p.type, p.picks.map((c) => c.card.name)])).toEqual([
+      ["Creatures", ["Elf A", "Elf B"]],
+      ["Sorceries", ["Sign in Blood", "Night's Whisper"]],
+    ]);
+  });
+});
+
+describe("searchCards", () => {
+  const picks = [
+    { card: card("Wood Elves", "Creature — Elf Scout", "When this creature enters, search your library for a Forest card.") },
+    { card: card("Cultivate", "Sorcery", "Search your library for up to two basic land cards.") },
+    { card: card("Elvish Mystic", "Creature — Elf Druid", "{T}: Add {G}.") },
+  ];
+  const found = (query: string) => searchCards(picks, query).map((p) => p.card.name);
+
+  it("finds names first, then type lines and rules text, ignoring case", () => {
+    expect(found("ELVES")).toEqual(["Wood Elves"]);
+    expect(found("elv")).toEqual(["Wood Elves", "Elvish Mystic"]);
+    expect(found("sorcery")).toEqual(["Cultivate"]);
+    expect(found("search your library")).toEqual(["Wood Elves", "Cultivate"]);
+  });
+
+  it("finds nothing for an empty search", () => {
+    expect(found("  ")).toEqual([]);
+    expect(found("zzz")).toEqual([]);
   });
 });
 
@@ -183,6 +242,13 @@ describe("builderRecommendations", () => {
     expect(names).not.toContain("Swords to Plowshares");
     expect(names).not.toContain("Rhystic Study");
     expect(fitsIdentity({ colorIdentity: [] }, ["G"])).toBe(true);
+  });
+
+  it("gathers everything on offer across the tabs, each card once", () => {
+    const offered = names(allOffered(run(3)));
+    expect(offered).toContain("Dryad Arbor Scout");
+    expect(offered).toContain("Gaea's Cradle");
+    expect(offered.filter((name) => name === "Dryad Arbor Scout")).toHaveLength(1);
   });
 
   it("has a shelf for every category of the template, with how short it is", () => {

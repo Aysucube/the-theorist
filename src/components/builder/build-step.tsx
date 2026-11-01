@@ -2,10 +2,10 @@
 
 import { Tabs } from "@base-ui/react/tabs";
 import { AnimatePresence } from "motion/react";
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CATEGORY_COLORS } from "@/components/deck-beta/template-bits";
 import { MAX_PLAYSTYLES, type DraftPlaystyle } from "@/lib/builder/draft";
-import type { BuilderGroups, BuilderPick, LandShelf, TemplateShelf } from "@/lib/builder/plan";
+import { allOffered, byCardType, fitsIdentity, searchCards, type BuilderGroups, type BuilderPick, type LandShelf, type TemplateShelf } from "@/lib/builder/plan";
 import { useCardDetails } from "@/lib/binder/card-cache";
 import { CURVE_LABELS, slotOf } from "@/lib/deck-beta/curve";
 import { CATEGORIES, CATEGORY_INFO, type Category, type DeckProfile } from "@/lib/deck-beta/roles";
@@ -19,6 +19,8 @@ import { usePlaystyleHover, type PlaystyleContext } from "./playstyle-hover";
 
 type Tab = Category | "lands";
 const LANDS_COLOR = "#8d9bb8";
+/** Letters a search needs before it looks anything up. */
+const SEARCH_FROM = 2;
 /** Cards shown for a cost picked on the mana curve. */
 const COST_CARDS = 24;
 
@@ -32,8 +34,9 @@ type PickProps = { ownedFor: (name: string) => number; onAdd: (card: CardDetails
  * also holds combo pieces; the lands tab shows the basics that come with the
  * deck and the dual lands and others to add on top. It opens on the category
  * furthest from its target. Adding a card sends it into the deck and the lists
- * re-rank. A dropdown switches playstyles at any point, and clicking a cost on
- * the mana curve narrows the tab to its most synergistic cards at that cost.
+ * re-rank. A dropdown switches playstyles at any point, a search above the tabs
+ * finds any card, and clicking a cost on the mana curve narrows the tab to its
+ * most synergistic cards at that cost.
  */
 export function BuildStep({
   groups,
@@ -107,6 +110,9 @@ export function BuildStep({
   const shelf = groups.template.find((g) => g.category === tab);
   const pickProps = { ownedFor, onAdd };
   const panel = useRef<HTMLDivElement>(null);
+  const [query, setQuery] = useState("");
+  const searching = query.trim().length >= SEARCH_FROM;
+  const offered = useMemo(() => allOffered(groups), [groups]);
 
   // The chart stays beside the lists (or far above them on a phone): bring the cards into view.
   useEffect(() => {
@@ -119,7 +125,8 @@ export function BuildStep({
     <div className="flex min-w-0 flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
         {themes.length > 0 && <PlaystyleMenu themes={themes} chosen={chosen} onToggle={onToggleTheme} onClear={onClearThemes} context={playstyleContext} />}
-        <div className="text-right">
+        <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search cards" aria-label="Search cards" className="field h-9 min-w-40 flex-1" />
+        <div className="ml-auto text-right">
           <p className="text-muted">
             <span className="font-medium text-foreground tabular-nums">{spells}</span> of {spellTarget} spells
             {spells >= spellTarget && " · the deck is full"}
@@ -148,7 +155,10 @@ export function BuildStep({
 
       <TemplateTabs
         value={tab}
-        onValueChange={setTab}
+        onValueChange={(next) => {
+          setTab(next);
+          setQuery("");
+        }}
         items={[
           ...CATEGORIES.map((c) => ({
             value: c,
@@ -162,45 +172,43 @@ export function BuildStep({
         ]}
       />
 
-      {/* Keyed by what it shows, so each list pops in when it's picked. */}
-      <div key={`${tab}:${curvePick}`} ref={panel} className="reveal-fast flex scroll-mt-20 flex-col gap-8">
-        {shelf && curvePick !== undefined && <CostShelf shelf={shelf} slot={curvePick} themeName={themeName} onClear={onClearCurvePick} {...pickProps} />}
-        {shelf && curvePick === undefined && (
-          <Shelf shelf={shelf} preferOwned={preferOwned} themeName={themeName} note={tab === "ramp" || tab === "advantage" ? curveAdvice : undefined} {...pickProps}>
-            {tab === "plan" && (
-              <Group
-                title="Complete a combo"
-                note="Each of these completes a combo with cards already in the deck, within your bracket."
-                picks={groups.combos.map((g) => g.pick)}
-                {...pickProps}
-              />
-            )}
-          </Shelf>
-        )}
-        {tab === "lands" && (
-          <>
-            <div>
-              <h3 className="flex items-center gap-2 font-semibold">
-                <span aria-hidden className="size-2 rounded-full" style={{ background: LANDS_COLOR }} />
-                Lands
-                <span className="text-sm font-normal text-muted">{profile.lands < landTarget ? `${landTarget - profile.lands} to go` : "filled"}</span>
-              </h3>
-              <p className="text-sm text-muted">{landAdvice}</p>
-            </div>
-            {curvePick !== undefined && (
-              <p className="text-sm text-muted">
-                Lands don’t cost mana, so this tab stays as it is. Pick another tab to see its cards at {CURVE_LABELS[curvePick]} mana.
-              </p>
-            )}
-            <BasicsInDeck split={basicSplit} lands={lands} />
-            <LandGroups lands={groups.lands} preferOwned={preferOwned} {...pickProps} />
-          </>
-        )}
-      </div>
-
-      <div className="border-t border-line pt-6">
-        <AnySearch ownedFor={ownedFor} onAdd={onAdd} has={has} />
-      </div>
+      {searching ? (
+        <CardSearch query={query} offered={offered} identity={playstyleContext.colors} has={has} {...pickProps} />
+      ) : (
+        // Keyed by what it shows, so each list pops in when it's picked.
+        <div key={`${tab}:${curvePick}`} ref={panel} className="reveal-fast flex scroll-mt-20 flex-col gap-4">
+          {shelf && curvePick !== undefined && <CostShelf shelf={shelf} slot={curvePick} themeName={themeName} onClear={onClearCurvePick} {...pickProps} />}
+          {shelf && curvePick === undefined && (
+            <Shelf
+              shelf={shelf}
+              preferOwned={preferOwned}
+              themeName={themeName}
+              note={tab === "ramp" || tab === "advantage" ? curveAdvice : undefined}
+              combos={tab === "plan" ? groups.combos.map((g) => g.pick) : []}
+              {...pickProps}
+            />
+          )}
+          {tab === "lands" && (
+            <>
+              <div>
+                <h3 className="flex items-center gap-2 font-semibold">
+                  <span aria-hidden className="size-2 rounded-full" style={{ background: LANDS_COLOR }} />
+                  Lands
+                  <span className="text-sm font-normal text-muted">{profile.lands < landTarget ? `${landTarget - profile.lands} to go` : "filled"}</span>
+                </h3>
+                <p className="text-sm text-muted">{landAdvice}</p>
+              </div>
+              {curvePick !== undefined && (
+                <p className="text-sm text-muted">
+                  Lands don’t cost mana, so this tab stays as it is. Pick another tab to see its cards at {CURVE_LABELS[curvePick]} mana.
+                </p>
+              )}
+              <BasicsInDeck split={basicSplit} lands={lands} />
+              <LandGroups lands={groups.lands} preferOwned={preferOwned} jumps {...pickProps} />
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -383,21 +391,24 @@ function CostShelf({ shelf, slot, themeName, onClear, ...pickProps }: PickProps 
   );
 }
 
-/** One category's cards, laid out like EDHREC's page for the commander. `children` sit after its lists. */
+/** One category's cards, laid out like EDHREC's page for the commander, each list its own section. */
 function Shelf({
   shelf,
   preferOwned,
   themeName,
   note,
-  children,
+  combos,
   ...pickProps
-}: PickProps & { shelf: TemplateShelf; preferOwned: boolean; themeName?: string; note?: string; children?: ReactNode }) {
+}: PickProps & { shelf: TemplateShelf; preferOwned: boolean; themeName?: string; note?: string; combos: BuilderPick[] }) {
   const info = CATEGORY_INFO[shelf.category];
   const empty = shelf.leaning.length + shelf.lists.length + shelf.outside.length === 0;
   const owned = preferOwned ? ", the ones you own first" : "";
+  const best = `Best for ${themeName}`;
+  const comboTitle = "Complete a combo";
+  const outsideTitle = "Outside the playstyle";
   return (
     <>
-      <div>
+      <div className="mb-2">
         <h3 className="flex items-center gap-2 font-semibold">
           <span aria-hidden className="size-2 rounded-full" style={{ background: CATEGORY_COLORS[shelf.category] }} />
           {info.label}
@@ -407,14 +418,40 @@ function Shelf({
           {info.about} {note}
         </p>
       </div>
-      <Group title={`Best for ${themeName}`} note={`What sets ${themeName} decks apart: the cards they play far more than other decks${owned}.`} picks={shelf.leaning} {...pickProps} />
+      <SectionJumps
+        sections={[
+          { title: best, count: shelf.leaning.length },
+          ...shelf.lists.map((l) => ({ title: l.title, count: l.picks.length })),
+          { title: comboTitle, count: combos.length },
+          { title: outsideTitle, count: shelf.outside.length },
+        ]}
+      />
+      <Group title={best} note={`What sets ${themeName} decks apart: the cards they play far more than other decks${owned}.`} picks={shelf.leaning} byType {...pickProps} />
       {shelf.lists.map((list) => (
         <Group key={list.title} title={list.title} note={LIST_NOTES[list.title] ?? `Highest synergy first${owned}.`} picks={list.picks} {...pickProps} />
       ))}
-      {children}
-      <Group title="Outside the playstyle" note={`These do the job, but ${themeName} decks on EDHREC don’t usually play them.`} picks={shelf.outside} {...pickProps} />
+      <Group title={comboTitle} note="Each of these completes a combo with cards already in the deck, within your bracket." picks={combos} {...pickProps} />
+      <Group title={outsideTitle} note={`These do the job, but ${themeName} decks on EDHREC don’t usually play them.`} picks={shelf.outside} byType {...pickProps} />
       {empty && <p className="text-sm text-muted">No cards to suggest here yet. Add more of the commander’s key cards and check back.</p>}
     </>
+  );
+}
+
+const sectionId = (title: string) => `section-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+
+/** Shortcuts to a tab's sections, staying in view as they scroll past. */
+function SectionJumps({ sections }: { sections: { title: string; count: number }[] }) {
+  const shown = sections.filter((s) => s.count > 0);
+  if (shown.length < 2) return null;
+  return (
+    <nav aria-label="Sections" className="no-scrollbar sticky top-14 z-20 -mx-1 flex gap-1.5 overflow-x-auto bg-background/85 px-1 py-2 backdrop-blur">
+      {shown.map((s) => (
+        <button key={s.title} type="button" onClick={() => document.getElementById(sectionId(s.title))?.scrollIntoView({ block: "start" })} className="pill shrink-0">
+          {s.title}
+          <span className="text-[11px] tabular-nums opacity-60">{formatCount(s.count)}</span>
+        </button>
+      ))}
+    </nav>
   );
 }
 
@@ -442,12 +479,22 @@ function BasicsInDeck({ split, lands }: { split: Record<string, number>; lands: 
 }
 
 /** The lands to add on top of the basics, dual lands first. */
-function LandGroups({ lands, preferOwned, ...pickProps }: PickProps & { lands: LandShelf; preferOwned: boolean }) {
+function LandGroups({ lands, preferOwned, jumps = false, ...pickProps }: PickProps & { lands: LandShelf; preferOwned: boolean; jumps?: boolean }) {
   if (lands.duals.length + lands.fixing.length + lands.utility.length + lands.slow.length === 0) {
     return <p className="text-sm text-muted">No lands to suggest for these colors yet.</p>;
   }
   return (
     <>
+      {jumps && (
+        <SectionJumps
+          sections={[
+            { title: "Dual lands", count: lands.duals.length },
+            { title: "More fixing", count: lands.fixing.length },
+            { title: "Utility lands", count: lands.utility.length },
+            { title: "Enter tapped", count: lands.slow.length },
+          ]}
+        />
+      )}
       <Group
         title="Dual lands"
         note={`Make two or more of your colors and enter untapped, or usually do. The ones EDHREC’s decks play most come first${preferOwned ? ", after the ones you own" : ""}.`}
@@ -464,7 +511,7 @@ function LandGroups({ lands, preferOwned, ...pickProps }: PickProps & { lands: L
 /** The Lands step's recommendations, for picking them as the mana base is set. */
 export function RecommendedLands({ lands, preferOwned, ...pickProps }: PickProps & { lands: LandShelf; preferOwned: boolean }) {
   return (
-    <div className="mt-10 flex flex-col gap-8 border-t border-line pt-8">
+    <div className="mt-10 flex flex-col gap-4 border-t border-line pt-8">
       <div>
         <h3 className="font-semibold">Recommended lands</h3>
         <p className="text-sm text-muted">On top of the basics that come with the deck. Each one you add takes a basic’s place.</p>
@@ -474,70 +521,110 @@ export function RecommendedLands({ lands, preferOwned, ...pickProps }: PickProps
   );
 }
 
+/** What a card section needs of each card. */
+type SectionCard = { card: CardDetails; categories?: Category[]; reason?: string };
+
+/** A section of cards with its title and count, which folds away. With `byType`, a mix of card types is split up inside it. */
 function Group({
   title,
   note,
   picks,
+  byType = false,
   ownedFor,
   onAdd,
 }: PickProps & {
   title: string;
-  note: string;
-  picks: BuilderPick[];
+  note?: string;
+  picks: SectionCard[];
+  byType?: boolean;
 }) {
+  const [open, setOpen] = useState(true);
   if (picks.length === 0) return null;
+  const types = byType ? byCardType(picks) : [];
+  const grid = (cards: SectionCard[]) => (
+    <ul className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 xl:grid-cols-4">
+      <AnimatePresence mode="popLayout" initial={false}>
+        {cards.map((p, i) => (
+          <BuildCard key={p.card.name} card={p.card} ownedCopies={ownedFor(p.card.name)} categories={p.categories} reason={p.reason} index={i} onAdd={onAdd} />
+        ))}
+      </AnimatePresence>
+    </ul>
+  );
   return (
-    <section>
-      <h4 className="text-sm font-semibold">{title}</h4>
-      <p className="mb-4 text-sm text-muted">{note}</p>
-      <ul className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 xl:grid-cols-4">
-        <AnimatePresence mode="popLayout" initial={false}>
-          {picks.map((p, i) => (
-            <BuildCard key={p.card.name} card={p.card} ownedCopies={ownedFor(p.card.name)} categories={p.categories} reason={p.reason} index={i} onAdd={onAdd} />
-          ))}
-        </AnimatePresence>
-      </ul>
+    <section id={sectionId(title)} className="scroll-mt-28 rounded-2xl border border-line bg-surface/40 p-4">
+      <h4>
+        <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="flex w-full items-center gap-2 text-left text-sm font-semibold">
+          <span className="min-w-0">{title}</span>
+          <span className="font-normal text-muted tabular-nums">{formatCount(picks.length)}</span>
+          <ArrowDownIcon className={`ml-auto size-4 shrink-0 text-muted transition-transform duration-150 ${open ? "rotate-180" : ""}`} />
+        </button>
+      </h4>
+      {open && (
+        <div className="reveal-fast mt-1 flex flex-col gap-4">
+          {note && <p className="text-sm text-muted">{note}</p>}
+          {types.length > 1
+            ? types.map((part) => (
+                <div key={part.type} className="flex flex-col gap-3 border-t border-line pt-4 first:border-0 first:pt-0">
+                  <h5 className="eyebrow">
+                    {part.type} <span className="tabular-nums">{part.picks.length}</span>
+                  </h5>
+                  {grid(part.picks)}
+                </div>
+              ))
+            : grid(picks)}
+        </div>
+      )}
     </section>
   );
 }
 
-/** Any card by name. */
-function AnySearch({ ownedFor, onAdd, has }: { ownedFor: (name: string) => number; onAdd: (card: CardDetails) => void; has: (name: string) => boolean }) {
-  const id = useId();
-  const [query, setQuery] = useState("");
+/** What a search finds, by card type: the suggestions it matches, by name or rules text, then any other card in the commander's colors. */
+function CardSearch({
+  query,
+  offered,
+  identity,
+  has,
+  ownedFor,
+  onAdd,
+}: PickProps & {
+  query: string;
+  offered: BuilderPick[];
+  identity: string[];
+  /** In the deck already. */
+  has: (name: string) => boolean;
+}) {
   const [names, setNames] = useState<string[]>([]);
   const { detailsFor } = useCardDetails(names);
+  const pickProps = { ownedFor, onAdd };
 
   useEffect(() => {
     const q = query.trim();
-    if (q.length < 2) return;
     const timer = window.setTimeout(() => {
       void fetchJsonWithRetry<{ names?: string[] }>(`/api/autocomplete?q=${encodeURIComponent(q)}`, { busyReason: "Scryfall is busy" }).then((r) => {
-        if (r !== "error") setNames((r.names ?? []).slice(0, 8));
+        if (r !== "error") setNames((r.names ?? []).slice(0, 12));
       });
     }, 200);
     return () => window.clearTimeout(timer);
   }, [query]);
 
-  const found = query.trim().length >= 2 ? names.map(detailsFor).filter((d): d is CardDetails => Boolean(d) && !has(d!.name)) : [];
+  const matches = searchCards(offered, query);
+  const listed = new Set(offered.map((p) => p.card.name));
+  const looked = names.map(detailsFor).filter((d): d is CardDetails => Boolean(d));
+  const others = looked.filter((d) => !has(d.name) && !listed.has(d.name) && fitsIdentity(d, identity)).map((card) => ({ card }));
+  const inDeck = looked.filter((d) => has(d.name)).map((d) => d.name);
+  const offColor = looked.filter((d) => !fitsIdentity(d, identity)).map((d) => d.name);
+
   return (
-    <section className="flex flex-col gap-4">
-      <div>
-        <label htmlFor={id} className="font-semibold">
-          Any card
-        </label>
-        <p className="text-sm text-muted">Search for a card the recommendations haven’t shown.</p>
+    <div className="reveal-fast flex flex-col gap-4">
+      <div className="text-sm text-muted" role="status">
+        <p>{matches.length + others.length === 0 ? `Nothing to add for “${query.trim()}”.` : `${formatCount(matches.length)} of your suggestions match “${query.trim()}”, by name or rules text.`}</p>
+        {inDeck.length > 0 && <p>Already in your deck: {inDeck.slice(0, 3).join(", ")}.</p>}
+        {offColor.length > 0 && <p>Outside your commander’s colors: {offColor.slice(0, 3).join(", ")}.</p>}
       </div>
-      <input id={id} type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Card name" className="field h-10 max-w-sm" />
-      {found.length > 0 && (
-        <ul className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 xl:grid-cols-4">
-          <AnimatePresence mode="popLayout" initial={false}>
-            {found.map((card, i) => (
-              <BuildCard key={card.name} card={card} ownedCopies={ownedFor(card.name)} index={i} onAdd={onAdd} />
-            ))}
-          </AnimatePresence>
-        </ul>
-      )}
-    </section>
+      {byCardType(matches).map((part) => (
+        <Group key={part.type} title={part.type} picks={part.picks} {...pickProps} />
+      ))}
+      <Group title="Any other card" note="Not among your suggestions, but in your commander’s colors." picks={others} {...pickProps} />
+    </div>
   );
 }

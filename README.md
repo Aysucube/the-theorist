@@ -73,8 +73,10 @@ Zone's template and videos on mana curves and mana bases):
    laid out like EDHREC: **Best for** your playstyle, then **New Cards**, **Top Cards**, **High Lift**,
    **Creatures**, **Instants**, **Sorceries**, artifacts, **Enchantments** and **Planeswalkers**, with
    how many decks play each card and its synergy, your own cards first in each list if you like, all
-   re-ranked with every card you add. The Plan tab also holds combos a card away that fit the bracket,
-   and any card can be searched for below the tabs. The Lands tab shows the basics that come with the
+   re-ranked with every card you add. Each list is its own section that folds away, with shortcuts to
+   jump between them, and long mixed lists are split by card type. The Plan tab also holds combos a
+   card away that fit the bracket. A **search** above the tabs finds your suggestions by name or rules
+   text, then any other card in the commander's colors. The Lands tab shows the basics that come with the
    deck, then what to add on top: **dual lands** for the commander's colors, more fixing, utility lands
    and lands that enter tapped, each taking a basic's place. A **Playstyle** dropdown above the tabs
    switches at any point, with the same hover, and the lists re-rank. Click a cost on the **mana

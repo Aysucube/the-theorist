@@ -7,8 +7,7 @@ import { BRACKET_STYLE } from "@/components/deck-beta/bracket-badge";
 import { CATEGORY_COLORS, CurveChart } from "@/components/deck-beta/template-bits";
 import { bracketLabel, type BracketReport } from "@/lib/deck-beta/bracket";
 import { CATEGORIES, CATEGORY_INFO, type DeckProfile } from "@/lib/deck-beta/roles";
-import { parseTypeLine } from "@/lib/deck-beta/synergy";
-import { DECK_SIZE } from "@/lib/builder/plan";
+import { byCardType, DECK_SIZE } from "@/lib/builder/plan";
 import type { DraftCommander } from "@/lib/builder/draft";
 import type { CardDetails } from "@/lib/types";
 import { ColorIdentity } from "../mana";
@@ -16,13 +15,6 @@ import { RetryingImage } from "../retrying-image";
 
 /** Cards shown fanned out in the stack; older ones fold into the count. */
 const STACK = 7;
-
-const GROUPS = ["Creatures", "Planeswalkers", "Instants", "Sorceries", "Artifacts", "Enchantments", "Battles", "Lands"];
-function groupOf(card: CardDetails) {
-  const { types } = parseTypeLine(card.typeLine);
-  if (types.has("Land")) return "Lands";
-  return GROUPS.find((g) => types.has(g.replace(/ies$/, "y").replace(/s$/, ""))) ?? "Other";
-}
 
 /**
  * The deck as it comes together: the commander, how full it is, its mana
@@ -172,37 +164,33 @@ export function DeckRail({
 }
 
 function DeckList({ cards, onRemove }: { cards: CardDetails[]; onRemove: (name: string) => void }) {
-  const groups = new Map<string, CardDetails[]>();
-  for (const card of cards) groups.set(groupOf(card), [...(groups.get(groupOf(card)) ?? []), card]);
   return (
     <div className="reveal-fast mt-2 flex max-h-96 flex-col gap-3 overflow-y-auto pr-1">
-      {[...GROUPS, "Other"]
-        .filter((g) => groups.has(g))
-        .map((g) => (
-          <div key={g}>
-            <p className="eyebrow mb-1">
-              {g} <span className="tabular-nums">{groups.get(g)!.length}</span>
-            </p>
-            <ul>
-              {groups
-                .get(g)!
-                .sort((a, b) => a.cmc - b.cmc || a.name.localeCompare(b.name))
-                .map((card) => (
-                  <li key={card.name} className="group flex items-center justify-between gap-2 py-0.5 text-xs">
-                    <span className="truncate">{card.name}</span>
-                    <button
-                      type="button"
-                      onClick={() => onRemove(card.name)}
-                      aria-label={`Remove ${card.name}`}
-                      className="shrink-0 rounded px-1 text-muted opacity-60 hover:text-foreground hover:opacity-100"
-                    >
-                      ×
-                    </button>
-                  </li>
-                ))}
-            </ul>
-          </div>
-        ))}
+      {byCardType(cards.map((card) => ({ card }))).map((group) => (
+        <div key={group.type}>
+          <p className="eyebrow mb-1">
+            {group.type} <span className="tabular-nums">{group.picks.length}</span>
+          </p>
+          <ul>
+            {group.picks
+              .map((p) => p.card)
+              .sort((a, b) => a.cmc - b.cmc || a.name.localeCompare(b.name))
+              .map((card) => (
+                <li key={card.name} className="group flex items-center justify-between gap-2 py-0.5 text-xs">
+                  <span className="truncate">{card.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => onRemove(card.name)}
+                    aria-label={`Remove ${card.name}`}
+                    className="shrink-0 rounded px-1 text-muted opacity-60 hover:text-foreground hover:opacity-100"
+                  >
+                    ×
+                  </button>
+                </li>
+              ))}
+          </ul>
+        </div>
+      ))}
     </div>
   );
 }

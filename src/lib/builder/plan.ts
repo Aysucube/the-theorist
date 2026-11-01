@@ -16,6 +16,7 @@ import { landTarget, slotOf } from "@/lib/deck-beta/curve";
 import { planUpgrades, scoreCandidate, type Candidate, type Pick, type UpgradePlan } from "@/lib/deck-beta/doctor";
 import { fetchedColors, fixesColors, LAND_KIND_LABEL, landFit, landKind, manaBasePlan, type ManaBasePlan } from "@/lib/deck-beta/lands";
 import { cardKey } from "@/lib/deck-beta/recommend";
+import { parseTypeLine } from "@/lib/deck-beta/synergy";
 import { CATEGORIES, CATEGORY_INFO, categoryGaps, deckProfile, type Category, type DeckProfile } from "@/lib/deck-beta/roles";
 import { byImpact } from "@/lib/deck-beta/walkthrough";
 import type { CardDetails, Combo, DeckCombos } from "@/lib/types";
@@ -124,6 +125,33 @@ export interface BuilderPick extends Pick {
   reason?: string;
 }
 
+/** The kinds of card, in the order a deck list shows them. */
+export const CARD_TYPES = ["Creatures", "Planeswalkers", "Instants", "Sorceries", "Artifacts", "Enchantments", "Battles", "Lands"];
+
+/** Which of CARD_TYPES a card is, by its front face; an artifact creature is a creature, and a land comes first. */
+export function cardTypeOf(card: Pick["card"]): string {
+  const { types } = parseTypeLine(card.typeLine.split(" // ")[0]);
+  if (types.has("Land")) return "Lands";
+  return CARD_TYPES.find((t) => types.has(t.replace(/ies$/, "y").replace(/s$/, ""))) ?? "Other";
+}
+
+/** Cards sectioned by type, in CARD_TYPES' order, keeping their order within each. */
+export function byCardType<T extends { card: Pick["card"] }>(picks: T[]): { type: string; picks: T[] }[] {
+  return [...CARD_TYPES, "Other"].flatMap((type) => {
+    const ofType = picks.filter((p) => cardTypeOf(p.card) === type);
+    return ofType.length > 0 ? [{ type, picks: ofType }] : [];
+  });
+}
+
+/** The cards a search finds: those it names first, then those whose type line or rules text has it. */
+export function searchCards<T extends { card: Pick["card"] }>(picks: T[], query: string): T[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  const named = picks.filter((p) => p.card.name.toLowerCase().includes(q));
+  const described = picks.filter((p) => !named.includes(p) && `${p.card.typeLine}\n${p.card.oracleText}`.toLowerCase().includes(q));
+  return [...named, ...described];
+}
+
 /** EDHREC's lists on a commander's page, in its order. */
 const EDHREC_LISTS = ["New Cards", "Top Cards", "High Lift Cards", "High Synergy Cards", "Game Changers", "Creatures", "Instants", "Sorceries", "Utility Artifacts", "Mana Artifacts", "Enchantments", "Planeswalkers", "Battles"];
 
@@ -189,6 +217,13 @@ export interface BuilderGroups {
   combos: { pick: BuilderPick; combo: Combo }[];
   lands: LandShelf;
   leftOut: UpgradePlan["leftOut"];
+}
+
+/** Everything on offer across the tabs, each card once. */
+export function allOffered(groups: BuilderGroups): BuilderPick[] {
+  const { duals, fixing, utility, slow } = groups.lands;
+  const every = [...groups.template.flatMap((s) => [...s.leaning, ...s.lists.flatMap((l) => l.picks), ...s.outside]), ...groups.combos.map((g) => g.pick), ...duals, ...fixing, ...utility, ...slow];
+  return [...new Map(every.map((p) => [cardKey(p.card.name), p])).values()];
 }
 
 export interface BuilderInput {
