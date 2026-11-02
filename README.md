@@ -8,7 +8,8 @@ A Magic: The Gathering Commander tool for Filipino players. Search a card and se
   aren't on TCGph: **Co Collectibles**, **Collectibat** and **Dragon's Hoard**
 
 Each card page also shows its **official rulings** and lists **every printing** with the cheapest PH copy of each,
-and hovering any card link shows a quick preview (artwork, cheapest price, shop). Cards on the Commander
+and hovering any card link shows a quick preview (artwork, cheapest price, shop): its image and rules
+text straight away, usually from what's already on the page, with prices filling in after. Cards on the Commander
 **Game Changers** list carry a small red "Game Changer" label everywhere in the app.
 
 On the front page, **browse by deck theme** (Tokens, Aristocrats, Landfall and 400 more):

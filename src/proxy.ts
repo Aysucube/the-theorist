@@ -12,6 +12,8 @@ const LIMITS = {
   autocomplete: createRateLimiter({ limit: 120, windowMs: 60_000 }),
   // Hover cards on card links: a person pausing over links, not a sweep.
   preview: createRateLimiter({ limit: 120, windowMs: 60_000 }),
+  // A hover card's image and text, asked for as the pointer lands on a card.
+  previewCard: createRateLimiter({ limit: 300, windowMs: 60_000 }),
   // Card types and costs for a whole deck, one request per deck change.
   info: createRateLimiter({ limit: 30, windowMs: 60_000 }),
   // Opening card pages, which look up all three sources.
@@ -32,6 +34,7 @@ function bucket({ pathname, searchParams }: URL): keyof typeof LIMITS | null {
   if (pathname === "/api/price") return "price";
   if (pathname === "/api/autocomplete") return "autocomplete";
   if (pathname === "/api/preview") return "preview";
+  if (pathname === "/api/preview/card") return "previewCard";
   if (pathname === "/api/cards/info") return "info";
   if (pathname === "/card") return "card";
   if (pathname.startsWith("/api/deck-beta/")) return "deckBeta";
@@ -60,5 +63,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/", "/api/price", "/api/autocomplete", "/api/preview", "/api/cards/info", "/card", "/api/deck-beta/:path*", "/api/trends/:path*", "/api/game-changers", "/card-image/:path*"],
+  matcher: ["/", "/api/price", "/api/autocomplete", "/api/preview", "/api/preview/card", "/api/cards/info", "/card", "/api/deck-beta/:path*", "/api/trends/:path*", "/api/game-changers", "/card-image/:path*"],
 };

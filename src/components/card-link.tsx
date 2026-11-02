@@ -12,6 +12,7 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
+import { cardLook, cardLookNow, prepareCardLook, type CardLook } from "@/lib/card-look";
 import { cardHref, formatCount, formatPercent, formatPhp } from "@/lib/format";
 import { placeHoverCard } from "@/lib/hover-card";
 import { fetchJsonWithRetry, RETRY_WAITS_MS, sleep } from "@/lib/retry";
@@ -20,13 +21,16 @@ import { GameChangerTag } from "./game-changer-tag";
 import { ColorIdentity, ManaCost } from "./mana";
 import { ImageNote, RetryingImage } from "./retrying-image";
 
-/** How long the pointer must rest on a link before its preview loads. */
-const HOVER_DELAY_MS = 350;
+/** How long the pointer must rest on a link before its preview shows, so crossing a page doesn't flash them. */
+const HOVER_DELAY_MS = 250;
 // A roomy window: a 300px card image you can read, and details in normal-size text.
 const CARD_SIZE = { width: 720, height: 480 };
 
 /** What a hover card knows about a card's preview so far. */
 interface Snapshot {
+  /** Its image and rules text, which come back well before the rest. */
+  card?: CardLook;
+  /** Prices and how decks use it; a basic land's take 12 seconds. */
   preview?: CardPreview;
   /** Set while waiting before another try. */
   waiting?: { seconds: number; reason: string };
@@ -48,6 +52,7 @@ function update(tracker: Tracker, patch: Partial<Snapshot>) {
 }
 
 async function track(name: string, tracker: Tracker) {
+  void cardLook(name).then((card) => card && update(tracker, { card }));
   const url = `/api/preview?name=${encodeURIComponent(name)}`;
   const onWait = (ms: number, reason: string) =>
     update(tracker, { waiting: { seconds: Math.round(ms / 1000), reason } });
@@ -70,7 +75,7 @@ async function track(name: string, tracker: Tracker) {
 function watchPreview(name: string, listener: (snapshot: Snapshot) => void): () => void {
   let tracker = trackers.get(name);
   if (!tracker) {
-    tracker = { snapshot: { done: false }, listeners: new Set() };
+    tracker = { snapshot: { card: cardLookNow(name), done: false }, listeners: new Set() };
     trackers.set(name, tracker);
     void track(name, tracker);
   }
@@ -120,6 +125,8 @@ function useHoverCard() {
 
   function show(name: string, element: Element, anchor: HoverAnchor, look?: HoverLook) {
     clearTimeout(timer.current);
+    // The hover card waits a moment, but its image needn't.
+    if (!look?.piece) prepareCardLook(name, look?.imageUrl);
     const container = element.closest("dialog") ?? document.body;
     timer.current = setTimeout(() => {
       const place = placeHoverCard(anchor, { width: window.innerWidth, height: window.innerHeight }, CARD_SIZE);
@@ -247,9 +254,11 @@ function HoverCard({
 }) {
   const piece = position.look?.piece;
   const loaded = piece ? undefined : snapshot.preview;
+  // Whichever has the card's image and text first; once one is showing, the other doesn't swap it.
+  const card = piece ? undefined : (snapshot.card ?? loaded);
   const done = Boolean(piece) || snapshot.done;
   const waiting = piece ? undefined : snapshot.waiting;
-  const imageUrl = position.look?.imageUrl ?? loaded?.imageUrl;
+  const imageUrl = position.look?.imageUrl ?? card?.imageUrl;
   const cheapest = loaded?.cheapest;
   const ref = useRef<HTMLDivElement>(null);
   const [top, setTop] = useState(position.top);
@@ -282,10 +291,10 @@ function HoverCard({
       <div className="flex min-w-0 flex-col gap-2 text-sm leading-relaxed">
         <div className="flex items-start justify-between gap-2">
           <p className="text-lg leading-tight font-semibold">
-            {loaded?.name ?? name}
-            <GameChangerTag name={loaded?.name ?? name} className="ml-2" />
+            {card?.name ?? name}
+            <GameChangerTag name={card?.name ?? name} className="ml-2" />
           </p>
-          {loaded?.manaCost && <ManaCost cost={loaded.manaCost} />}
+          {card?.manaCost && <ManaCost cost={card.manaCost} />}
         </div>
 
         {waiting && (
@@ -293,8 +302,8 @@ function HoverCard({
             Waiting {waiting.seconds}s because {waiting.reason}, then trying again…
           </p>
         )}
-        {!loaded && !waiting && !done && <p className="text-muted">Loading card details…</p>}
-        {!loaded && !piece && done && <p className="text-muted">Couldn’t load this card after several tries.</p>}
+        {!card && !waiting && !done && <p className="text-muted">Loading card details…</p>}
+        {!card && !piece && done && <p className="text-muted">Couldn’t load this card after several tries.</p>}
 
         {piece && (
           <>
@@ -304,18 +313,20 @@ function HoverCard({
           </>
         )}
 
-        {loaded && (
+        {card && (
           <>
-            {loaded.typeLine && <p className="text-muted">{loaded.typeLine}</p>}
-            {loaded.colorIdentity && (
+            {card.typeLine && <p className="text-muted">{card.typeLine}</p>}
+            {card.colorIdentity && (
               <p className="text-foreground/75">
-                <ColorIdentity colors={loaded.colorIdentity} />
+                <ColorIdentity colors={card.colorIdentity} />
               </p>
             )}
-            {loaded.oracleText && <p className="line-clamp-12 whitespace-pre-line">{loaded.oracleText}</p>}
+            {card.oracleText && <p className="line-clamp-12 whitespace-pre-line">{card.oracleText}</p>}
 
             <div className="border-t border-line pt-2">
-              {cheapest ? (
+              {!loaded ? (
+                <p className="text-muted">{done ? "PH prices unavailable right now." : "Checking PH prices…"}</p>
+              ) : cheapest ? (
                 <>
                   <p>
                     <span className="font-semibold text-emerald-700 tabular-nums dark:text-emerald-400">
@@ -335,7 +346,7 @@ function HoverCard({
               )}
             </div>
 
-            {loaded.decks && (
+            {loaded?.decks && (
               <p>
                 <span className="font-medium">Decks:</span> in {formatPercent(loaded.decks.inclusion)} of decks that
                 can run it ({formatCount(loaded.decks.numDecks)} decks)
@@ -344,7 +355,7 @@ function HoverCard({
                 )}
               </p>
             )}
-            {loaded.similar && loaded.similar.length > 0 && (
+            {loaded?.similar && loaded.similar.length > 0 && (
               <p className="line-clamp-2">
                 <span className="font-medium">Similar:</span> {loaded.similar.join(", ")}
               </p>

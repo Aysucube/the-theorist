@@ -3,6 +3,7 @@
 // Deck beta's own saved deck and card details. They use their own storage
 // keys and loaders, so nothing here reads or changes the shopping list.
 import { useEffect, useSyncExternalStore } from "react";
+import { noteDetails } from "@/lib/binder/card-cache";
 import { importCards, MAX_DECK_CARDS, removeCard, type DeckCard } from "@/lib/deck";
 import { createLocalStore, useHydrated } from "@/lib/local-store";
 import { mergeDeckLists } from "@/lib/saved-shape";
@@ -120,6 +121,9 @@ export function useBetaDetails(deck: DeckCard[]) {
     .map((c) => c.name)
     .filter((n) => !(detailsKey(n) in details))
     .join("\n");
+
+  // So a hover card on this deck's cards can open with what's already here.
+  useEffect(() => noteDetails(Object.values(details)), [details]);
 
   useEffect(() => {
     if (!missingKey) return;

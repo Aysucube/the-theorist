@@ -126,6 +126,17 @@ export function rememberDetails(cards: CardDetails[]) {
   notify();
 }
 
+/** What this browser has of a card, without asking anyone. */
+export async function savedDetails(name: string): Promise<CardDetails | undefined> {
+  await restore();
+  return memory.get(key(name)) ?? undefined;
+}
+
+/** Makes details kept elsewhere findable here too, for this visit: they're saved where they came from. */
+export function noteDetails(cards: (CardDetails | null)[]) {
+  for (const card of cards) if (card) memory.set(key(card.name), card);
+}
+
 /**
  * Details for every name asked for, fetched for the ones not seen before and
  * saved in this browser. `detailsFor` is undefined while a card is loading and
