@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CardDetails, Combo } from "@/lib/types";
 import {
+  coreCards,
   allOffered,
   builderRecommendations,
   byCardType,
@@ -619,5 +620,82 @@ describe("builderRecommendations", () => {
       expect(lands.fixing).toEqual([]);
       expect(names(lands.utility)).toEqual(expect.arrayContaining(["Verdant Catacombs", "Rogue's Passage"]));
     });
+  });
+});
+
+describe("coreCards", () => {
+  const commander = card("Korvold, Fae-Cursed King", "Legendary Creature — Dragon Noble", "", { colorIdentity: ["B", "R", "G"] });
+  const edhrec = (name: string, inclusion: number, synergy: number, extra: Partial<CardDetails> = {}) => ({
+    card: card(name, "Instant", "Destroy target creature.", { colorIdentity: ["B"], ...extra }),
+    inclusion,
+    synergy,
+    lists: ["Instants"],
+    ownedCopies: 0,
+  });
+  const groups = (candidates: ReturnType<typeof edhrec>[], extra: { bracket?: 1 | 2 | 3 | 4 | 5; changers?: string[]; deck?: CardDetails[] } = {}) =>
+    builderRecommendations({
+      deck: [{ card: commander, qty: 1 }, ...(extra.deck ?? []).map((c) => ({ card: c, qty: 1 }))],
+      candidates,
+      identity: ["B", "R", "G"],
+      bracket: extra.bracket ?? 3,
+      isGameChanger: (name) => extra.changers?.includes(name) ?? false,
+      preferOwned: false,
+      commander: commander.name,
+    });
+
+  it("takes the cards in at least 40% of the decks, the most synergistic first", () => {
+    const { picks } = coreCards(groups([edhrec("Staple", 0.8, 0.05), edhrec("Payoff", 0.45, 0.4), edhrec("Fringe", 0.3, 0.6), edhrec("Middle", 0.5, 0.2)]), 3, 0);
+    expect(picks.map((p) => p.card.name)).toEqual(["Payoff", "Middle", "Staple"]);
+    expect(picks[0].reason).toBe("45% of decks · +40% synergy");
+  });
+
+  it("counts what EDHREC would show as 40%", () => {
+    const { picks } = coreCards(groups([edhrec("Rounds Up", 0.396, 0.2), edhrec("Rounds Down", 0.394, 0.2)]), 3, 0);
+    expect(picks.map((p) => p.card.name)).toEqual(["Rounds Up"]);
+  });
+
+  it("leaves out what's already in the deck", () => {
+    const cards = [edhrec("In Deck", 0.6, 0.3), edhrec("To Add", 0.6, 0.2)];
+    const { picks } = coreCards(groups(cards, { deck: [cards[0].card] }), 3, 0);
+    expect(picks.map((p) => p.card.name)).toEqual(["To Add"]);
+  });
+
+  it("holds Game Changers to what the bracket has room for, keeping the most synergistic", () => {
+    const changers = ["A", "B", "C", "D"];
+    const { picks, heldBack } = coreCards(groups([edhrec("A", 0.5, 0.1), edhrec("B", 0.5, 0.4), edhrec("C", 0.5, 0.3), edhrec("D", 0.5, 0.2)], { changers }), 3, 1);
+    expect(picks.map((p) => p.card.name)).toEqual(["B", "C"]);
+    expect(heldBack.map((p) => p.card.name)).toEqual(["D", "A"]);
+    expect(heldBack[0].reason).toContain("Bracket 3");
+  });
+
+  it("keeps out what the bracket doesn't allow", () => {
+    const changers = ["Too Strong"];
+    const { picks, heldBack } = coreCards(groups([edhrec("Too Strong", 0.7, 0.5), edhrec("Fine", 0.5, 0.2)], { bracket: 2, changers }), 2, 0);
+    expect(picks.map((p) => p.card.name)).toEqual(["Fine"]);
+    expect(heldBack.map((p) => p.card.name)).toEqual(["Too Strong"]);
+    expect(heldBack[0].reason).toContain("Bracket 2");
+  });
+
+  it("includes lands", () => {
+    const land = edhrec("Command Tower", 0.9, 0.01, { typeLine: "Land", oracleText: "{T}: Add one mana of any color in your commander's color identity.", colorIdentity: [] });
+    const { picks } = coreCards(groups([land, edhrec("Spell", 0.5, 0.2)]), 3, 0);
+    expect(picks.map((p) => p.card.name)).toEqual(["Spell", "Command Tower"]);
+  });
+
+  it("uses the playstyle's numbers when one is chosen", () => {
+    const candidates = [edhrec("In The Style", 0.2, 0.3), edhrec("Not In It", 0.9, 0.3)];
+    const result = builderRecommendations({
+      deck: [{ card: commander, qty: 1 }],
+      candidates,
+      identity: ["B", "R", "G"],
+      bracket: 3,
+      isGameChanger: () => false,
+      preferOwned: false,
+      commander: commander.name,
+      playstyle: [{ name: "In The Style", inclusion: 0.7, synergy: 0.5, numDecks: 100 }],
+    });
+    const { picks } = coreCards(result, 3, 0);
+    expect(picks.map((p) => p.card.name)).toEqual(["In The Style"]);
+    expect(picks[0].reason).toBe("70% of decks · +50% synergy");
   });
 });

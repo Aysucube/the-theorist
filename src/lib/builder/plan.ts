@@ -12,7 +12,7 @@
 // curve is held against the average deck's, to see what to cut. Kept free of
 // React so it's easy to test.
 import type { BuilderResponse, PlaystyleCard, PlaystyleResponse } from "@/lib/deck-beta/api";
-import { comboBracket, isMassLandDenial, type Bracket } from "@/lib/deck-beta/bracket";
+import { comboBracket, isMassLandDenial, MAX_GAME_CHANGERS, type Bracket } from "@/lib/deck-beta/bracket";
 import { landTarget, slotOf } from "@/lib/deck-beta/curve";
 import { planUpgrades, scoreCandidate, type Candidate, type Pick, type UpgradePlan } from "@/lib/deck-beta/doctor";
 import { colorDemand, fetchedColors, fixesColors, LAND_KIND_LABEL, landFit, landKind, manaBasePlan, type ManaBasePlan } from "@/lib/deck-beta/lands";
@@ -35,6 +35,8 @@ const OWNED_BONUS = 0.6;
 const PLAN_SYNERGY = 0.15;
 /** How far a card must lean into a playstyle to be one of its own. */
 export const LEANS_IN = 0.05;
+/** The share of a commander's decks, in whole percents as EDHREC shows it, that makes a card one of their core cards. */
+export const CORE_SHARE = 40;
 /** How many decks a playstyle needs for its own numbers to count half. */
 const TRUSTED_DECKS = 20;
 
@@ -219,6 +221,39 @@ export function allOffered(groups: BuilderGroups): BuilderPick[] {
   const { duals, fixing, utility, slow } = groups.lands;
   const every = [...groups.template.flatMap((s) => [...s.lists.flatMap((l) => l.picks), ...s.moreForStyle, ...s.outside, ...s.heldBack]), ...groups.combos.map((g) => g.pick), ...duals, ...fixing, ...utility, ...slow];
   return [...new Map(every.map((p) => [cardKey(p.card.name), p])).values()];
+}
+
+/** How a card does in these decks, e.g. "59% of decks · +24% synergy". */
+function deckStats(p: { inclusion?: number; synergy?: number }): string | undefined {
+  const parts = [];
+  if (p.inclusion !== undefined) parts.push(`${Math.round(p.inclusion * 100)}% of decks`);
+  if (p.synergy !== undefined) parts.push(`${p.synergy >= 0 ? "+" : ""}${Math.round(p.synergy * 100)}% synergy`);
+  return parts.join(" · ") || undefined;
+}
+
+/**
+ * The cards these decks share: everything on offer that's in at least
+ * CORE_SHARE% of them, the most synergistic first. What the bracket keeps out
+ * is set apart, along with any Game Changers past what it has room for.
+ */
+export function coreCards(groups: BuilderGroups, bracket: Bracket, gameChangersInDeck: number): { picks: BuilderPick[]; heldBack: BuilderPick[] } {
+  const barred = new Map(groups.template.flatMap((s) => s.heldBack).map((p) => [cardKey(p.card.name), p]));
+  const shared = allOffered(groups)
+    .filter((p) => Math.round((p.inclusion ?? 0) * 100) >= CORE_SHARE)
+    .sort((a, b) => (b.synergy ?? -1) - (a.synergy ?? -1) || (b.inclusion ?? 0) - (a.inclusion ?? 0));
+  const picks: BuilderPick[] = [];
+  const heldBack: BuilderPick[] = [];
+  let room = MAX_GAME_CHANGERS[bracket] - gameChangersInDeck;
+  for (const pick of shared) {
+    const held = barred.get(cardKey(pick.card.name));
+    if (held) heldBack.push(held);
+    else if (pick.gameChanger && room <= 0) heldBack.push({ ...pick, reason: `Game Changer: Bracket ${bracket} allows ${MAX_GAME_CHANGERS[bracket]}` });
+    else {
+      if (pick.gameChanger) room--;
+      picks.push({ ...pick, reason: deckStats(pick) });
+    }
+  }
+  return { picks, heldBack };
 }
 
 export interface BuilderInput {
@@ -441,12 +476,6 @@ export function builderRecommendations(input: BuilderInput): BuilderGroups & { p
     const styles = style.get(cardKey(p.card.name))?.styles;
     return styles ? `For ${styles.join(" + ")}` : `+${Math.round(leanOf(p.card.name) * 100)}% in this playstyle`;
   };
-  const statsLabel = (p: Pick) => {
-    const parts = [];
-    if (p.inclusion !== undefined) parts.push(`${Math.round(p.inclusion * 100)}% of decks`);
-    if (p.synergy !== undefined) parts.push(`${p.synergy >= 0 ? "+" : ""}${Math.round(p.synergy * 100)}% synergy`);
-    return parts.join(" · ") || undefined;
-  };
   const arrange = (picks: Pick[], label?: (p: Pick) => string | undefined) => {
     const out = picks.map((p) => labelled(p, label));
     return preferOwned ? out.sort((a, b) => Number(b.ownedCopies > 0) - Number(a.ownedCopies > 0)) : out;
@@ -464,7 +493,7 @@ export function builderRecommendations(input: BuilderInput): BuilderGroups & { p
     const outside = fits.filter((p) => !onEdhrec(p.card.name) && (style.size === 0 || !inStyle(p.card.name)));
     const leaning = listed.filter((p) => leanOf(p.card.name) >= LEANS_IN).sort((a, b) => leanOf(b.card.name) - leanOf(a.card.name) || b.score - a.score);
     const others = listed.filter((p) => !leaning.includes(p)).sort((a, b) => (b.synergy ?? -1) - (a.synergy ?? -1) || b.score - a.score);
-    const labelledList = listed.map((p) => labelled(p, (c) => (inStyle(c.card.name) ? statsLabel(c) : "Not in these playstyle decks")));
+    const labelledList = listed.map((p) => labelled(p, (c) => (inStyle(c.card.name) ? deckStats(c) : "Not in these playstyle decks")));
     return {
       category,
       short: gaps[category] ?? 0,
@@ -475,8 +504,8 @@ export function builderRecommendations(input: BuilderInput): BuilderGroups & { p
       heldBack: heldBack.filter((l) => fillsIt(l.pick)).map((l) => ({ ...asPick(l.pick), reason: l.why })),
       all: {
         leaning: leaning.map((p) => labelled(p, leanLabel)),
-        synergy: others.filter((p) => (p.synergy ?? 0) > 0).map((p) => labelled(p, statsLabel)),
-        rest: [...others.filter((p) => (p.synergy ?? 0) <= 0), ...colorsOnly, ...outside].map((p) => labelled(p, statsLabel)),
+        synergy: others.filter((p) => (p.synergy ?? 0) > 0).map((p) => labelled(p, deckStats)),
+        rest: [...others.filter((p) => (p.synergy ?? 0) <= 0), ...colorsOnly, ...outside].map((p) => labelled(p, deckStats)),
       },
     };
   });

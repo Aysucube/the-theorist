@@ -62,8 +62,12 @@ Zone's template and videos on mana curves and mana bases):
    your binder or not, is ranked by those playstyles' decks, and cards they don't play sit last, under
    **Outside the playstyle**. The land count and bracket split come from those decks too.
 3. **Bracket**: the bracket you're building for (1 to 5), with how EDHREC's decks split across them.
-4. **Synergies**: the commander's **game plan**, then EDHREC's cards for it, highest synergy and new
-   cards first. Cards you don't own are grayed out throughout.
+4. **Synergies**: start the deck before building it. **Highest synergy** lists the cards in at least
+   40% of the commander's decks (of the chosen playstyle's, if you picked one), the most synergistic
+   first: add one at a time, the ones you own, or all of them, with Undo. The bracket's limits hold
+   here too, and anything it keeps out is named. Then come the commander's **game plan** and the
+   playstyle's own cards and new cards, which you can add as well. Cards you don't own are grayed
+   out throughout.
 5. **Lands**: how many to run by the curve of those decks on EDHREC, the mana base the commander's
    colors want, how the basics split across the colors by the deck's mana symbols, and the lands to
    add on top of them.

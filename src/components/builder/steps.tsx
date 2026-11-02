@@ -1,12 +1,12 @@
 "use client";
 
 import NumberFlow from "@number-flow/react";
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { AppLink as Link } from "@/components/app-link";
 import { useEffect, useId, useMemo, useState } from "react";
 import type { BuilderResponse, PlaystyleResponse } from "@/lib/deck-beta/api";
 import { BRACKET_INFO, BRACKETS, type Bracket } from "@/lib/deck-beta/bracket";
-import { LEANS_IN, MAX_LANDS, MIN_LANDS, splitBasics } from "@/lib/builder/plan";
+import { CORE_SHARE, LEANS_IN, MAX_LANDS, MIN_LANDS, splitBasics, type BuilderPick } from "@/lib/builder/plan";
 import { MAX_PLAYSTYLES, type DraftCommander, type DraftPlaystyle } from "@/lib/builder/draft";
 import type { CacheStatus } from "@/lib/binder/card-cache";
 import { useCardDetails } from "@/lib/binder/card-cache";
@@ -15,10 +15,12 @@ import type { CardDetails } from "@/lib/types";
 import { formatCount, formatPercent } from "@/lib/format";
 import type { GamePlan } from "@/lib/deck-beta/game-plan";
 import type { ManaBasePlan } from "@/lib/deck-beta/lands";
+import { HoverName } from "../deck-beta/bits";
 import { LazyCardImage } from "../deck-beta/lazy-card-image";
 import { GamePlanCard } from "../deck-beta/template-bits";
 import { GameChangerTag } from "../game-changer-tag";
 import { ColorIdentity, Pip } from "../mana";
+import { BuildCard } from "./build-card";
 import { Meter } from "./deck-rail";
 import { usePlaystyleHover, type PlaystyleContext } from "./playstyle-hover";
 
@@ -473,7 +475,7 @@ export function BracketStep({
   );
 }
 
-/** 4. What EDHREC knows, for the chosen playstyle's decks: how many, and the cards that suit the commander best (new ones too). */
+/** 4. What EDHREC knows, for the chosen playstyle's decks: how many, and the cards to start the deck with, the ones most of them share first. */
 export function SynergyStep({
   commander,
   data,
@@ -487,6 +489,12 @@ export function SynergyStep({
   preferOwned,
   onPreferOwned,
   plan,
+  core,
+  styleLoading,
+  bracket,
+  inDeck,
+  onAdd,
+  onAddAll,
 }: {
   commander: DraftCommander;
   data: Found | null;
@@ -502,18 +510,25 @@ export function SynergyStep({
   onPreferOwned: (value: boolean) => void;
   /** The commander's game plan, once its card and EDHREC's data are in. */
   plan?: GamePlan;
+  /** The cards these decks share, once the deck's plan is ready. */
+  core?: { picks: BuilderPick[]; heldBack: BuilderPick[] };
+  /** A chosen playstyle's decks are still loading, so the numbers aren't theirs yet. */
+  styleLoading: boolean;
+  bracket: Bracket;
+  inDeck: (name: string) => boolean;
+  onAdd: (card: CardDetails) => void;
+  onAddAll: (cards: CardDetails[]) => void;
 }) {
   const ranked = useMemo(() => {
     if (!data) return null;
     const detailed = data.cards.filter((c) => data.details[c.name] && !/\bBasic\b/.test(data.details[c.name].typeLine));
     const newCards = detailed.filter((c) => c.lists.some((l) => /new/i.test(l)));
-    const synergy = [...detailed].sort((a, b) => (b.synergy ?? -1) - (a.synergy ?? -1)).slice(0, 12);
     const leaning = detailed
       .filter((c) => (c.lean ?? 0) >= LEANS_IN && c.lists.length > 0)
       .sort((a, b) => b.lean! - a.lean!)
       .slice(0, 12);
     const ownedCount = data.cards.filter((c) => owned(c.name) > 0).length;
-    return { newCards, synergy, leaning, ownedCount };
+    return { newCards, leaning, ownedCount };
     // Ownership changes only with the binder, which can't change on this step.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
@@ -531,6 +546,7 @@ export function SynergyStep({
           Change
         </button>
       </p>
+      <CoreCards commander={commander.name} themeName={themeName} core={styleLoading ? undefined : core} bracket={bracket} owned={owned} onAdd={onAdd} onAddAll={onAddAll} />
       {plan && <GamePlanCard plan={plan} articles={data.articles} edhrecUrl={data.url} />}
       <dl className="grid grid-cols-3 gap-6 border-y border-line py-6">
         <Stat label="Decks on EDHREC" value={data.numDecks} />
@@ -539,17 +555,11 @@ export function SynergyStep({
       </dl>
 
       {themeName && ranked.leaning.length > 0 && (
-        <CardRow title={`Best for ${themeName}`} note={`What sets ${themeName} decks apart: the cards they play far more than other decks.`} cards={ranked.leaning.map((c) => data.details[c.name])} owned={owned} />
+        <AddRow title={`Best for ${themeName}`} note={`What sets ${themeName} decks apart: the cards they play far more than other decks.`} cards={ranked.leaning.map((c) => data.details[c.name])} owned={owned} inDeck={inDeck} onAdd={onAdd} />
       )}
       {ranked.newCards.length > 0 && (
-        <CardRow title="New cards" note="Recently printed cards EDHREC is seeing in these decks." cards={ranked.newCards.map((c) => data.details[c.name])} owned={owned} />
+        <AddRow title="New cards" note="Recently printed cards EDHREC is seeing in these decks." cards={ranked.newCards.map((c) => data.details[c.name])} owned={owned} inDeck={inDeck} onAdd={onAdd} />
       )}
-      <CardRow
-        title="Highest synergy"
-        note={`The cards that suit ${commander.name} best, compared with other decks of its colors.`}
-        cards={ranked.synergy.map((c) => data.details[c.name])}
-        owned={owned}
-      />
 
       <label className="flex items-center gap-3 text-sm">
         <input type="checkbox" checked={preferOwned} onChange={(e) => onPreferOwned(e.target.checked)} className="size-4 accent-foreground" />
@@ -570,6 +580,82 @@ function Stat({ label, value }: { label: string; value: number }) {
   );
 }
 
+/** The cards most of these decks share, the most synergistic first, to add one by one or all at once before building. */
+function CoreCards({
+  commander,
+  themeName,
+  core,
+  bracket,
+  owned,
+  onAdd,
+  onAddAll,
+}: {
+  commander: string;
+  themeName?: string;
+  core?: { picks: BuilderPick[]; heldBack: BuilderPick[] };
+  bracket: Bracket;
+  owned: (name: string) => number;
+  onAdd: (card: CardDetails) => void;
+  onAddAll: (cards: CardDetails[]) => void;
+}) {
+  const picks = core?.picks ?? [];
+  const yours = picks.filter((p) => owned(p.card.name) > 0);
+  return (
+    <section className="flex flex-col gap-4 rounded-2xl border border-accent/40 bg-accent/5 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1 basis-64">
+          <h3 className="font-semibold">
+            Highest synergy {picks.length > 0 && <span className="font-normal text-muted tabular-nums">({formatCount(picks.length)})</span>}
+          </h3>
+          <p className="text-sm text-muted">
+            Start with what suits {commander} best: cards in at least {CORE_SHARE}% of {themeName ? `its ${themeName}` : "its"} decks, most synergistic first. Click a card to add it.
+          </p>
+        </div>
+        {picks.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {yours.length > 0 && yours.length < picks.length && (
+              <button type="button" onClick={() => onAddAll(yours.map((p) => p.card))} className="btn btn-secondary btn-sm">
+                Add the {formatCount(yours.length)} I own
+              </button>
+            )}
+            <button type="button" onClick={() => onAddAll(picks.map((p) => p.card))} className="btn btn-primary btn-sm">
+              Add all {formatCount(picks.length)}
+            </button>
+          </div>
+        )}
+      </div>
+      {!core ? (
+        <p className="flex items-center gap-2 text-sm text-muted">
+          <span aria-hidden className="spinner size-4" /> Reading {themeName ?? "its"} decks…
+        </p>
+      ) : picks.length === 0 ? (
+        <p className="text-sm text-muted">{core.heldBack.length > 0 ? "Everything left is held back by your bracket." : `Nothing left in at least ${CORE_SHARE}% of these decks. The Build step has the rest.`}</p>
+      ) : (
+        <ul className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 xl:grid-cols-4">
+          <AnimatePresence mode="popLayout" initial={false}>
+            {picks.map((p, i) => (
+              <BuildCard key={p.card.name} card={p.card} ownedCopies={owned(p.card.name)} categories={p.categories} reason={p.reason} index={i} onAdd={onAdd} />
+            ))}
+          </AnimatePresence>
+        </ul>
+      )}
+      {(core?.heldBack.length ?? 0) > 0 && (
+        <p className="text-xs text-muted">
+          Held back by Bracket {bracket}:{" "}
+          {core!.heldBack.map((p, i) => (
+            <span key={p.card.name}>
+              {i > 0 && ", "}
+              <HoverName name={p.card.name} className="rounded-sm hover:text-accent" />
+            </span>
+          ))}
+          . They’re still in the Build step if you mean to add one.
+        </p>
+      )}
+    </section>
+  );
+}
+
+/** A row of cards to look over. */
 function CardRow({ title, note, cards, owned }: { title: string; note: string; cards: CardDetails[]; owned: (name: string) => number }) {
   return (
     <section>
@@ -594,6 +680,25 @@ function CardRow({ title, note, cards, owned }: { title: string; note: string; c
             <span className="block text-[11px] text-muted">{owned(card.name) > 0 ? "In your binder" : "Not owned"}</span>
           </motion.li>
         ))}
+      </ul>
+    </section>
+  );
+}
+
+/** A row of cards to add, each leaving the row as it goes into the deck. */
+function AddRow({ title, note, cards, owned, inDeck, onAdd }: { title: string; note: string; cards: CardDetails[]; owned: (name: string) => number; inDeck: (name: string) => boolean; onAdd: (card: CardDetails) => void }) {
+  const left = cards.filter((card) => !inDeck(card.name));
+  if (left.length === 0) return null;
+  return (
+    <section>
+      <h3 className="font-semibold">{title}</h3>
+      <p className="mb-3 text-sm text-muted">{note}</p>
+      <ul className="no-scrollbar -mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-2 [&>li]:w-28 [&>li]:shrink-0 [&>li]:snap-start">
+        <AnimatePresence mode="popLayout" initial={false}>
+          {left.map((card, i) => (
+            <BuildCard key={card.name} card={card} ownedCopies={owned(card.name)} index={i} flies={false} onAdd={onAdd} />
+          ))}
+        </AnimatePresence>
       </ul>
     </section>
   );

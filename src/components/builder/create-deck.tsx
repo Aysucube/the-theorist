@@ -8,7 +8,7 @@ import { useBinder } from "@/lib/binder/store";
 import { rememberDetails, useCardDetails } from "@/lib/binder/card-cache";
 import { isBasicLandName } from "@/lib/binder/collection";
 import { STEP, STEPS, togglePlaystyle, useBuilderDraft, type DraftPlaystyle } from "@/lib/builder/draft";
-import { builderRecommendations, fitsIdentity, mergePlaystyles, predictedAverage, recommendLands, splitBasics, withPlaystyle, type BuilderCandidate } from "@/lib/builder/plan";
+import { builderRecommendations, coreCards, fitsIdentity, mergePlaystyles, predictedAverage, recommendLands, splitBasics, withPlaystyle, type BuilderCandidate } from "@/lib/builder/plan";
 import { commanderGamePlan } from "@/lib/deck-beta/game-plan";
 import { manaBasePlan } from "@/lib/deck-beta/lands";
 import { cardTraits, subtypeVocabulary } from "@/lib/deck-beta/synergy";
@@ -33,7 +33,7 @@ const HEADINGS = [
   { title: "Choose your commander", note: "Every deck starts here. These are the commanders in your binder." },
   { title: "Choose a playstyle", note: "Every way players build this commander. The whole deck follows the one you pick." },
   { title: "Pick a bracket", note: "How strong should it be? Recommendations stay inside it, and anything stronger is set apart." },
-  { title: "What EDHREC knows", note: "The cards that suit your commander best, and the ways players build it." },
+  { title: "What EDHREC knows", note: "Start the deck with the cards that suit your commander best, before you build the rest." },
   { title: "Set your lands", note: "Start from the recommendation; basics re-balance as the deck grows." },
   { title: "Build the deck", note: "Recommendations follow the deck: each card you add changes what it needs next." },
   { title: "Perfect the mana curve", note: "Cut what pushes your deck past the average curve, the weakest cards first." },
@@ -188,6 +188,14 @@ export function CreateDeck() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [candidates, deckKey, commanderCard, draft.bracket, analysisResult, themeCards, styled, draft.preferOwned, gameChangers, lands]);
 
+  // The cards these decks share, for the Synergies step to start the deck with.
+  const core = useMemo(
+    () => (plan && draft.bracket ? coreCards(plan, draft.bracket, deck.filter((d) => gameChangers.has(d.card.name)).length) : undefined),
+    // The deck key captures the deck's cards.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [plan, draft.bracket, deckKey, gameChangers],
+  );
+
   const report = useMemo(
     () =>
       deck.length > 0
@@ -224,10 +232,22 @@ export function CreateDeck() {
   const retryStyles = () => chosen.forEach((t, i) => playstyles[i]?.state !== "done" && requestPlaystyle(commanderRef!, t.slug, true, identity));
   const playstyleContext = { commander: commanderRef, colors: identity };
   const edhrecWait = builder?.state === "waiting" ? `Waiting ${builder.seconds}s because ${builder.reason}…` : null;
+  const inDraft = (name: string) => deckCards.some((c) => cardKey(c.name) === cardKey(name)) || cardKey(name) === cardKey(commanderName ?? "");
 
   function add(card: CardDetails) {
     addCard(card.name);
     if (!binder.owned(card.name)) toast(`${card.name} added`, { description: "Not in your binder: it’ll be on the list of cards to buy." });
+  }
+
+  function addAll(cards: CardDetails[]) {
+    const before = draft.cards;
+    const fresh = cards.filter((card) => !inDraft(card.name));
+    update({ cards: [...before, ...fresh.map((card) => ({ name: card.name, qty: 1 }))] });
+    const missing = fresh.filter((card) => !binder.owned(card.name)).length;
+    toast.success(`Added ${fresh.length} ${fresh.length === 1 ? "card" : "cards"}`, {
+      description: missing > 0 ? `${missing} not in your binder: they’ll be on the list of cards to buy.` : undefined,
+      action: { label: "Undo", onClick: () => update({ cards: before }) },
+    });
   }
 
   function save(name: string) {
@@ -354,6 +374,12 @@ export function CreateDeck() {
                       preferOwned={draft.preferOwned}
                       onPreferOwned={(preferOwned) => update({ preferOwned })}
                       plan={gamePlan}
+                      core={core}
+                      styleLoading={styleLoading}
+                      bracket={draft.bracket ?? 3}
+                      inDeck={inDraft}
+                      onAdd={add}
+                      onAddAll={addAll}
                     />
                   )}
                   {step === STEP.lands && recommended && (
@@ -397,7 +423,7 @@ export function CreateDeck() {
                         onRetryStyle={retryStyles}
                         leftOut={plan.leftOut.length}
                         bracket={draft.bracket ?? 3}
-                        has={(name) => deckCards.some((c) => cardKey(c.name) === cardKey(name)) || cardKey(name) === cardKey(commanderName ?? "")}
+                        has={inDraft}
                         curveAdvice={curveAdvice(plan.profile.curve)}
                         landAdvice={plan.manaBase.advice}
                       />
