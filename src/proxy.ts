@@ -24,6 +24,8 @@ const LIMITS = {
   trends: createRateLimiter({ limit: 60, windowMs: 60_000 }),
   // The Game Changers list: once a day per browser.
   gameChangers: createRateLimiter({ limit: 20, windowMs: 60_000 }),
+  // Card images: a whole binder's gallery scrolled through at once.
+  images: createRateLimiter({ limit: 2000, windowMs: 60_000 }),
 };
 
 function bucket({ pathname, searchParams }: URL): keyof typeof LIMITS | null {
@@ -36,6 +38,7 @@ function bucket({ pathname, searchParams }: URL): keyof typeof LIMITS | null {
   if (pathname === "/" && searchParams.has("theme")) return "theme";
   if (pathname.startsWith("/api/trends/")) return "trends";
   if (pathname === "/api/game-changers") return "gameChangers";
+  if (pathname.startsWith("/card-image/")) return "images";
   return null;
 }
 
@@ -57,5 +60,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/", "/api/price", "/api/autocomplete", "/api/preview", "/api/cards/info", "/card", "/api/deck-beta/:path*", "/api/trends/:path*", "/api/game-changers"],
+  matcher: ["/", "/api/price", "/api/autocomplete", "/api/preview", "/api/cards/info", "/card", "/api/deck-beta/:path*", "/api/trends/:path*", "/api/game-changers", "/card-image/:path*"],
 };

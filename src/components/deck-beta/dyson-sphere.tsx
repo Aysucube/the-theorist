@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type Pointe
 import { manaHexes } from "@/lib/deck-beta/colors";
 import { hashString } from "@/lib/deck-beta/land-art";
 import { buildSphereScene, faceTowards, fromLatLon, length, orbitPosition, orbitRing, view, type Camera, type SphereNode, type Vec3 } from "@/lib/deck-beta/sphere";
-import { scryfallImageAs } from "@/lib/scryfall-images";
+import { localImage, scryfallImageAs } from "@/lib/scryfall-images";
 import { useCardHover } from "../card-link";
 import type { GraphLink, GraphNode } from "./network-graph";
 import { SpinningCard } from "./spinning-card";
@@ -123,7 +123,7 @@ export function DysonSphere({
       if (!node.imageUrl || images.current.has(node.id)) continue;
       const image = new Image();
       image.decoding = "async";
-      image.src = scryfallImageAs(node.imageUrl, "art_crop") ?? node.imageUrl;
+      image.src = localImage(scryfallImageAs(node.imageUrl, "art_crop") ?? node.imageUrl);
       images.current.set(node.id, image);
     }
   }, [scene]);

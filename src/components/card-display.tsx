@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useRef } from "react";
+import { localImage } from "@/lib/scryfall-images";
 import { showPrinting, useShownPrinting } from "@/lib/shown-printing";
 
 /**
@@ -27,12 +28,12 @@ export function CardImage({ name, imageUrl }: { name: string; imageUrl?: string 
       {src ? (
         <Image
           key={src}
-          src={src}
+          src={localImage(src)}
           alt={printing ? `${name}, ${printing.label}` : name}
           width={488}
           height={680}
           priority
-          // Scryfall's CDN already serves sized images and rejects the optimizer's requests.
+          // Scryfall already serves sized images.
           unoptimized
           className="h-auto w-full rounded-[4.75%] shadow-lg shadow-black/50"
         />
@@ -65,7 +66,7 @@ export function ArtBackground({ name, artUrl }: { name: string; artUrl?: string 
   if (!url) return null;
   return (
     <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10 overflow-hidden bg-background">
-      <Image key={url} src={url} alt="" fill unoptimized sizes="100vw" className="object-cover object-top brightness-[0.5] grayscale" />
+      <Image key={url} src={localImage(url)} alt="" fill unoptimized sizes="100vw" className="object-cover object-top brightness-[0.5] grayscale" />
       <div className="absolute inset-0 bg-[#1d4f9e]/40 mix-blend-color" />
       <div className="absolute inset-0 bg-linear-to-b from-background/10 via-background/50 to-background" />
     </div>

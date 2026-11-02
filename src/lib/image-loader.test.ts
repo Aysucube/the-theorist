@@ -74,7 +74,7 @@ describe("subscribeImage", () => {
       const stopSecond = subscribeImage(url, () => second++);
       await new Promise((r) => setTimeout(r, 20));
 
-      expect(getImageStatus(url)).toEqual({ src: url });
+      expect(getImageStatus(url)).toEqual({ src: "/card-image/normal/shared.jpg" });
       expect(first).toBeGreaterThan(0);
       expect(second).toBe(first);
       stopFirst();

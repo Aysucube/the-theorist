@@ -330,6 +330,11 @@ same pages their own websites use, so the app is built to stay a light, polite v
   at a time through its site's search, cached for an hour, at most 2 searches a second. After any
   error it's left alone for a minute. Before adding a store, check [TCGph's list](https://tcgph.com/stores):
   Dragon Master Collectibles (**DM**), Roll Play (**RP**) and **Tolarian** Dropout are already on it.
+- Card images come through our own server (`/card-image`) rather than from Scryfall directly. Its
+  image server is one machine in the US, and from the Philippines about half of new connections to
+  it hang for 21 seconds. Ours starts a new try every 1.5 seconds and takes whichever answers, then
+  keeps the image in `.data/images` for good (they never change at an address), so each is fetched
+  once. That folder grows by about 120 KB an image and is safe to delete.
 - Scryfall calls follow its [published limits](https://scryfall.com/docs/api/rate-limits)
   (2 a second for name lookups and searches, 10 a second otherwise), and after an
   HTTP 429 the app stops calling Scryfall for 30 seconds.

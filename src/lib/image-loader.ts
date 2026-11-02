@@ -1,7 +1,9 @@
-// Loads card images in the browser with retries. Scryfall's image server
-// sometimes stalls for 20+ seconds from PH connections, so a stalled or failed
-// attempt is abandoned and retried rather than leaving a blank card.
+// Loads card images in the browser with retries. They come through our own
+// server, which handles Scryfall's slow connections, so what's left to retry is
+// our server having no answer in time: a stalled or failed attempt is abandoned
+// rather than leaving a blank card.
 import { sleep } from "./retry";
+import { localImage } from "./scryfall-images";
 
 /** Waits before each retry of an image. */
 export const IMAGE_RETRY_WAITS_MS = [2_000, 4_000, 8_000, 15_000, 30_000];
@@ -86,7 +88,7 @@ function set(entry: Entry, status: ImageStatus) {
 
 function start(url: string, entry: Entry) {
   set(entry, NOT_STARTED);
-  void loadImageWithRetry(url, {
+  void loadImageWithRetry(localImage(url), {
     onWait: (ms, attempt) => set(entry, { retryIn: Math.round(ms / 1000), attempt }),
   }).then((src) => set(entry, src ? { src } : { failed: true }));
 }

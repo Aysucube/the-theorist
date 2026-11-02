@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useCardPrintings } from "@/lib/deck-beta/store";
 import { formatCount, formatPhp } from "@/lib/format";
 import { PRINTING_VARIANTS, type PricedPrinting } from "@/lib/printings";
+import { localImage } from "@/lib/scryfall-images";
 import type { CardDetails, ChosenPrinting } from "@/lib/types";
 import { useHoverPreview } from "../card-link";
 
@@ -147,7 +148,7 @@ function PrintingTile({ name, printing: p, selected, onChoose }: { name: string;
           {p.imageUrl && (
             // Plain <img>: Scryfall's image server sizes these already.
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={p.imageUrl} alt="" width={146} height={204} loading="lazy" className="h-full w-full object-cover transition-opacity group-hover:opacity-85" />
+            <img src={localImage(p.imageUrl)} alt="" width={146} height={204} loading="lazy" className="h-full w-full object-cover transition-opacity group-hover:opacity-85" />
           )}
         </span>
         <span className="mt-1.5 block truncate text-xs font-medium" title={p.setName}>

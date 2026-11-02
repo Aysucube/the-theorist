@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { formatCount, formatPhp } from "@/lib/format";
+import { localImage } from "@/lib/scryfall-images";
 import { showPrinting, useShownPrinting } from "@/lib/shown-printing";
 
 /** Just what a tile shows, so hundreds of printings stay a small download. */
@@ -72,7 +73,7 @@ function Tile({ tile: t, cardName, selected }: { tile: PrintingTile; cardName: s
           // Plain <img>: Scryfall's image server sizes these already.
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={t.imageUrl}
+            src={localImage(t.imageUrl)}
             alt={`${t.setName} printing`}
             width={146}
             height={204}

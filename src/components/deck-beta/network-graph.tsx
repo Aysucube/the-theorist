@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { layoutNetwork, type Point } from "@/lib/deck-beta/force-layout";
-import { scryfallImageAs } from "@/lib/scryfall-images";
+import { localImage, scryfallImageAs } from "@/lib/scryfall-images";
 import { useCardHover } from "../card-link";
 import { SpinningCard } from "./spinning-card";
 
@@ -347,7 +347,7 @@ export function NetworkGraph({
             const color = n.color ?? "#8d9bb8";
             const big = isBig(n);
             const r = dotRadius(n);
-            const image = n.imageUrl ? (scryfallImageAs(n.imageUrl, "art_crop") ?? n.imageUrl) : undefined;
+            const image = n.imageUrl ? localImage(scryfallImageAs(n.imageUrl, "art_crop") ?? n.imageUrl) : undefined;
             const showLabel = n.kind === "center" || n.kind === "hub" || n.kind === "result" || big || showAllLabels;
             // Under the turning card for the center; under the dot for the rest.
             const labelY = n === spinning ? spinWidth * 0.75 + 12 : (big ? EXPANDED : r) + (n.kind === "hub" ? 12 : 13);

@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useLandArt } from "@/lib/deck-beta/store";
+import { localImage } from "@/lib/scryfall-images";
 
 /**
  * A land in the commander's colors behind a network, dimmed so the network
@@ -16,7 +17,7 @@ export function LandBackdrop({ colors, seed }: { colors: string[]; seed: string 
       <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
         <Image
           key={art.artUrl}
-          src={art.artUrl}
+          src={localImage(art.artUrl)}
           alt=""
           fill
           unoptimized
