@@ -98,6 +98,69 @@ export function fixingLandsQuery(colors: string[]): string {
   return `t:land -t:basic f:commander id<=${colors.join("")} (${[...pairs, 'o:"search your library"'].join(" or ")})`.toLowerCase();
 }
 
+/** The deck's colors a land can make, or find if it's a fetch land. */
+export function landSources(card: CardDetails, identity: string[]): string[] {
+  const kind = landKind(card);
+  if (kind === "rainbow") return identity;
+  if (kind === "fetch") return fetchedColors(card, identity);
+  const colors = landColors(card);
+  return identity.filter((c) => colors.has(c));
+}
+
+const ORDER = "WUBRG";
+
+/** How many colored mana symbols of each color the mana costs ask for (hybrid counts half to each). */
+export function colorDemand(manaCosts: string[]): Record<string, number> {
+  const demand: Record<string, number> = { W: 0, U: 0, B: 0, R: 0, G: 0 };
+  for (const cost of manaCosts) {
+    for (const symbol of cost.match(/\{[^}]+\}/g) ?? []) {
+      const colors = [...symbol.toUpperCase()].filter((c) => ORDER.includes(c));
+      for (const c of colors) demand[c] += 1 / colors.length;
+    }
+  }
+  return demand;
+}
+
+/** One color of the deck: what its spells ask for against what its lands make. */
+export interface ColorNeed {
+  color: string;
+  /** Colored mana symbols in the deck's costs. */
+  pips: number;
+  pipShare: number;
+  /** Lands that can make it, copies counted. */
+  sources: number;
+  sourceShare: number;
+  /** How many more of the deck's sources it would need to match its share of the symbols; below zero if it has spare. */
+  short: number;
+}
+
+export interface ColorDistribution {
+  colors: ColorNeed[];
+  lands: number;
+  /** Lands that make none of the deck's colors. */
+  colorless: number;
+}
+
+/** A deck's colored mana symbols against the lands that make each color. */
+export function colorDistribution(cards: { card: CardDetails; qty: number }[], identity: string[]): ColorDistribution {
+  const own = [...ORDER].filter((c) => identity.includes(c));
+  const spells = cards.filter(({ card }) => !isLandCard(card));
+  const lands = cards.filter(({ card }) => isLandCard(card));
+  const demand = colorDemand(spells.flatMap(({ card, qty }) => Array<string>(qty).fill(card.manaCost ?? "")));
+  const sourceCount = (color: string) => lands.reduce((sum, { card, qty }) => sum + (landSources(card, own).includes(color) ? qty : 0), 0);
+  const totalPips = own.reduce((sum, c) => sum + demand[c], 0);
+  const totalSources = own.reduce((sum, c) => sum + sourceCount(c), 0);
+  return {
+    colors: own.map((color) => {
+      const sources = sourceCount(color);
+      const pipShare = totalPips ? demand[color] / totalPips : 0;
+      return { color, pips: demand[color], pipShare, sources, sourceShare: totalSources ? sources / totalSources : 0, short: Math.round(pipShare * totalSources - sources) };
+    }),
+    lands: lands.reduce((sum, { qty }) => sum + qty, 0),
+    colorless: lands.reduce((sum, { card, qty }) => sum + (landSources(card, own).length === 0 ? qty : 0), 0),
+  };
+}
+
 export interface ManaBasePlan {
   colors: number;
   lands: number;

@@ -15,7 +15,7 @@ import type { BuilderResponse, PlaystyleCard, PlaystyleResponse } from "@/lib/de
 import { comboBracket, isMassLandDenial, type Bracket } from "@/lib/deck-beta/bracket";
 import { landTarget, slotOf } from "@/lib/deck-beta/curve";
 import { planUpgrades, scoreCandidate, type Candidate, type Pick, type UpgradePlan } from "@/lib/deck-beta/doctor";
-import { fetchedColors, fixesColors, LAND_KIND_LABEL, landFit, landKind, manaBasePlan, type ManaBasePlan } from "@/lib/deck-beta/lands";
+import { colorDemand, fetchedColors, fixesColors, LAND_KIND_LABEL, landFit, landKind, manaBasePlan, type ManaBasePlan } from "@/lib/deck-beta/lands";
 import { cardKey } from "@/lib/deck-beta/recommend";
 import { parseTypeLine } from "@/lib/deck-beta/synergy";
 import { CATEGORIES, CATEGORY_INFO, categoryGaps, deckProfile, type Category, type DeckProfile } from "@/lib/deck-beta/roles";
@@ -77,18 +77,6 @@ export function predictedAverage(candidates: { card: CardDetails; inclusion?: nu
 export function recommendLands({ curveAverage }: { curveAverage?: number }): { count: number; why: string } {
   const { count, why } = landTarget(curveAverage);
   return { count: Math.min(MAX_LANDS, Math.max(MIN_LANDS, count)), why };
-}
-
-/** How many colored mana symbols of each color the mana costs ask for (hybrid counts half to each). */
-function colorDemand(manaCosts: string[]): Record<string, number> {
-  const demand: Record<string, number> = { W: 0, U: 0, B: 0, R: 0, G: 0 };
-  for (const cost of manaCosts) {
-    for (const symbol of cost.match(/\{[^}]+\}/g) ?? []) {
-      const colors = [...symbol.toUpperCase()].filter((c) => ORDER.includes(c));
-      for (const c of colors) demand[c] += 1 / colors.length;
-    }
-  }
-  return demand;
 }
 
 /**

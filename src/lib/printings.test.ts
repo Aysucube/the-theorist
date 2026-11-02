@@ -1,8 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { pricePrintings } from "./printings";
+import { pricePrintings, printingVariants } from "./printings";
 import { fixture } from "./sources/__fixtures__/load";
 import { parseCardPage } from "./sources/tcgph";
 import type { Printing, TcgphPrices, TcgphPrint } from "./types";
+
+describe("printingVariants", () => {
+  it("reads a printing's art treatments", () => {
+    expect(printingVariants({ frame: "2015", frameEffects: ["showcase"], borderColor: "borderless" })).toEqual(["Showcase", "Borderless"]);
+    expect(printingVariants({ frame: "1997" })).toEqual(["Retro Frame"]);
+    expect(printingVariants({ frame: "1993" })).toEqual(["Retro Frame"]);
+    expect(printingVariants({ frame: "2015", frameEffects: ["extendedart"], fullArt: true })).toEqual(["Extended Art", "Full Art"]);
+    expect(printingVariants({ frame: "2015", finishes: ["nonfoil", "etched"] })).toEqual(["Etched"]);
+    expect(printingVariants({ promo: true, promoTypes: ["serialized"] })).toEqual(["Promo", "Serialized"]);
+    expect(printingVariants({ setType: "promo" })).toEqual(["Promo"]);
+  });
+
+  it("has nothing to say about an ordinary printing", () => {
+    expect(printingVariants({ frame: "2015", borderColor: "black", finishes: ["nonfoil", "foil"] })).toEqual([]);
+  });
+});
 
 const SOL_RING = "https://tcgph.com/card/sol-ring";
 

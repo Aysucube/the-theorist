@@ -1,4 +1,5 @@
 // What the deck beta's API routes return.
+import type { PricedPrinting } from "@/lib/printings";
 import type { EdhrecArticle } from "@/lib/sources/edhrec-articles";
 import type { CardDetails, DeckCombos, EdhrecDeckAverages, EdhrecPairing, EdhrecTheme, Ruling, SpellbookBracket } from "@/lib/types";
 
@@ -116,6 +117,9 @@ export type BuilderResponse =
       cards: BuilderCard[];
       details: Record<string, CardDetails>;
     };
+
+/** GET /api/deck-beta/printings: every printing of a card, the ones in PH stores first. */
+export type PrintingsResponse = { found: false } | { found: true; printings: PricedPrinting[] };
 
 /** GET /api/deck-beta/lands: the lands that fix a deck's colors, most played first. */
 export interface LandsResponse {

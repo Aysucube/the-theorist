@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CardDetails } from "@/lib/types";
-import { fetchedColors, fixingLandsQuery, isSlowRamp, landFit, landKind, manaBase, manaBasePlan } from "./lands";
+import { colorDistribution, fetchedColors, fixingLandsQuery, isSlowRamp, landFit, landKind, landSources, manaBase, manaBasePlan } from "./lands";
 import { cardRoles } from "./roles";
 
 const land = (name: string, typeLine: string, oracleText: string): CardDetails => ({
@@ -104,5 +104,57 @@ describe("isSlowRamp", () => {
   it("marks mana rocks of three or more as slow, not two-mana ones", () => {
     expect(isSlowRamp(rock("Manalith", 3), cardRoles(rock("Manalith", 3)))).toBe(true);
     expect(isSlowRamp(rock("Arcane Signet", 2), cardRoles(rock("Arcane Signet", 2)))).toBe(false);
+  });
+});
+
+describe("colorDistribution", () => {
+  const spell = (manaCost: string): CardDetails => ({ ...lands.forest, name: manaCost, typeLine: "Sorcery", oracleText: "", manaCost });
+  const swamp = land("Swamp", "Basic Land — Swamp", "({T}: Add {B}.)");
+  const dual = land("Overgrown Tomb", "Land — Swamp Forest", "({T}: Add {B} or {G}.)\nAs this land enters, you may pay 2 life. If you don't, it enters tapped.");
+  const rogue = lands.passageRogue;
+  const deck = [
+    { card: spell("{G}{G}{G}"), qty: 2 },
+    { card: spell("{2}{B}"), qty: 1 },
+    { card: spell("{B/G}"), qty: 1 },
+    { card: lands.forest, qty: 6 },
+    { card: swamp, qty: 4 },
+    { card: dual, qty: 1 },
+    { card: rogue, qty: 1 },
+  ];
+
+  it("counts the symbols the spells ask for, hybrid half to each, and copies", () => {
+    const { colors } = colorDistribution(deck, ["B", "G"]);
+    expect(colors.map((c) => c.color)).toEqual(["B", "G"]);
+    expect(colors[0].pips).toBe(1.5);
+    expect(colors[1].pips).toBe(6.5);
+    expect(colors[1].pipShare).toBeCloseTo(6.5 / 8);
+  });
+
+  it("counts a dual for each of its colors, and lands that make neither", () => {
+    const result = colorDistribution(deck, ["B", "G"]);
+    expect(result.colors[0].sources).toBe(5);
+    expect(result.colors[1].sources).toBe(7);
+    expect(result.lands).toBe(12);
+    expect(result.colorless).toBe(1);
+  });
+
+  it("says how far a color is from its share of the sources", () => {
+    const [black, green] = colorDistribution(deck, ["B", "G"]).colors;
+    expect(green.short).toBe(3);
+    expect(black.short).toBe(-3);
+  });
+
+  it("is empty for a colorless deck", () => {
+    expect(colorDistribution(deck, []).colors).toEqual([]);
+  });
+});
+
+describe("landSources", () => {
+  it("reads what a land can make or find", () => {
+    expect(landSources(lands.tower, ["B", "G"])).toEqual(["B", "G"]);
+    expect(landSources(lands.passage, ["B", "G"])).toEqual(["B", "G"]);
+    expect(landSources(lands.misty, ["B", "G"])).toEqual(["G"]);
+    expect(landSources(lands.forest, ["B", "G"])).toEqual(["G"]);
+    expect(landSources(lands.reliquary, ["B", "G"])).toEqual([]);
   });
 });

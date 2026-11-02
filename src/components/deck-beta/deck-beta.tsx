@@ -24,7 +24,7 @@ import {
 } from "@/lib/deck-beta/store";
 import { formatCount } from "@/lib/format";
 import { useGameChangers } from "@/lib/use-game-changers";
-import type { CardDetails } from "@/lib/types";
+import type { CardDetails, ChosenPrinting } from "@/lib/types";
 import { useHoverPreview } from "../card-link";
 import { GameChangerTag } from "../game-changer-tag";
 import { ColorIdentity, ManaCost } from "../mana";
@@ -37,6 +37,7 @@ import { CombosPanel, type DeckForOdds } from "./combos-panel";
 import { DeckLibrary, SharedDeckBanner } from "./deck-library";
 import { DeckNetwork } from "./deck-network";
 import { DeckOverview } from "./deck-overview";
+import { EditDeck } from "./edit-deck";
 import { InteractionsPopover } from "./interactions-popover";
 import { LazyCardImage } from "./lazy-card-image";
 import { PlaystylePanel } from "./playstyle-panel";
@@ -68,9 +69,10 @@ function groupOf(card: CardDetails): string {
 /** Waits this long after a click for a second one, so a double-click doesn't flash the preview. */
 const DOUBLE_CLICK_MS = 250;
 
-type View = "overview" | "network" | "combos" | "playstyle" | "cards";
+type View = "overview" | "edit" | "network" | "combos" | "playstyle" | "cards";
 const VIEWS: { id: View; label: string }[] = [
   { id: "overview", label: "Overview" },
+  { id: "edit", label: "Edit deck" },
   { id: "network", label: "Synergies" },
   { id: "combos", label: "Combos" },
   { id: "playstyle", label: "Playstyle" },
@@ -146,8 +148,8 @@ export function DeckBeta() {
 /**
  * A deck by the deckbuilding template and its synergies: the Overview (the
  * commander's game plan, the template, the mana curve and mana base, upgrades
- * and cuts), the deck as a network of playstyles and combos, its combos, its
- * playstyles on EDHREC, and its cards. Works on the pasted deck or a saved
+ * and cuts), editing it, the deck as a network of playstyles and combos, its
+ * combos, its playstyles on EDHREC, and its cards. Works on the pasted deck or a saved
  * one. Click a card for what it interacts with; double-click it (or click it
  * in the network) for its own network.
  */
@@ -371,6 +373,8 @@ export function DeckWorkspace({
               />
             )}
 
+            {view === "edit" && <EditDeck source={source} commander={commander} deckCards={deckCards} profile={profile} analysis={analysis} report={report} combos={deckCombos} inDeck={inDeck} />}
+
             {view === "network" && (
               <DeckNetwork
                 commander={commander}
@@ -428,7 +432,7 @@ export function DeckWorkspace({
                   <strong>Click</strong> a card to see what it interacts with in your deck.{" "}
                   <strong>Double-click</strong> it for its network, combos and recommendations.
                 </p>
-                <Gallery entries={entries} selected={preview?.name ?? mapFocus} onTileClick={onTileClick} />
+                <Gallery entries={entries} printings={source.printings} selected={preview?.name ?? mapFocus} onTileClick={onTileClick} />
               </>
             )}
           </div>
@@ -570,10 +574,13 @@ function StatusLine({ status, pending }: { status: LoadStatus; pending: number }
 
 function Gallery({
   entries,
+  printings,
   selected,
   onTileClick,
 }: {
   entries: Entry[];
+  /** The printing chosen for each card, by its key. */
+  printings?: Record<string, ChosenPrinting>;
   selected: string | null;
   onTileClick: (event: MouseEvent<HTMLButtonElement>, name: string) => void;
 }) {
@@ -600,7 +607,7 @@ function Gallery({
             <ul className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
               {cards.map((entry) => (
                 <li key={entry.asked}>
-                  <Tile entry={entry} selected={!!entry.details && entry.details.name === selected} onClick={onTileClick} />
+                  <Tile entry={entry} imageUrl={printings?.[cardKey(entry.asked)]?.imageUrl} selected={!!entry.details && entry.details.name === selected} onClick={onTileClick} />
                 </li>
               ))}
             </ul>
@@ -613,10 +620,13 @@ function Gallery({
 
 function Tile({
   entry,
+  imageUrl,
   selected,
   onClick,
 }: {
   entry: Entry;
+  /** The chosen printing's image, in place of the card's own. */
+  imageUrl?: string;
   selected: boolean;
   onClick: (event: MouseEvent<HTMLButtonElement>, name: string) => void;
 }) {
@@ -630,7 +640,7 @@ function Tile({
           selected ? "ring-3 ring-accent/70" : ""
         }`}
       >
-        {card ? <LazyCardImage url={card.imageUrl} alt={name} /> : <ImageNote text="Loading card details…" spinner />}
+        {card ? <LazyCardImage url={imageUrl ?? card.imageUrl} alt={name} /> : <ImageNote text="Loading card details…" spinner />}
         <GameChangerTag name={name} className="absolute top-1.5 left-1.5 shadow" />
         {entry.qty > 1 && (
           <span className="absolute top-1.5 right-1.5 rounded-full bg-background/85 px-1.5 text-xs font-semibold text-white tabular-nums">

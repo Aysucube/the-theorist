@@ -1,6 +1,8 @@
 import { cacheLife } from "next/cache";
 import { canBeCommander } from "@/lib/commander-rules";
 import { fixingLandsQuery } from "@/lib/deck-beta/lands";
+import type { RelatedLook, RelatedPart } from "@/lib/deck-beta/related";
+import { printingVariants } from "@/lib/printings";
 import type { CardDetails, CardInfo, Printing, Ruling, ScryfallCard, ScryfallLookup } from "@/lib/types";
 import { SourceError, sourceFetch } from "./http";
 import { createThrottle } from "./throttle";
@@ -38,6 +40,8 @@ interface RawCard extends RawFace {
   full_art?: boolean;
   border_color?: string;
   set_name?: string;
+  /** What this card links to: tokens, emblems, meld partners... */
+  all_parts?: { id: string; component: string; name: string; type_line: string }[];
 }
 
 // Scryfall's hard limits (https://scryfall.com/docs/api/rate-limits): 2 requests
@@ -197,8 +201,16 @@ interface RawPrinting {
   finishes: string[];
   digital?: boolean;
   scryfall_uri: string;
-  image_uris?: { small?: string };
+  image_uris?: { small?: string; normal?: string };
   card_faces?: RawFace[];
+  frame?: string;
+  frame_effects?: string[];
+  border_color?: string;
+  full_art?: boolean;
+  promo?: boolean;
+  promo_types?: string[];
+  set_type?: string;
+  textless?: boolean;
 }
 
 interface RawList<T> {
@@ -219,6 +231,18 @@ function toPrinting(raw: RawPrinting): Printing {
     rarity: raw.rarity,
     finishes: raw.finishes,
     imageUrl: raw.image_uris?.small ?? raw.card_faces?.[0]?.image_uris?.small,
+    largeImageUrl: raw.image_uris?.normal ?? raw.card_faces?.[0]?.image_uris?.normal,
+    variants: printingVariants({
+      frame: raw.frame,
+      frameEffects: raw.frame_effects,
+      borderColor: raw.border_color,
+      fullArt: raw.full_art,
+      promo: raw.promo,
+      promoTypes: raw.promo_types,
+      setType: raw.set_type,
+      finishes: raw.finishes,
+      textless: raw.textless,
+    }),
     scryfallUrl: raw.scryfall_uri,
   };
 }
@@ -354,6 +378,45 @@ export async function getLandArts(name: string): Promise<LandArt[]> {
     if (!artUrl) return [];
     return [{ artUrl, artist: card.artist, set: card.set_name, fullArt: Boolean(card.full_art) || card.border_color === "borderless" }];
   });
+}
+
+// --- Tokens and related cards ----------------------------------------------------
+
+/** What Scryfall links to each card, by the name asked for, with a double-faced card's other side as a "back". */
+export async function getRelatedParts(names: string[]): Promise<Record<string, RelatedPart[]>> {
+  "use cache: remote";
+  cacheLife("days");
+
+  return mapValues(await collectCards(names), (card) => {
+    const parts: RelatedPart[] = (card.all_parts ?? []).map((p) => ({ id: p.id, component: p.component, name: p.name, typeLine: p.type_line }));
+    const back = card.card_faces?.[1];
+    if ((card.layout === "transform" || card.layout === "modal_dfc") && back) {
+      parts.push({ component: "back", name: back.name, typeLine: back.type_line ?? "", imageUrl: back.image_uris?.normal, transforms: card.layout === "transform" });
+    }
+    return parts;
+  });
+}
+
+/** How tokens and emblems look, by Scryfall id. */
+export async function getRelatedLooks(ids: string[]): Promise<Record<string, RelatedLook>> {
+  "use cache: remote";
+  cacheLife("days");
+
+  const looks: Record<string, RelatedLook> = {};
+  for (let i = 0; i < ids.length; i += COLLECTION_SIZE) {
+    const batch = ids.slice(i, i + COLLECTION_SIZE);
+    const list = (await get("/cards/collection", { identifiers: batch.map((id) => ({ id })) })) as { data: RawCard[] } | null;
+    for (const card of list?.data ?? []) {
+      const front = card.card_faces?.[0];
+      looks[card.id] = {
+        imageUrl: card.image_uris?.normal ?? front?.image_uris?.normal,
+        text: card.oracle_text ?? front?.oracle_text,
+        power: card.power ?? front?.power,
+        toughness: card.toughness ?? front?.toughness,
+      };
+    }
+  }
+  return looks;
 }
 
 // --- Fixing lands ---------------------------------------------------------------

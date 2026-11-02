@@ -7,8 +7,10 @@ import { importCards, MAX_DECK_CARDS, removeCard, type DeckCard } from "@/lib/de
 import { createLocalStore, useHydrated } from "@/lib/local-store";
 import { mergeDeckLists } from "@/lib/saved-shape";
 import { fetchJsonWithRetry, sleep } from "@/lib/retry";
-import type { AlternativesResponse, CardDetails } from "@/lib/types";
-import type { AnalysisResponse, BuilderResponse, CardsResponse, CommanderPlanResponse, LandArtResponse, LandsResponse, PairingsResponse, PlaystyleResponse, RulingsResponse } from "./api";
+import type { AlternativesResponse, CardDetails, ChosenPrinting } from "@/lib/types";
+import { cardKey } from "./recommend";
+import type { AnalysisResponse, BuilderResponse, CardsResponse, CommanderPlanResponse, LandArtResponse, LandsResponse, PairingsResponse, PlaystyleResponse, PrintingsResponse, RulingsResponse } from "./api";
+import type { DeckRelated } from "./related";
 
 function isDeckCard(value: unknown): value is DeckCard {
   const card = value as DeckCard;
@@ -434,6 +436,31 @@ export function retryAlternatives(name: string) {
   loadRemote<AlternativesResponse>(url, url, undefined, "a card source is busy", true);
 }
 
+// --- A deck's Edit tab ----------------------------------------------------------------
+
+/** Every printing of a card, looked up when its picker opens. */
+export function useCardPrintings(name: string): RemoteState<PrintingsResponse> | undefined {
+  useSyncExternalStore(subscribePairings, () => pairingsVersion, () => 0);
+  const url = `/api/deck-beta/printings?${new URLSearchParams({ name })}`;
+  useEffect(() => {
+    loadRemote<PrintingsResponse>(url, url, undefined, "Scryfall is busy");
+  }, [url]);
+  return remote.get(url) as RemoteState<PrintingsResponse> | undefined;
+}
+
+/** The tokens, emblems, game pieces and partners of a deck's cards. */
+export function useDeckRelated(names: string[]): RemoteState<DeckRelated> | undefined {
+  useSyncExternalStore(subscribePairings, () => pairingsVersion, () => 0);
+  const key = `related\n${[...names].sort().join("\n")}`;
+  useEffect(() => {
+    const cards = key.split("\n").slice(1).filter(Boolean);
+    if (cards.length === 0) return;
+    const init = { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ names: cards }) };
+    loadRemote<DeckRelated>(key, "/api/deck-beta/related", init, "Scryfall is busy");
+  }, [key]);
+  return remote.get(key) as RemoteState<DeckRelated> | undefined;
+}
+
 // --- Saved decks --------------------------------------------------------------------
 
 export interface SavedDeck {
@@ -448,6 +475,8 @@ export interface SavedDeck {
   theme?: string;
   /** The commander's card image, for My Decks. */
   commanderImage?: string;
+  /** The printing chosen for each card, by its lower-cased front name. */
+  printings?: Record<string, ChosenPrinting>;
 }
 
 function isSavedDeck(value: unknown): value is SavedDeck {
@@ -502,6 +531,10 @@ export interface DeckSource {
   /** Adds pasted cards; a card already in the deck takes the pasted quantity. */
   addList: (cards: DeckCard[]) => void;
   clear: () => void;
+  /** The printing chosen for each card, on a deck that keeps them. */
+  printings?: Record<string, ChosenPrinting>;
+  /** Picks a card's printing, or goes back to its default art. */
+  setPrinting?: (name: string, printing: ChosenPrinting | undefined) => void;
 }
 
 /** The pasted deck on the Check a Deck page. */
@@ -547,6 +580,15 @@ export function useSavedDeckSource(id: string): DeckSource & { saved: SavedDeck 
     replace: (cards, chosen) => update({ cards: importCards([], cards), ...(chosen !== undefined ? { commander: chosen, commanderImage: undefined } : {}) }),
     addList: (cards) => update({ cards: importCards(cardsNow(), cards) }),
     clear: () => update({ cards: [] }),
+    printings: saved?.printings ?? {},
+    setPrinting: (name, printing) => {
+      const current = libraryStore.get().find((d) => d.id === id);
+      const others = { ...current?.printings };
+      delete others[cardKey(name)];
+      // The commander's printing is the deck's picture on My Decks too.
+      const isCommander = current?.commander && cardKey(current.commander) === cardKey(name);
+      update({ printings: printing ? { ...others, [cardKey(name)]: printing } : others, ...(isCommander ? { commanderImage: printing?.imageUrl } : {}) });
+    },
   };
 }
 

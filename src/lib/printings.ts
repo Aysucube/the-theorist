@@ -2,6 +2,39 @@
 // it (from TCGph), so a card page can show the cheapest copy of each printing.
 import type { Printing, TcgphListing, TcgphPrices, TcgphPrint } from "./types";
 
+/** What Scryfall says about how a printing looks. */
+export interface PrintingLook {
+  frame?: string;
+  frameEffects?: string[];
+  borderColor?: string;
+  fullArt?: boolean;
+  promo?: boolean;
+  promoTypes?: string[];
+  setType?: string;
+  finishes?: string[];
+  textless?: boolean;
+}
+
+/** The art treatments to pick between, in the order they're offered. */
+export const PRINTING_VARIANTS = ["Showcase", "Borderless", "Retro Frame", "Extended Art", "Full Art", "Etched", "Promo", "Textless", "Serialized"];
+
+/** A printing's art treatments. Retro Frame means the old card frames, whether from back then or brought back. */
+export function printingVariants(look: PrintingLook): string[] {
+  const effects = look.frameEffects ?? [];
+  const has: Record<string, boolean> = {
+    Showcase: effects.includes("showcase"),
+    Borderless: look.borderColor === "borderless",
+    "Retro Frame": look.frame === "1993" || look.frame === "1997",
+    "Extended Art": effects.includes("extendedart"),
+    "Full Art": Boolean(look.fullArt),
+    Etched: effects.includes("etched") || Boolean(look.finishes?.includes("etched")),
+    Promo: Boolean(look.promo) || look.setType === "promo",
+    Textless: Boolean(look.textless),
+    Serialized: Boolean(look.promoTypes?.includes("serialized")),
+  };
+  return PRINTING_VARIANTS.filter((variant) => has[variant]);
+}
+
 export interface PrintingOffer {
   pricePhp: number;
   store: string;
@@ -20,6 +53,8 @@ export interface PricedPrinting {
   releasedAt?: string;
   rarity?: string;
   imageUrl?: string;
+  largeImageUrl?: string;
+  variants?: string[];
   scryfallUrl?: string;
   /** This printing's page on TCGph, when a store has it. */
   tcgphUrl?: string;
@@ -86,6 +121,8 @@ export function pricePrintings(printings: Printing[], prices: TcgphPrices | null
       releasedAt: p.releasedAt,
       rarity: p.rarity,
       imageUrl: p.imageUrl,
+      largeImageUrl: p.largeImageUrl,
+      variants: p.variants,
       scryfallUrl: p.scryfallUrl,
     }),
   );

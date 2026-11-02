@@ -137,7 +137,19 @@ export interface Printing {
   /** "nonfoil", "foil", "etched". */
   finishes: string[];
   imageUrl?: string;
+  /** A larger image, for showing a printing chosen for a deck. */
+  largeImageUrl?: string;
+  /** Its art treatments: "Showcase", "Borderless", "Retro Frame"... */
+  variants?: string[];
   scryfallUrl: string;
+}
+
+/** The printing of a card chosen for a deck. */
+export interface ChosenPrinting {
+  setCode: string;
+  setName: string;
+  collectorNumber: string;
+  imageUrl?: string;
 }
 
 /** One official ruling (or Scryfall note) about how a card works. */

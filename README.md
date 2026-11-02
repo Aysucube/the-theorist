@@ -92,6 +92,11 @@ Zone's template and videos on mana curves and mana bases):
 A deck in progress is saved as you go, so you can leave and continue later. Saved decks go to
 **My Decks**, each shown by its commander with its name and how many cards you'd need to buy.
 **Click one to open its page**: everything below, for that deck, with every change saved to it.
+Its **Edit deck** tab holds the deck's mana curve, its **color distribution** (the colored mana your
+spells ask for against what your lands make), a **draw odds** calculator for hands and specific cards,
+a **printing picker** for each card (any set, Showcase, Borderless and Retro Frame art, or promos), the
+**tokens, emblems and game pieces** the deck brings with its meld and transform partners, and cards
+to add, by what the deck is short of and what works with the cards in it.
 Right-click it (or use its ⋯ button) to add **only the cards missing from your binder** to
 Shopping, copy it, or delete it.
 
