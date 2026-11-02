@@ -37,7 +37,8 @@ type PickProps = { ownedFor: (name: string) => number; onAdd: (card: CardDetails
  * deck and the dual lands and others to add on top; the threats tab sorts what
  * the deck can threaten the table with by kind. It opens on the category
  * furthest from its target. Adding a card sends it into the deck and the lists
- * re-rank. A dropdown switches playstyles at any point, a search above the tabs
+ * re-rank, except on the threats tab, which holds still until you leave it. A
+ * dropdown switches playstyles at any point, a search above the tabs
  * finds any card, and clicking a cost on the mana curve narrows the tab to its
  * most synergistic cards at that cost.
  */
@@ -49,6 +50,7 @@ export function BuildStep({
   basicSplit,
   ownedFor,
   onAdd,
+  onRemove,
   spells,
   spellTarget,
   curvePick,
@@ -77,6 +79,7 @@ export function BuildStep({
   lands: number;
   /** The basics that come with the deck, by name. */
   basicSplit: Record<string, number>;
+  onRemove: (name: string) => void;
   spells: number;
   spellTarget: number;
   /** The mana curve slot clicked, if any. */
@@ -213,7 +216,7 @@ export function BuildStep({
               <LandGroups lands={groups.lands} preferOwned={preferOwned} jumps {...pickProps} />
             </>
           )}
-          {tab === "threats" && <ThreatShelves threats={groups.threats} have={threatsInDeck} target={groups.threatTarget} themeName={themeName} slot={curvePick} onClear={onClearCurvePick} {...pickProps} />}
+          {tab === "threats" && <ThreatShelves key={`${themeName}:${styleLoading}`} threats={groups.threats} have={threatsInDeck} target={groups.threatTarget} themeName={themeName} slot={curvePick} onClear={onClearCurvePick} has={has} onRemove={onRemove} {...pickProps} />}
         </div>
       )}
     </div>
@@ -461,7 +464,11 @@ const threatInfo = (kind: ThreatKind) => THREAT_KINDS.find((k) => k.kind === kin
 
 /**
  * The threats the deck can run, under what each does for it: the kinds its decks
- * lean on most come first, each with the deck's own cards and more to add.
+ * lean on most come first, each with the deck's own cards and more to add. A
+ * card added doesn't move anything: from the first one on, the list stays as it
+ * was and the card keeps its place, marked, until you leave the tab. Combos
+ * change with the deck, and the bracket's limits fill up, so a list that went on
+ * following the deck would rearrange itself after every card.
  */
 function ThreatShelves({
   threats,
@@ -470,7 +477,10 @@ function ThreatShelves({
   themeName,
   slot,
   onClear,
-  ...pickProps
+  has,
+  onRemove,
+  onAdd,
+  ownedFor,
 }: PickProps & {
   threats: ThreatShelf[];
   have: number;
@@ -479,16 +489,25 @@ function ThreatShelves({
   /** The mana curve slot picked, to see the threats at that cost. */
   slot?: number;
   onClear: () => void;
+  /** In the deck already. */
+  has: (name: string) => boolean;
+  onRemove: (name: string) => void;
 }) {
+  const [held, setHeld] = useState<ThreatShelf[]>();
+  const shelves = held ?? threats;
+  const add = (card: CardDetails) => {
+    setHeld(shelves);
+    onAdd(card);
+  };
   const decks = themeName ? `${themeName} decks` : "This commander’s decks";
-  const leanedOn = [...threats]
+  const leanedOn = [...shelves]
     .filter((t) => t.aim >= 1)
     .sort((a, b) => b.aim - a.aim)
     .slice(0, 3)
     .map((t) => threatInfo(t.kind).label.toLowerCase());
   const parts = THREAT_PURPOSES.map(({ purpose, label }) => ({
     label,
-    shelves: threats.filter((t) => threatInfo(t.kind).purpose === purpose).sort((a, b) => Number(b.kind === "combo") - Number(a.kind === "combo") || b.aim - a.aim),
+    shelves: shelves.filter((t) => threatInfo(t.kind).purpose === purpose).sort((a, b) => Number(b.kind === "combo") - Number(a.kind === "combo") || b.aim - a.aim),
   })).filter((part) => part.shelves.length > 0);
   const atCost = (picks: BuilderPick[]) => (slot === undefined ? picks : picks.filter((p) => slotOf(p.card.cmc) === slot));
   const inOrder = parts.flatMap((part) => part.shelves);
@@ -513,30 +532,34 @@ function ThreatShelves({
         )}
       </div>
       <SectionJumps sections={inOrder.map((t) => ({ title: threatInfo(t.kind).label, count: atCost(t.picks).length }))} />
-      {threats.length === 0 && <p className="text-sm text-muted">No threats to suggest here yet. Add more of the commander’s key cards and check back.</p>}
+      {shelves.length === 0 && <p className="text-sm text-muted">No threats to suggest here yet. Add more of the commander’s key cards and check back.</p>}
       {parts.map((part) => (
         <div key={part.label} className="flex flex-col gap-3">
           <p className="eyebrow">{part.label}</p>
           {part.shelves.map((t) => {
             const { label, about } = threatInfo(t.kind);
             const typical = t.kind === "combo" ? "" : t.aim >= 1 ? ` ${decks} run about ${Math.round(t.aim)}.` : ` Few of ${themeName ? "these" : "this commander’s"} decks run them.`;
+            const inDeck = t.have.filter(has);
             return (
               <Group
                 key={t.kind}
                 title={label}
                 note={`${about}${typical}`}
                 lead={
-                  t.have.length > 0 && (
+                  inDeck.length > 0 && (
                     <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted">
                       In your deck:
-                      {t.have.map((name) => (
+                      {inDeck.map((name) => (
                         <CardName key={name} name={name} />
                       ))}
                     </p>
                   )
                 }
                 picks={atCost(t.picks)}
-                {...pickProps}
+                added={has}
+                onTakeOut={onRemove}
+                ownedFor={ownedFor}
+                onAdd={add}
               />
             );
           })}
@@ -641,6 +664,8 @@ function Group({
   picks,
   byType = false,
   flies = true,
+  added,
+  onTakeOut,
   ownedFor,
   onAdd,
 }: PickProps & {
@@ -652,6 +677,10 @@ function Group({
   byType?: boolean;
   /** Off for a section whose cards also show in another, so only one copy flies into the deck. */
   flies?: boolean;
+  /** For a section that holds its place as cards go in: which are in the deck now. */
+  added?: (name: string) => boolean;
+  /** And what takes one back out. */
+  onTakeOut?: (name: string) => void;
 }) {
   const [open, setOpen] = useState(true);
   if (picks.length === 0 && !lead) return null;
@@ -659,9 +688,11 @@ function Group({
   const grid = (cards: SectionCard[]) => (
     <ul className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 xl:grid-cols-4">
       <AnimatePresence mode="popLayout" initial={false}>
-        {cards.map((p, i) => (
-          <BuildCard key={p.card.name} card={p.card} ownedCopies={ownedFor(p.card.name)} categories={p.categories} reason={p.reason} index={i} flies={flies} onAdd={onAdd} />
-        ))}
+        {cards.map((p, i) => {
+          const inDeck = added?.(p.card.name) ?? false;
+          // A new key, so the card still flies into the deck while its marked copy takes its place.
+          return <BuildCard key={inDeck ? `${p.card.name} in deck` : p.card.name} card={p.card} ownedCopies={ownedFor(p.card.name)} categories={p.categories} reason={p.reason} index={added ? 0 : i} flies={flies} added={inDeck} onAdd={onAdd} onTakeOut={onTakeOut} />;
+        })}
       </AnimatePresence>
     </ul>
   );

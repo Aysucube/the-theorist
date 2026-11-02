@@ -97,9 +97,11 @@ Zone's template and videos on mana curves and mana bases):
    drain, swarms, team pump, big attackers), pressures resources (theft, stax, attrition) or forces a
    reaction (planeswalkers, engines). Each kind shows the deck's own cards and more to add, with the
    ones these decks lean on most first, and the tab's target is how much of their spells go to
-   threats. It's read from rules text, so treat it as a guide. The deck comes together on the other
-   side: its commander, a count to 100, its mana curve and card types, its bracket, and the newest
-   cards on a stack.
+   threats. It's read from rules text, so treat it as a guide. It **holds still as you add to it**: a
+   card stays where it is, marked as in your deck (click it to take it back out), and the tab catches
+   up with the deck when you come back to it. The deck comes together on the other side: its
+   commander, a count to 100, its mana curve and card types, its bracket, and the newest cards on a
+   stack.
 7. **Mana curve**: the deck's curve against the average deck's on EDHREC for your playstyles, scaled
    to your spells. Each cost that's over its line lists its cards, the weakest first, with why and a
    **Remove** button; costs that are under take you back to Build for cards at that cost.

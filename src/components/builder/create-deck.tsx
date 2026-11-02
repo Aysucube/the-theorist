@@ -423,6 +423,7 @@ export function CreateDeck() {
                         preferOwned={draft.preferOwned}
                         ownedFor={binder.owned}
                         onAdd={add}
+                        onRemove={removeCard}
                         spells={spells}
                         spellTarget={spellTarget}
                         curvePick={curvePick}

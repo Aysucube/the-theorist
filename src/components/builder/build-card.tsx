@@ -23,7 +23,9 @@ export function BuildCard({
   reason,
   index,
   flies = true,
+  added = false,
   onAdd,
+  onTakeOut,
 }: {
   card: CardDetails;
   ownedCopies: number;
@@ -33,15 +35,19 @@ export function BuildCard({
   index: number;
   /** Shares a layout id with the deck's copy; off when the card shows twice, so only one of them flies in. */
   flies?: boolean;
+  /** In the deck already, on a list that holds its place: it stays where it is, marked. */
+  added?: boolean;
   onAdd: (card: CardDetails) => void;
+  /** For a list that holds its place: takes a card marked as added back out. */
+  onTakeOut?: (name: string) => void;
 }) {
   const { trigger, preview } = useHoverPreview(card.name);
   const { onPointerEnter, onPointerLeave, ...focus } = trigger;
   const owned = ownedCopies > 0;
   return (
     <motion.li
-      layoutId={flies ? `card:${card.name}` : undefined}
-      initial={{ opacity: 0, transform: "translateY(8px)" }}
+      layoutId={flies && !added ? `card:${card.name}` : undefined}
+      initial={{ opacity: 0, transform: onTakeOut ? "translateY(0px)" : "translateY(8px)" }}
       animate={{ opacity: 1, transform: "translateY(0px)" }}
       exit={{ opacity: 0, transform: "scale(0.96)", transition: { duration: 0.15 } }}
       transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1], delay: Math.min(index, STAGGER_LIMIT) * 0.03 }}
@@ -54,20 +60,26 @@ export function BuildCard({
         {...focus}
         onClick={() => {
           trigger.onClick();
-          onAdd(card);
+          if (added) onTakeOut?.(card.name);
+          else onAdd(card);
         }}
-        aria-label={`Add ${card.name} to the deck${owned ? "" : " (not in your binder)"}`}
+        aria-label={added ? `Take ${card.name} out of the deck` : `Add ${card.name} to the deck${owned ? "" : " (not in your binder)"}`}
         className="relative block aspect-[488/680] overflow-hidden rounded-[4.75%] bg-subtle text-left outline-offset-4"
       >
-        <span className={`block h-full w-full transition-[filter,opacity] duration-200 ${owned ? "" : "opacity-55 grayscale"}`}>
+        <span className={`block h-full w-full transition-[filter,opacity] duration-200 ${added ? "opacity-30" : owned ? "" : "opacity-55 grayscale"}`}>
           <LazyCardImage url={card.imageUrl} alt={card.name} />
         </span>
         <GameChangerTag name={card.name} className="absolute top-1.5 left-1.5 shadow" />
+        {added && (
+          <span className="absolute inset-0 flex items-center justify-center">
+            <span className="rounded-full bg-background/85 px-2.5 py-1 text-xs font-medium text-accent">✓ In your deck</span>
+          </span>
+        )}
         <span
           aria-hidden
           className="absolute right-1.5 bottom-1.5 flex size-7 items-center justify-center rounded-full bg-accent text-base leading-none text-on-accent opacity-0 shadow-lg transition-[opacity,transform] duration-150 ease-out group-hover:opacity-100 group-focus-within:opacity-100"
         >
-          +
+          {added ? "×" : "+"}
         </span>
       </button>
       {preview}
