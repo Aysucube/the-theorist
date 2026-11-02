@@ -7,6 +7,7 @@ import { isLandCard } from "@/lib/deck-beta/lands";
 import { CATEGORIES, CATEGORY_INFO, type DeckProfile } from "@/lib/deck-beta/roles";
 import { formatCount, formatPercent } from "@/lib/format";
 import type { CardDetails } from "@/lib/types";
+import { useHoverPreview } from "../card-link";
 
 /** Turns shown in the turn-by-turn table. */
 const TURNS = [1, 2, 3, 4, 5, 6, 8, 10];
@@ -83,16 +84,12 @@ export function OddsCalculator({ deckCards, profile, commander }: { deckCards: {
             {named.length > 0 && (
               <ul className="mt-2 flex flex-wrap gap-1.5">
                 {named.map((name) => (
-                  <li key={name}>
-                    <button type="button" onClick={() => setNamed(named.filter((n) => n !== name))} aria-label={`Stop looking for ${name}`} className="pill" aria-pressed>
-                      {name} ×
-                    </button>
-                  </li>
+                  <NamedCard key={name} name={name} onRemove={() => setNamed(named.filter((n) => n !== name))} />
                 ))}
               </ul>
             )}
           </div>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-3">
             <label className="text-sm font-medium">
               At least
               <input type="number" min={0} max={20} value={want} onChange={(e) => setWant(Math.max(0, Number(e.target.value) || 0))} className="field mt-1 h-9 w-full" />
@@ -108,7 +105,7 @@ export function OddsCalculator({ deckCards, profile, commander }: { deckCards: {
                 ))}
               </select>
             </label>
-            <label className="flex items-center gap-2 self-end pb-2 text-sm">
+            <label className="col-span-2 flex items-center gap-2 text-sm">
               <input type="checkbox" checked={onDraw} onChange={(e) => setOnDraw(e.target.checked)} className="size-4 accent-accent" />
               On the draw
             </label>
@@ -161,5 +158,27 @@ export function OddsCalculator({ deckCards, profile, commander }: { deckCards: {
         </ul>
       </div>
     </div>
+  );
+}
+
+function NamedCard({ name, onRemove }: { name: string; onRemove: () => void }) {
+  const { trigger, preview } = useHoverPreview(name);
+  return (
+    <li>
+      <button
+        type="button"
+        {...trigger}
+        onClick={() => {
+          trigger.onClick();
+          onRemove();
+        }}
+        aria-label={`Stop looking for ${name}`}
+        className="pill"
+        aria-pressed
+      >
+        {name} ×
+      </button>
+      {preview}
+    </li>
   );
 }

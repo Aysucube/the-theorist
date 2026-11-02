@@ -91,6 +91,14 @@ export interface HoverTriggerProps {
   onClick: () => void;
 }
 
+/** What a hover card shows beyond, or instead of, what the card's name looks up. */
+export interface HoverLook {
+  /** A particular printing's image, in place of the default. */
+  imageUrl?: string;
+  /** A token, emblem or game piece, which has no page of its own to look up: what to show for it. */
+  piece?: { typeLine: string; text?: string; note?: string };
+}
+
 /** Where a hover preview is anchored: the pointer, or the focused element's box. */
 export interface HoverAnchor {
   left: number;
@@ -104,20 +112,20 @@ function useHoverCard() {
   // The card, where its preview shows, and the element it's rendered into:
   // inside a modal dialog (the deck beta's synergy map) it must live in the
   // dialog, since modal dialogs sit above everything else on the page.
-  const [position, setPosition] = useState<{ name: string; left: number; top: number; container: Element } | null>(null);
+  const [position, setPosition] = useState<{ name: string; left: number; top: number; container: Element; look?: HoverLook } | null>(null);
   const [snapshot, setSnapshot] = useState<Snapshot>({ done: false });
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const unwatch = useRef<(() => void) | undefined>(undefined);
   const id = useId();
 
-  function show(name: string, element: Element, anchor: HoverAnchor) {
+  function show(name: string, element: Element, anchor: HoverAnchor, look?: HoverLook) {
     clearTimeout(timer.current);
     const container = element.closest("dialog") ?? document.body;
     timer.current = setTimeout(() => {
       const place = placeHoverCard(anchor, { width: window.innerWidth, height: window.innerHeight }, CARD_SIZE);
-      setPosition({ name, ...place, container });
+      setPosition({ name, ...place, container, look });
       unwatch.current?.();
-      unwatch.current = watchPreview(name, setSnapshot);
+      unwatch.current = look?.piece ? undefined : watchPreview(name, setSnapshot);
     }, HOVER_DELAY_MS);
   }
 
@@ -168,17 +176,17 @@ function useHoverCard() {
  * `preview` next to it. Busy sources and slow images are waited out and
  * retried, so the preview fills in completely. Touch screens don't get one.
  */
-export function useHoverPreview(name: string): { trigger: HoverTriggerProps; preview: ReactNode } {
+export function useHoverPreview(name: string, look?: HoverLook): { trigger: HoverTriggerProps; preview: ReactNode } {
   const card = useHoverCard();
   return {
     trigger: {
       "aria-describedby": card.open ? card.id : undefined,
       onPointerEnter: (e) => {
         if (e.pointerType !== "mouse") return;
-        card.show(name, e.currentTarget, { left: e.clientX, right: e.clientX, top: e.clientY, bottom: e.clientY });
+        card.show(name, e.currentTarget, { left: e.clientX, right: e.clientX, top: e.clientY, bottom: e.clientY }, look);
       },
       onPointerLeave: card.hide,
-      onFocus: (e) => card.show(name, e.currentTarget, e.currentTarget.getBoundingClientRect()),
+      onFocus: (e) => card.show(name, e.currentTarget, e.currentTarget.getBoundingClientRect(), look),
       onBlur: card.hide,
       onClick: card.hide,
     },
@@ -235,10 +243,13 @@ function HoverCard({
   id: string;
   name: string;
   snapshot: Snapshot;
-  position: { left: number; top: number };
+  position: { left: number; top: number; look?: HoverLook };
 }) {
-  const loaded = snapshot.preview;
-  const waiting = snapshot.waiting;
+  const piece = position.look?.piece;
+  const loaded = piece ? undefined : snapshot.preview;
+  const done = Boolean(piece) || snapshot.done;
+  const waiting = piece ? undefined : snapshot.waiting;
+  const imageUrl = position.look?.imageUrl ?? loaded?.imageUrl;
   const cheapest = loaded?.cheapest;
   const ref = useRef<HTMLDivElement>(null);
   const [top, setTop] = useState(position.top);
@@ -258,10 +269,10 @@ function HoverCard({
       className={`pop-in pointer-events-none fixed z-50 grid grid-cols-[300px_1fr] gap-4 rounded-xl border border-line-strong bg-surface shadow-[0_24px_60px_-16px_rgb(0_0_0/0.75),0_0_40px_-16px_rgb(90_176_255/0.3)] p-4 text-foreground [--transform-origin:left_top]`}
     >
       <div className="aspect-[488/680] self-start overflow-hidden rounded-[4.75%] bg-subtle">
-        {loaded?.imageUrl ? (
+        {imageUrl ? (
           // A new key starts a fresh load if the preview's image changes.
-          <RetryingImage key={loaded.imageUrl} url={loaded.imageUrl} failedText="Image couldn’t load. Hover again to retry." />
-        ) : snapshot.done ? (
+          <RetryingImage key={imageUrl} url={imageUrl} failedText="Image couldn’t load. Hover again to retry." />
+        ) : done ? (
           <ImageNote text="No image available" />
         ) : (
           <ImageNote text="Loading image…" spinner />
@@ -282,8 +293,16 @@ function HoverCard({
             Waiting {waiting.seconds}s because {waiting.reason}, then trying again…
           </p>
         )}
-        {!loaded && !waiting && !snapshot.done && <p className="text-muted">Loading card details…</p>}
-        {!loaded && snapshot.done && <p className="text-muted">Couldn’t load this card after several tries.</p>}
+        {!loaded && !waiting && !done && <p className="text-muted">Loading card details…</p>}
+        {!loaded && !piece && done && <p className="text-muted">Couldn’t load this card after several tries.</p>}
+
+        {piece && (
+          <>
+            <p className="text-muted">{piece.typeLine}</p>
+            {piece.text && <p className="line-clamp-12 whitespace-pre-line">{piece.text}</p>}
+            {piece.note && <p className="border-t border-line pt-2 text-muted">{piece.note}</p>}
+          </>
+        )}
 
         {loaded && (
           <>

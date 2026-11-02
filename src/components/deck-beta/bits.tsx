@@ -4,7 +4,7 @@ import { formatCount } from "@/lib/format";
 import { tagKind, tagLabel, type Tag, type TagLinks } from "@/lib/deck-beta/synergy";
 import type { PairingsState } from "@/lib/deck-beta/store";
 import type { CardDetails } from "@/lib/types";
-import { useHoverPreview } from "../card-link";
+import { useHoverPreview, type HoverLook } from "../card-link";
 import { GameChangerTag } from "../game-changer-tag";
 import { LazyCardImage } from "./lazy-card-image";
 
@@ -26,8 +26,8 @@ export function TagName({ tag }: { tag: Tag }) {
 }
 
 /** A card's name that shows its hover preview while the mouse rests on it (or it has keyboard focus). */
-export function HoverName({ name, className }: { name: string; className?: string }) {
-  const { trigger, preview } = useHoverPreview(name);
+export function HoverName({ name, look, className }: { name: string; look?: HoverLook; className?: string }) {
+  const { trigger, preview } = useHoverPreview(name, look);
   return (
     <>
       <span {...trigger} tabIndex={0} className={className}>

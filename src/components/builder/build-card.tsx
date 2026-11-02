@@ -36,6 +36,7 @@ export function BuildCard({
   onAdd: (card: CardDetails) => void;
 }) {
   const { trigger, preview } = useHoverPreview(card.name);
+  const { onPointerEnter, onPointerLeave, ...focus } = trigger;
   const owned = ownedCopies > 0;
   return (
     <motion.li
@@ -44,11 +45,13 @@ export function BuildCard({
       animate={{ opacity: 1, transform: "translateY(0px)" }}
       exit={{ opacity: 0, transform: "scale(0.96)", transition: { duration: 0.15 } }}
       transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1], delay: Math.min(index, STAGGER_LIMIT) * 0.03 }}
+      onPointerEnter={onPointerEnter}
+      onPointerLeave={onPointerLeave}
       className="group relative flex min-w-0 flex-col gap-2"
     >
       <button
         type="button"
-        {...trigger}
+        {...focus}
         onClick={() => {
           trigger.onClick();
           onAdd(card);
