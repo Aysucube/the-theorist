@@ -60,7 +60,7 @@ export async function PrintingsPanel({ card }: { card: ScryfallCard }) {
       {inStock.length > 0 && (
         <>
           <h3 className="mb-2 text-sm font-medium">In stock, cheapest first</h3>
-          <PrintingGrid tiles={inStock.map(toTile)} label="in-stock printings" cardName={card.name} />
+          <PrintingGrid tiles={inStock.map(toTile)} label="in-stock printings" cardName={card.name} layout={card.layout} />
         </>
       )}
 
@@ -70,7 +70,7 @@ export async function PrintingsPanel({ card }: { card: ScryfallCard }) {
             Not in PH stores right now ({formatCount(notInStock.length)})
           </summary>
           <div className="mt-2">
-            <PrintingGrid tiles={notInStock.map(toTile)} label="printings" cardName={card.name} />
+            <PrintingGrid tiles={notInStock.map(toTile)} label="printings" cardName={card.name} layout={card.layout} />
           </div>
         </details>
       )}

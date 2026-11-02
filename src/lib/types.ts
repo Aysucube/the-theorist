@@ -373,6 +373,8 @@ export interface CardPreview {
   /** From Scryfall; missing if it couldn't be reached. */
   typeLine?: string;
   manaCost?: string;
+  /** Scryfall layout, e.g. "normal", "transform". */
+  layout?: string;
   /** W, U, B, R, G; empty for colorless. */
   colorIdentity?: string[];
   oracleText?: string;

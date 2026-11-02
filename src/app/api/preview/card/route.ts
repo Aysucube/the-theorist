@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
   try {
     const card = (await findCard(name))?.card;
     const look: Partial<CardLook> = card
-      ? { name: card.name, imageUrl: card.imageUrl, typeLine: card.typeLine, manaCost: card.manaCost, colorIdentity: card.colorIdentity, oracleText: card.oracleText }
+      ? { name: card.name, imageUrl: card.imageUrl, typeLine: card.typeLine, manaCost: card.manaCost, layout: card.layout, colorIdentity: card.colorIdentity, oracleText: card.oracleText }
       : {};
     // A card's art and rules text hardly ever change.
     return Response.json(look, { headers: { "Cache-Control": "public, max-age=86400" } });

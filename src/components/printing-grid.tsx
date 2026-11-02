@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { rightClickTurns, useShownSide } from "@/lib/card-faces";
 import { formatCount, formatPhp } from "@/lib/format";
 import { localImage } from "@/lib/scryfall-images";
 import { showPrinting, useShownPrinting } from "@/lib/shown-printing";
@@ -31,7 +32,7 @@ const STEP = 36;
  * A grid of printings that starts small and grows on "Show more" (basic lands
  * have 800+). Clicking a printing shows it at the top of the page.
  */
-export function PrintingGrid({ tiles, label, cardName }: { tiles: PrintingTile[]; label: string; cardName: string }) {
+export function PrintingGrid({ tiles, label, cardName, layout }: { tiles: PrintingTile[]; label: string; cardName: string; layout?: string }) {
   const [shown, setShown] = useState(FIRST);
   const { printing } = useShownPrinting(cardName);
   const remaining = tiles.length - shown;
@@ -41,7 +42,7 @@ export function PrintingGrid({ tiles, label, cardName }: { tiles: PrintingTile[]
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
         {tiles.slice(0, shown).map((t) => (
           <li key={t.key}>
-            <Tile tile={t} cardName={cardName} selected={printing?.key === t.key} />
+            <Tile tile={t} cardName={cardName} layout={layout} selected={printing?.key === t.key} />
           </li>
         ))}
       </ul>
@@ -59,8 +60,9 @@ export function PrintingGrid({ tiles, label, cardName }: { tiles: PrintingTile[]
   );
 }
 
-function Tile({ tile: t, cardName, selected }: { tile: PrintingTile; cardName: string; selected: boolean }) {
+function Tile({ tile: t, cardName, layout, selected }: { tile: PrintingTile; cardName: string; layout?: string; selected: boolean }) {
   const large = t.largeImageUrl ?? t.imageUrl;
+  const shown = useShownSide(t.imageUrl);
   const label = `${t.setName} · ${t.setCode} #${t.collectorNumber}`;
   const picture = (
     <>
@@ -69,11 +71,11 @@ function Tile({ tile: t, cardName, selected }: { tile: PrintingTile; cardName: s
           selected ? "ring-3 ring-accent/70" : ""
         }`}
       >
-        {t.imageUrl && (
+        {shown && (
           // Plain <img>: Scryfall's image server sizes these already.
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={localImage(t.imageUrl)}
+            src={localImage(shown)}
             alt={`${t.setName} printing`}
             width={146}
             height={204}
@@ -93,7 +95,7 @@ function Tile({ tile: t, cardName, selected }: { tile: PrintingTile; cardName: s
   );
 
   return (
-    <div className="min-w-0">
+    <div onContextMenu={rightClickTurns(layout, t.imageUrl)} className="min-w-0">
       {large ? (
         <button
           type="button"

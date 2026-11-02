@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/theme/page-header";
 import { useEffect, useRef, useState } from "react";
 import { MAX_DECK_CARDS, parseDeckList, priceDeck, type DeckCard, type StoreCoverage } from "@/lib/deck";
 import { formatCount, formatPhp } from "@/lib/format";
+import type { SaveStatus } from "@/lib/local-store";
 import { lookupPrice, sleep } from "@/lib/price-lookup";
 import { cheapestPhp, planCheapest, planFewestStores } from "@/lib/shopping";
 import { buyAnywhere } from "@/lib/stock";
@@ -14,6 +15,14 @@ import { ShoppingList } from "./shopping-list";
 import { CardLink } from "./card-link";
 import { useCheaperAlternatives } from "./cheaper-alternatives";
 import { ManaCost } from "./mana";
+
+const SAVE_TEXT: Record<SaveStatus, string> = {
+  checking: "checking where it’s saved",
+  saving: "saving",
+  saved: "saved on this computer",
+  "browser-only": "saved in this browser only",
+  unsaved: "not saved: this browser refused to store it",
+};
 
 // Cards are priced one at a time with a short breather in between. Slow, but
 // it keeps well inside Scryfall's and TCGph's limits, and busy sources are
@@ -30,7 +39,7 @@ interface Progress {
 }
 
 export function DeckView() {
-  const { deck, ready, remove, importCards, clear } = useDeck();
+  const { deck, ready, saveStatus, remove, importCards, clear } = useDeck();
   const { lookups, pricedAt, record, markDone } = useSavedPrices();
   // Type line and mana cost for every card, fetched once per new card and saved.
   const infoFor = useCardInfo(deck);
@@ -93,7 +102,7 @@ export function DeckView() {
         eyebrow="Philippine prices"
         description={
           <p className="text-sm">
-            {formatCount(totalCards)} {totalCards === 1 ? "card" : "cards"} · saved in this browser only
+            {formatCount(totalCards)} {totalCards === 1 ? "card" : "cards"} · {SAVE_TEXT[saveStatus]}
           </p>
         }
         actions={deck.length > 0 && <ClearButton onClear={clear} />}

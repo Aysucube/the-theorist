@@ -14,6 +14,13 @@ describe("saved values", () => {
     expect(isSavedValue("binder", { name: "Sol Ring" })).toBe(false);
     expect(isSavedValue("decks", [{ id: "a", name: "Elves", cards: [{ name: "Forest", qty: 30 }], savedAt: 1 }])).toBe(true);
     expect(isSavedValue("decks", [{ id: "a", name: "Elves" }])).toBe(false);
+    expect(isSavedValue("shopping", [{ name: "Sol Ring", qty: 1 }])).toBe(true);
+    expect(isSavedValue("shopping", [{ name: "Sol Ring" }])).toBe(false);
+    expect(isSavedValue("bought", ["sol ring"])).toBe(true);
+    expect(isSavedValue("bought", [1])).toBe(false);
+    expect(isSavedValue("draft", { step: 2, cards: [], themes: [] })).toBe(true);
+    expect(isSavedValue("draft", { step: 2 })).toBe(false);
+    expect(isSavedValue("draft", null)).toBe(false);
   });
 
   it("keeps the good cards of a damaged binder", () => {

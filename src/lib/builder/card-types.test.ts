@@ -47,7 +47,7 @@ describe("typeRatio", () => {
 });
 
 describe("typeMoves", () => {
-  const empty = { combos: [], lands: { duals: [], fixing: [], utility: [], slow: [] }, leftOut: [], threats: [], threatTarget: 0 };
+  const empty = { combos: [], lands: { duals: [], fixing: [], utility: [], slow: [] }, leftOut: [], threats: [], threatsInDeck: [], threatTarget: 0 };
   const shelf = (picks: BuilderPick[], heldBack: BuilderPick[] = []) => ({ category: "plan" as const, short: 0, leaning: [], lists: [{ title: "Creatures", picks }], moreForStyle: [], outside: [], heldBack, all: { leaning: [], synergy: [], rest: [] } });
   const bear = card("Bear", "Creature — Bear");
   const wolf = card("Wolf", "Creature — Wolf");

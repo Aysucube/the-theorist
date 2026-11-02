@@ -107,7 +107,7 @@ export function EditDeck({
     at: typesAt?.find((row) => row.type === type)?.have,
     about: `${share(have, inDeckTotal)} of your deck${aim === undefined ? "" : `, ${share(aim, aimedTotal)} of the suggested one`}`,
   }));
-  const threats = plan.threats.flatMap((t) => t.have);
+  const threats = plan.threatsInDeck;
   const templateGauges: Gauge[] = [
     ...CATEGORIES.map((c) => ({ label: CATEGORY_INFO[c].label, have: plan.profile.categories[c].length, aim: CATEGORY_INFO[c].target, at: countAt(plan.profile.categories[c]), about: CATEGORY_INFO[c].about, color: CATEGORY_COLORS[c] })),
     { label: "Threats", have: threats.length, aim: plan.threatTarget, at: countAt(threats), about: THREATS_ABOUT, color: THREATS_COLOR },

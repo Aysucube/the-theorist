@@ -11,7 +11,7 @@ export function CardOverview({ lookup, rate }: { lookup: ScryfallLookup; rate: U
   return (
     <section className="grid gap-6 text-foreground sm:grid-cols-[minmax(0,240px)_1fr]">
       <ArtBackground name={card.name} artUrl={card.artUrl} />
-      <CardImage name={card.name} imageUrl={card.imageUrl} />
+      <CardImage name={card.name} imageUrl={card.imageUrl} layout={card.layout} />
 
       <div className="flex min-w-0 flex-col gap-3 [text-shadow:0_1px_3px_rgb(0_0_0/0.6)]">
         <div>

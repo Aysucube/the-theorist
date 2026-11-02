@@ -1,11 +1,12 @@
 // What The Theorist can keep on your computer as well as in the browser (see
-// api/saved): the binder and My Decks. Browser storage belongs to one address,
+// api/saved): the binder, My Decks, the shopping list with what's been bought,
+// and the deck being built. Browser storage belongs to one address,
 // port included, so a launcher that opens on another port (or another browser)
-// would otherwise start with an empty binder. Pure, so the server and the
+// would otherwise start with all of them empty. Pure, so the server and the
 // browser share the same rules and they're easy to test.
 import type { DeckCard } from "@/lib/deck";
 
-export const SAVED_KEYS = ["binder", "decks"] as const;
+export const SAVED_KEYS = ["binder", "decks", "shopping", "bought", "draft"] as const;
 export type SavedKey = (typeof SAVED_KEYS)[number];
 
 /** A saved value and when it last changed (ms), so the newer of two copies wins. */
@@ -32,10 +33,20 @@ function isSavedDeck(value: unknown) {
   return typeof deck?.id === "string" && typeof deck.name === "string" && Array.isArray(deck.cards) && deck.cards.every(isDeckLine);
 }
 
+/** The same check as the builder's own (lib/builder/draft.ts). */
+function isSavedDraft(value: unknown) {
+  const draft = value as { step?: unknown; cards?: unknown; themes?: unknown };
+  return typeof value === "object" && value !== null && Number.isInteger(draft.step) && Array.isArray(draft.cards) && Array.isArray(draft.themes);
+}
+
 /** Whether a value has the shape its key holds (and a sane size). */
 export function isSavedValue(key: SavedKey, value: unknown): boolean {
+  if (key === "draft") return isSavedDraft(value);
   if (!Array.isArray(value)) return false;
-  return key === "binder" ? value.length <= 100_000 && value.every(isSavedCard) : value.length <= 2_000 && value.every(isSavedDeck);
+  if (key === "binder") return value.length <= 100_000 && value.every(isSavedCard);
+  if (key === "shopping") return value.length <= 2_000 && value.every(isDeckLine);
+  if (key === "bought") return value.length <= 2_000 && value.every((name) => typeof name === "string");
+  return value.length <= 2_000 && value.every(isSavedDeck);
 }
 
 /** The good entries of a stored binder, so one bad line doesn't cost the whole collection. */

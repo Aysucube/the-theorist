@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { rightClickTurns } from "@/lib/card-faces";
 import { pairingsInDeck } from "@/lib/deck-beta/recommend";
 import { usePairings, useRulings } from "@/lib/deck-beta/store";
 import { interactionsOf, type DeckAnalysis } from "@/lib/deck-beta/synergy";
@@ -87,7 +88,7 @@ export function InteractionsPopover({
       }`}
     >
       <div className="flex gap-3 border-b border-line p-3">
-        <div className="aspect-[488/680] w-30 shrink-0 overflow-hidden rounded-[4.75%] bg-subtle">
+        <div onContextMenu={rightClickTurns(card.layout, card.imageUrl)} className="aspect-[488/680] w-30 shrink-0 overflow-hidden rounded-[4.75%] bg-subtle">
           {card.imageUrl && <RetryingImage url={card.imageUrl} alt={card.name} />}
         </div>
         <div className="min-w-0 flex-1">

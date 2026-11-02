@@ -1,10 +1,13 @@
 // The computer's copy of the binder and My Decks: one JSON file each in
 // .data/saved, with the previous version kept beside it. Server only.
-import { copyFile, mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { copyFile, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { SavedDoc, SavedKey } from "./saved-shape";
 
 const DIR = path.join(process.cwd(), ".data", "saved");
+/** Waits before trying again to replace a file something else has open. */
+const BUSY_WAITS_MS = [50, 150, 400];
 
 /**
  * Keeping a copy on the computer is for The Theorist run on your own computer:
@@ -30,12 +33,28 @@ export async function readSaved(key: SavedKey): Promise<SavedDoc | null> {
   }
 }
 
-/** Writes the new copy whole (via a temporary file, so a crash can't leave half a binder), keeping the last one. */
+/** Moves a file over another. Windows refuses for a moment while anything has the target open: a virus scanner, or another port reading it. */
+async function replaceFile(from: string, to: string) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await rename(from, to);
+    } catch (error) {
+      const { code } = error as NodeJS.ErrnoException;
+      if (attempt >= BUSY_WAITS_MS.length || (code !== "EPERM" && code !== "EBUSY" && code !== "EACCES")) {
+        await rm(from, { force: true });
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, BUSY_WAITS_MS[attempt]));
+    }
+  }
+}
+
+/** Writes the new copy whole (via a temporary file of its own, so a crash can't leave half a binder and two saves can't collide), keeping the last one. */
 export async function writeSaved(key: SavedKey, doc: SavedDoc): Promise<void> {
   await mkdir(DIR, { recursive: true });
   const file = path.join(DIR, `${key}.json`);
-  const temp = `${file}.${process.pid}.tmp`;
+  const temp = `${file}.${randomUUID()}.tmp`;
   await writeFile(temp, JSON.stringify(doc));
   await copyFile(file, path.join(DIR, `${key}.previous.json`)).catch(() => {});
-  await rename(temp, file);
+  await replaceFile(temp, file);
 }

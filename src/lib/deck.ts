@@ -16,9 +16,12 @@ const key = (name: string) => name.trim().toLowerCase();
 const HEADER =
   /^(commander|commanders|deck|main\s*board|mainboard|side\s*board|sideboard|maybe\s*board|maybeboard|companion|creatures?|instants?|sorcer(?:y|ies)|artifacts?|enchantments?|planeswalkers?|battles?|lands?|other)\s*(\(\d+\))?:?$/i;
 
+// Which part of a deck a line belongs to, put in front of it by some exports ("SB: 1 Counterspell").
+const BOARD_PREFIX = /^(?:sb|mb|cmdr|commander|companion|main\s*board|side\s*board|maybe\s*board):\s*/i;
+
 /**
  * Reads a pasted deck list, one card per line, in the formats deck sites export:
- * "Sol Ring", "1 Sol Ring", "1x Sol Ring", "1 Sol Ring (CMM) 410 *F*",
+ * "Sol Ring", "1 Sol Ring", "1x Sol Ring", "SB: 1 Sol Ring", "1 Sol Ring (CMM) 410 *F*",
  * "1x Sol Ring (cmm) 410 [Ramp] ^Have^". Skips blank lines, "//" comments and
  * section headers, and adds up repeated cards.
  */
@@ -26,7 +29,7 @@ export function parseDeckList(text: string): DeckCard[] {
   const cards = new Map<string, DeckCard>();
 
   for (const raw of text.split(/\r?\n/)) {
-    const line = raw.trim();
+    const line = raw.trim().replace(BOARD_PREFIX, "");
     if (!line || line.startsWith("//") || line.startsWith("#") || HEADER.test(line)) continue;
 
     const qtyMatch = line.match(/^(\d+)\s*x?\s+(.+)$/i);

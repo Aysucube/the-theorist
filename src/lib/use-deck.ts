@@ -5,10 +5,12 @@ import { createLocalStore, useHydrated } from "@/lib/local-store";
 import { useEffect } from "react";
 import type { Lookup } from "@/lib/price-lookup";
 import { fetchJsonWithRetry } from "@/lib/retry";
+import { mergeBinders } from "@/lib/saved-shape";
 import type { CardInfo } from "@/lib/types";
 
 // Everything here lives in this browser's localStorage: no account needed, but
-// it doesn't follow the user to another device or browser.
+// it doesn't follow the user to another device. The list and what's been bought
+// are also kept on the computer, so another port or browser there has them too.
 
 function isDeckCard(value: unknown): value is DeckCard {
   const card = value as DeckCard;
@@ -19,6 +21,7 @@ const deckStore = createLocalStore<DeckCard[]>(
   "commander-ph:deck",
   [],
   (v): v is DeckCard[] => Array.isArray(v) && v.every(isDeckCard),
+  { saveTo: "shopping", merge: mergeBinders },
 );
 
 /** A card's last price check, or "error" when the check failed. */
@@ -43,6 +46,7 @@ const boughtStore = createLocalStore<string[]>(
   "commander-ph:bought",
   [],
   (v): v is string[] => Array.isArray(v) && v.every((s) => typeof s === "string"),
+  { saveTo: "bought", merge: (browser, computer) => [...new Set([...browser, ...computer])] },
 );
 
 // Type line and mana cost per card, keyed by lower-cased name. null = Scryfall
@@ -99,6 +103,7 @@ export function useDeck() {
   return {
     deck,
     ready,
+    saveStatus: deckStore.useStatus(),
     add: (name: string) => deckStore.set(addCard(deckStore.get(), name)),
     remove: (name: string) => deckStore.set(removeCard(deckStore.get(), name)),
     swap: (from: string, to: string) => deckStore.set(swapCard(deckStore.get(), from, to)),

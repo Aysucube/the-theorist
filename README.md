@@ -9,7 +9,9 @@ A Magic: The Gathering Commander tool for Filipino players. Search a card and se
 
 Each card page also shows its **official rulings** and lists **every printing** with the cheapest PH copy of each,
 and hovering any card link shows a quick preview (artwork, cheapest price, shop): its image and rules
-text straight away, usually from what's already on the page, with prices filling in after. Cards on the Commander
+text straight away, usually from what's already on the page, with prices filling in after. **Right-click a
+two-sided card** (transforming or modal double-faced) to turn it over, in the gallery and its preview together;
+right-click again to turn it back. Cards on the Commander
 **Game Changers** list carry a small red "Game Changer" label everywhere in the app.
 
 On the front page, **browse by deck theme** (Tokens, Aristocrats, Landfall and 400 more):
@@ -97,9 +99,11 @@ Zone's template and videos on mana curves and mana bases):
    drain, swarms, team pump, big attackers), pressures resources (theft, stax, attrition) or forces a
    reaction (planeswalkers, engines). Each kind shows the deck's own cards and more to add, with the
    ones these decks lean on most first, and the tab's target is how much of their spells go to
-   threats. It's read from rules text, so treat it as a guide. It **holds still as you add to it**: a
-   card stays where it is, marked as in your deck (click it to take it back out), and the tab catches
-   up with the deck when you come back to it. The deck comes together on the other side: its
+   threats. It's read from rules text, so treat it as a guide. A card counts once, for what it does
+   on its own: a combo piece that threatens nothing alone sits under Combos without adding to the
+   count. The tab **holds still as you add to it**: a card stays where it is, marked as in your deck
+   (click it to take it back out), and the tab catches up with the deck when you come back to it.
+   The deck comes together on the other side: its
    commander, a count to 100, its mana curve and card types, its bracket, and the newest cards on a
    stack.
 7. **Mana curve**: the deck's curve against the average deck's on EDHREC for your playstyles, scaled
@@ -136,13 +140,13 @@ first, then spells at its most crowded costs. Cut them one at a time or all at o
 Right-click it (or use its ⋯ button) to add **only the cards missing from your binder** to
 Shopping, copy it, or delete it.
 
-**Where the binder is saved.** The binder and My Decks are kept in your browser and, when you
-open The Theorist from its launcher (or `npm run dev`), in files on your computer too
-(`.data/saved/binder.json` and `decks.json`, each with the previous version beside it). Browsers
-keep storage per address, port included, and the launcher moves to the next port when 3000 is
-busy, so without the computer's copy the binder could look empty after a restart. Now whichever
-port or browser opens the app gets the newest copy; an older browser copy is merged in rather than
-lost. The binder page says where it's saved, and **Download a backup** saves it as a CSV that the
+**Where the binder is saved.** The binder, My Decks, the shopping list with what you've bought,
+and the deck you're building are kept in your browser and, when you open The Theorist from its
+launcher (or `npm run dev`), in files on your computer too (`.data/saved`, each with the previous
+version beside it). Browsers keep storage per address, port included, and the launcher moves to the
+next port when 3000 is busy, so without the computer's copy they could look empty after a restart.
+Now whichever port or browser opens the app gets the newest copy; an older browser copy is merged
+in rather than lost. The binder and Shopping pages say where they're saved, and **Download a backup** saves it as a CSV that the
 import box reads back. If the browser's storage fills up, rebuildable caches are cleared first so
 the binder still fits.
 
@@ -416,9 +420,9 @@ several instances needs a shared cache handler; see Next.js's `cacheHandlers` do
 
 ## Limitations
 
-- The shopping list, beta deck, saved prices and ticks live in the visitor's browser
-  (localStorage, and IndexedDB for the binder's card details). The binder and My Decks are also
-  saved on the computer when the app runs there (see above), never on a shared server. Nothing
+- Everything you save lives in the visitor's browser (localStorage, and IndexedDB for the binder's
+  card details). The binder, My Decks, the shopping list, its ticks and the deck being built are
+  also saved on the computer when the app runs there (see above), never on a shared server. Nothing
   syncs between devices.
 - Store totals assume a store has enough copies; TCGph only shows stock per listing.
 - Dragon's Hoard's search gives a product's lowest and highest price but not which copy is which,

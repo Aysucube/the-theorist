@@ -3,11 +3,15 @@
 // can show them straight away. The image starts loading as soon as the pointer
 // lands on a card, so it's usually there by the time the hover card opens.
 import { savedDetails } from "./binder/card-cache";
+import { backOf, isTwoSided } from "./card-faces";
 import { subscribeImage } from "./image-loader";
 import { fetchJsonWithRetry } from "./retry";
 import type { CardPreview } from "./types";
 
-export type CardLook = Pick<CardPreview, "name" | "imageUrl" | "typeLine" | "manaCost" | "colorIdentity" | "oracleText">;
+export type CardLook = Pick<CardPreview, "name" | "imageUrl" | "typeLine" | "manaCost" | "colorIdentity" | "oracleText" | "layout">;
+
+/** Moves past looks browsers have kept for a day, when a look gains something. */
+const LOOK_VERSION = 2;
 
 // Each card once this visit. A card that can't be found is asked about again next time.
 const asked = new Map<string, Promise<CardLook | undefined>>();
@@ -16,7 +20,7 @@ const found = new Map<string, CardLook>();
 async function find(name: string): Promise<CardLook | undefined> {
   const saved = await savedDetails(name);
   if (saved) return saved;
-  const look = await fetchJsonWithRetry<Partial<CardLook>>(`/api/preview/card?name=${encodeURIComponent(name)}`, { busyReason: "Scryfall is busy" });
+  const look = await fetchJsonWithRetry<Partial<CardLook>>(`/api/preview/card?name=${encodeURIComponent(name)}&v=${LOOK_VERSION}`, { busyReason: "Scryfall is busy" });
   return look === "error" || !look.name ? undefined : (look as CardLook);
 }
 
@@ -39,10 +43,12 @@ const preload = (url: string | undefined) => {
   if (url) subscribeImage(url, () => {})();
 };
 
-/** Gets a card's image coming: the one given, for a particular printing, or else its usual one. */
+/** Gets a card's image coming: the one given, for a particular printing, or else its usual one, and its other side if it has one. */
 export function prepareCardLook(name: string, imageUrl?: string) {
   preload(imageUrl);
   void cardLook(name).then((card) => {
-    if (!imageUrl) preload(card?.imageUrl);
+    const image = imageUrl ?? card?.imageUrl;
+    if (!imageUrl) preload(image);
+    if (image && isTwoSided(card?.layout)) preload(backOf(image));
   });
 }

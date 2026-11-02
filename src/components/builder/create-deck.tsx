@@ -17,7 +17,7 @@ import { cardTraits, subtypeVocabulary } from "@/lib/deck-beta/synergy";
 import { curveAdvice } from "../deck-beta/template-bits";
 import { bracketLabel, estimateDeckBracket } from "@/lib/deck-beta/bracket";
 import { cardKey } from "@/lib/deck-beta/recommend";
-import { requestPlaystyle, retryBuilderData, useBuilderData, useDeckAnalysis, useDeckLibrary, useFixingLands, usePlaystyles } from "@/lib/deck-beta/store";
+import { latestAnalysisFor, requestPlaystyle, retryBuilderData, useBuilderData, useDeckAnalysis, useDeckLibrary, useFixingLands, usePlaystyles } from "@/lib/deck-beta/store";
 import { useGameChangers } from "@/lib/use-game-changers";
 import { formatCount } from "@/lib/format";
 import type { CardDetails } from "@/lib/types";
@@ -108,7 +108,8 @@ export function CreateDeck() {
   }, [deckKey]);
   // Only once the deck has cards: an empty deck has no combos to find.
   const analysis = useDeckAnalysis(draft.step >= STEP.build && settled ? commanderRef : undefined, settled ? settled.split("\n") : []);
-  const analysisResult = analysis?.state === "done" ? analysis.result : undefined;
+  // The last answer stands while a new one is on its way, or the deck's combos would drop out after every card.
+  const analysisResult = analysis?.state === "done" ? analysis.result : latestAnalysisFor(commanderRef);
   useEffect(() => {
     if (analysisResult) rememberDetails(Object.values(analysisResult.missing));
   }, [analysisResult]);
@@ -637,7 +638,7 @@ function FinishStep({
           </dd>
         </div>
       </dl>
-      {total < 100 && <p className="text-sm text-muted">The deck has {total} of 100 cards. You can save it now and finish it later in Deck Synergy.</p>}
+      {total < 100 && <p className="text-sm text-muted">The deck has {total} of 100 cards. You can save it now and finish it later in My Decks.</p>}
       <div className="flex items-center gap-3">
         <button type="submit" className="btn btn-primary btn-lg">
           Save to My Decks

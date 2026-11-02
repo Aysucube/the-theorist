@@ -3,6 +3,7 @@
 import { useParams } from "next/navigation";
 import { ViewTransition } from "react";
 import { useCardDetails } from "@/lib/binder/card-cache";
+import { rightClickTurns } from "@/lib/card-faces";
 import { useSavedDeckSource } from "@/lib/deck-beta/store";
 import { formatCount } from "@/lib/format";
 import { AppLink as Link } from "../app-link";
@@ -42,7 +43,8 @@ export function DeckPage() {
       </div>
     );
   }
-  const image = deck.commanderImage ?? (deck.commander ? detailsFor(deck.commander)?.imageUrl : undefined);
+  const commander = deck.commander ? detailsFor(deck.commander) : undefined;
+  const image = deck.commanderImage ?? commander?.imageUrl;
 
   return (
     <DeckWorkspace
@@ -54,7 +56,7 @@ export function DeckPage() {
           </Link>
           <div className="flex items-start gap-5">
             <ViewTransition name={deckArtName(deck.id)} share="morph" default="none">
-              <div className="hidden aspect-[488/680] w-28 shrink-0 overflow-hidden rounded-[4.75%] bg-subtle shadow-[0_12px_32px_-12px_rgb(0_0_0/0.6)] sm:block">
+              <div onContextMenu={rightClickTurns(commander?.layout, image)} className="hidden aspect-[488/680] w-28 shrink-0 overflow-hidden rounded-[4.75%] bg-subtle shadow-[0_12px_32px_-12px_rgb(0_0_0/0.6)] sm:block">
                 {image && <RetryingImage url={image} alt={deck.commander ?? deck.name} />}
               </div>
             </ViewTransition>

@@ -119,7 +119,7 @@ export function BuildStep({
   const [query, setQuery] = useState("");
   const searching = query.trim().length >= SEARCH_FROM;
   const offered = useMemo(() => allOffered(groups), [groups]);
-  const threatsInDeck = groups.threats.reduce((sum, t) => sum + t.have.length, 0);
+  const threatsInDeck = groups.threatsInDeck.length;
 
   // The chart stays beside the lists (or far above them on a phone): bring the cards into view.
   useEffect(() => {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useShownSide } from "@/lib/card-faces";
 import { useCardPrintings } from "@/lib/deck-beta/store";
 import { formatCount, formatPhp } from "@/lib/format";
 import { PRINTING_VARIANTS, type PricedPrinting } from "@/lib/printings";
@@ -130,6 +131,7 @@ export function PrintingPicker({
 
 function PrintingTile({ name, printing: p, selected, onChoose }: { name: string; printing: PricedPrinting; selected: boolean; onChoose: (printing: ChosenPrinting) => void }) {
   const imageUrl = p.largeImageUrl ?? p.imageUrl;
+  const shown = useShownSide(p.imageUrl);
   const { trigger, preview } = useHoverPreview(name, { imageUrl });
   return (
     <>
@@ -145,10 +147,10 @@ function PrintingTile({ name, printing: p, selected, onChoose }: { name: string;
         className="group block w-full text-left"
       >
         <span className={`block aspect-[146/204] overflow-hidden rounded-[4.75%] bg-subtle ${selected ? "ring-2 ring-accent ring-offset-2 ring-offset-surface" : ""}`}>
-          {p.imageUrl && (
+          {shown && (
             // Plain <img>: Scryfall's image server sizes these already.
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={localImage(p.imageUrl)} alt="" width={146} height={204} loading="lazy" className="h-full w-full object-cover transition-opacity group-hover:opacity-85" />
+            <img src={localImage(shown)} alt="" width={146} height={204} loading="lazy" className="h-full w-full object-cover transition-opacity group-hover:opacity-85" />
           )}
         </span>
         <span className="mt-1.5 block truncate text-xs font-medium" title={p.setName}>

@@ -12,6 +12,15 @@ import {
 import type { PriceResponse, StoreOffer } from "./types";
 
 describe("parseDeckList", () => {
+  it("reads a line marked with its part of the deck, and a marker alone as a header", () => {
+    expect(parseDeckList("SB: 1 Counterspell\nCommander: 1 Krenko, Mob Boss\nsideboard:\ncmdr: Sol Ring\nCircle of Protection: Red")).toEqual([
+      { name: "Counterspell", qty: 1 },
+      { name: "Krenko, Mob Boss", qty: 1 },
+      { name: "Sol Ring", qty: 1 },
+      { name: "Circle of Protection: Red", qty: 1 },
+    ]);
+  });
+
   it("reads the formats deck sites export", () => {
     const text = [
       "Sol Ring",

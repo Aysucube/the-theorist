@@ -462,6 +462,13 @@ describe("builderRecommendations", () => {
       expect(shelf(plan, "combo")?.have).toEqual(["Engine", "Rock"]);
     });
 
+    it("counts a card toward the deck's threats for what it does alone, whatever combos it joins", () => {
+      const alone = build([engine, rock], []);
+      const inCombo = build([engine, rock], [], { combos: { included: [combo], almostIncluded: [], wider: [] } as never });
+      expect(alone.threatsInDeck).toEqual(["Engine"]);
+      expect(inCombo.threatsInDeck).toEqual(["Engine"]);
+    });
+
     it("sizes kinds by EDHREC alone, whatever combos this deck is near", () => {
       const candidates = [candidateOf(drainer, { inclusion: 0.5 }), candidateOf(engine, { inclusion: 0.5 })];
       const near = { id: "2", cards: ["Drainer", "Engine"], templates: [], results: ["Win"], steps: "" } as unknown as Combo;

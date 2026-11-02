@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 import { BRACKET_STYLE } from "@/components/deck-beta/bracket-badge";
 import { CATEGORY_COLORS, CurveChart } from "@/components/deck-beta/template-bits";
+import { rightClickTurns } from "@/lib/card-faces";
 import { bracketLabel, type BracketReport } from "@/lib/deck-beta/bracket";
 import { CATEGORIES, CATEGORY_INFO, type DeckProfile } from "@/lib/deck-beta/roles";
 import type { TypeRow } from "@/lib/builder/card-types";
@@ -76,6 +77,7 @@ export function DeckRail({
             initial={{ opacity: 0, transform: "scale(0.96)" }}
             animate={{ opacity: 1, transform: "scale(1)" }}
             transition={{ type: "spring", duration: 0.55, bounce: 0.12 }}
+            onContextMenu={rightClickTurns(commander.layout, commander.imageUrl)}
             className="aspect-[488/680] w-24 shrink-0 overflow-hidden rounded-[4.75%] bg-subtle shadow-[0_12px_32px_-12px_rgb(0_0_0/0.45)] lg:w-44"
           >
             {commander.imageUrl && <RetryingImage url={commander.imageUrl} alt={commander.name} />}
@@ -166,6 +168,7 @@ export function DeckRail({
                     className="absolute top-0 aspect-[488/680] h-32 overflow-hidden rounded-[4.75%] bg-subtle shadow-[0_6px_16px_-6px_rgb(0_0_0/0.5)]"
                     style={{ left: `${i * (100 / (STACK + 2))}%`, zIndex: i }}
                     exit={{ opacity: 0, transform: "scale(0.95)", transition: { duration: 0.15 } }}
+                    onContextMenu={rightClickTurns(card.layout, card.imageUrl)}
                   >
                     {card.imageUrl && <RetryingImage url={card.imageUrl} alt={card.name} />}
                   </motion.div>

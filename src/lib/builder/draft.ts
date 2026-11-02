@@ -1,7 +1,8 @@
 "use client";
 
-// The deck being made in Create Commander Deck, saved in this browser as it
-// grows so a reload (or a visit to the binder) picks up where it left off.
+// The deck being made in Create Commander Deck, saved as it grows, in this
+// browser and on the computer, so a reload, a visit to the binder or a launcher
+// that opens on another port picks up where it left off.
 import type { DeckCard } from "@/lib/deck";
 import type { Bracket } from "@/lib/deck-beta/bracket";
 import { createLocalStore, useHydrated } from "@/lib/local-store";
@@ -57,6 +58,9 @@ const draftStore = createLocalStore<BuilderDraft>("commander-ph:builder-draft", 
     const { theme, themeName, ...rest } = old;
     return { ...EMPTY, ...rest, themes: theme ? [{ slug: theme, name: themeName ?? theme }] : [] };
   },
+  saveTo: "draft",
+  // A deck in progress can't be half one and half the other: the one in front of you stands.
+  merge: (browser) => browser,
 });
 
 const key = (name: string) => name.trim().toLowerCase();

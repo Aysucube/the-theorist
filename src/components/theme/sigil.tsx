@@ -1,3 +1,5 @@
+import { useId } from "react";
+
 /**
  * The Theorist's mark: an original arcane sigil. Rune and tick rings around an
  * eight-pointed star, with a diamond "mind's eye" at the center. With `turn`,
@@ -16,10 +18,11 @@ const RUNES = 12;
 const TICKS = 48;
 
 export function Sigil({ className = "", turn = false }: { className?: string; turn?: boolean }) {
+  const eye = useId();
   return (
     <svg viewBox="0 0 200 200" fill="none" aria-hidden className={className}>
       <defs>
-        <radialGradient id="sigil-eye" cx="50%" cy="50%" r="50%">
+        <radialGradient id={eye} cx="50%" cy="50%" r="50%">
           <stop offset="0%" stopColor="#e6f7ff" />
           <stop offset="45%" stopColor="#8fdcff" />
           <stop offset="100%" stopColor="#2f7df6" stopOpacity="0" />
@@ -58,7 +61,7 @@ export function Sigil({ className = "", turn = false }: { className?: string; tu
         <path d="M100 66L130 100L100 134L70 100Z" strokeOpacity="0.9" strokeWidth="1.4" fill="currentColor" fillOpacity="0.06" />
         <path d="M100 82L115 100L100 118L85 100Z" strokeOpacity="0.8" />
       </g>
-      <circle cx="100" cy="100" r="12" fill="url(#sigil-eye)" />
+      <circle cx="100" cy="100" r="12" fill={`url(#${eye})`} />
       <circle cx="100" cy="100" r="3.2" fill="#f2fbff" />
     </svg>
   );

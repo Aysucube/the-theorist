@@ -32,7 +32,7 @@ export function deckNeeds(plan: BuilderGroups & { profile: DeckProfile; curveSlo
   const gaps = categoryGaps(profile);
   const typeOver = (row: TypeRow) => row.have - (row.aim ?? row.have);
   const shortTypes = new Set(rows.filter((row) => row.type !== "Lands" && typeOver(row) < -CLOSE_ENOUGH).map((row) => row.type));
-  const threatsShort = plan.threatTarget - plan.threats.reduce((sum, t) => sum + t.have.length, 0);
+  const threatsShort = plan.threatTarget - plan.threatsInDeck.length;
   const threatPicks = new Set(threatsShort > CLOSE_ENOUGH ? plan.threats.filter((t) => t.have.length < t.aim).flatMap((t) => t.picks.map((p) => cardKey(p.card.name))) : []);
 
   const needsOf = (pick: BuilderPick) => {

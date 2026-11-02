@@ -8,10 +8,12 @@ import {
   useRef,
   useState,
   type FocusEvent,
+  type MouseEvent,
   type PointerEvent,
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
+import { isTwoSided, rightClickTurns } from "@/lib/card-faces";
 import { cardLook, cardLookNow, prepareCardLook, type CardLook } from "@/lib/card-look";
 import { cardHref, formatCount, formatPercent, formatPhp } from "@/lib/format";
 import { placeHoverCard } from "@/lib/hover-card";
@@ -94,6 +96,8 @@ export interface HoverTriggerProps {
   onBlur: () => void;
   /** Closes the preview; call it from your own click handler too. */
   onClick: () => void;
+  /** Turns a two-sided card over. */
+  onContextMenu: (event: MouseEvent<HTMLElement>) => void;
 }
 
 /** What a hover card shows beyond, or instead of, what the card's name looks up. */
@@ -182,6 +186,8 @@ function useHoverCard() {
  * element or it has keyboard focus. Spread `trigger` on the element and render
  * `preview` next to it. Busy sources and slow images are waited out and
  * retried, so the preview fills in completely. Touch screens don't get one.
+ * Right-clicking the element turns a two-sided card over, there and in the
+ * preview, going by the image it shows if that's another printing of the card.
  */
 export function useHoverPreview(name: string, look?: HoverLook): { trigger: HoverTriggerProps; preview: ReactNode } {
   const card = useHoverCard();
@@ -196,6 +202,10 @@ export function useHoverPreview(name: string, look?: HoverLook): { trigger: Hove
       onFocus: (e) => card.show(name, e.currentTarget, e.currentTarget.getBoundingClientRect(), look),
       onBlur: card.hide,
       onClick: card.hide,
+      onContextMenu: (e) => {
+        const seen = look?.piece ? undefined : cardLookNow(name);
+        rightClickTurns(seen?.layout, look?.imageUrl ?? seen?.imageUrl, e.currentTarget.querySelector("img")?.getAttribute("src"))(e);
+      },
     },
     preview: card.preview,
   };
@@ -316,6 +326,7 @@ function HoverCard({
         {card && (
           <>
             {card.typeLine && <p className="text-muted">{card.typeLine}</p>}
+            {isTwoSided(card.layout) && <p className="text-xs text-accent">Right-click to turn it over.</p>}
             {card.colorIdentity && (
               <p className="text-foreground/75">
                 <ColorIdentity colors={card.colorIdentity} />

@@ -18,7 +18,7 @@ export const THREAT_PURPOSES: { purpose: ThreatPurpose; label: string }[] = [
 
 /** Every kind of threat, in the order a card is tested against them. */
 export const THREAT_KINDS: { kind: ThreatKind; purpose: ThreatPurpose; label: string; about: string }[] = [
-  { kind: "combo", purpose: "win", label: "Combos", about: "The pieces of combos you have, and the cards that would complete one, all within your bracket." },
+  { kind: "combo", purpose: "win", label: "Combos", about: "The pieces of combos you have, and the cards that would complete one, all within your bracket. A piece adds to your threats only if it’s a threat on its own." },
   { kind: "walker", purpose: "react", label: "Planeswalkers", about: "They get stronger every turn they stay, so the table has to attack them." },
   { kind: "alternate", purpose: "win", label: "Alternate wins", about: "Win outright, or with poison, without taking anyone to 0 life." },
   { kind: "tempo", purpose: "win", label: "Extra turns and combats", about: "More attacks and more of your own turns before anyone can answer." },

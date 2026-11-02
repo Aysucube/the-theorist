@@ -232,6 +232,8 @@ export interface BuilderGroups {
   leftOut: UpgradePlan["leftOut"];
   /** Every kind of threat there's anything to say about. */
   threats: ThreatShelf[];
+  /** The deck's threats: its cards that are one on their own. A card counts once, as soon as it's in, whatever combos it joins, the same way `threatTarget` counts. */
+  threatsInDeck: string[];
   /** About how many threats these decks run in all. */
   threatTarget: number;
 }
@@ -552,6 +554,7 @@ export function builderRecommendations(input: BuilderInput): BuilderGroups & { p
       picks: arrange(picks, (c) => (inStyle(c.card.name) ? deckStats(c) : "Not in these playstyle decks")),
     };
   }).filter((t) => t.have.length + t.picks.length > 0);
+  const threatsInDeck = inDeckCards.filter((card) => threatKind(card)).map((card) => card.name);
   const threatTarget = weight > 0 ? Math.round([...shares.values()].reduce((a, b) => a + b, 0) * plannedSpells) : THREAT_TARGET;
 
   const jobsOf =(name: string) => CATEGORIES.filter((c) => profile.categories[c].includes(name));
@@ -579,5 +582,5 @@ export function builderRecommendations(input: BuilderInput): BuilderGroups & { p
       .map((card) => ({ card, why: whyCut(card), keeps: jobsOf(card.name).some(needed), inclusion: byName.get(cardKey(card.name))?.inclusion })),
   }));
 
-  return { template, combos: combosLeft, lands, leftOut: heldBack, threats, threatTarget, profile, manaBase, curveSlots };
+  return { template, combos: combosLeft, lands, leftOut: heldBack, threats, threatsInDeck, threatTarget, profile, manaBase, curveSlots };
 }

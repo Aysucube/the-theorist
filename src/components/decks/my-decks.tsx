@@ -22,7 +22,7 @@ const savedDate = new Intl.DateTimeFormat("en-PH", { dateStyle: "medium" });
 
 /**
  * My Decks: every saved deck with its commander up front. Click one to open it
- * in Deck Synergy; right-click (or the ⋯ button) to add just the cards it's
+ * on its page; right-click (or the ⋯ button) to add just the cards it's
  * missing from the binder to Shopping, copy it, or delete it.
  */
 export function MyDecks() {
@@ -160,7 +160,7 @@ export function MyDecks() {
       </ul>
       {decks.length === 0 && (
         <p className="mt-10 max-w-md text-sm text-muted">
-          No decks yet. Create one from your binder, or save one from Deck Synergy, and it shows up here.
+          No decks yet. Create one from your binder, or save one from Check a Deck, and it shows up here.
         </p>
       )}
     </MotionConfig>

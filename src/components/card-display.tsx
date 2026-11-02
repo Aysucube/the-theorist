@@ -2,14 +2,16 @@
 
 import Image from "next/image";
 import { useEffect, useRef } from "react";
+import { isTwoSided, rightClickTurns, useShownSide } from "@/lib/card-faces";
 import { localImage } from "@/lib/scryfall-images";
 import { showPrinting, useShownPrinting } from "@/lib/shown-printing";
 
 /**
  * The big card image at the top of a card page. Shows whichever printing was
- * clicked in the Printings section (scrolling up to it), with a way back.
+ * clicked in the Printings section (scrolling up to it), with a way back, and
+ * a right-click turns a two-sided card over.
  */
-export function CardImage({ name, imageUrl }: { name: string; imageUrl?: string }) {
+export function CardImage({ name, imageUrl, layout }: { name: string; imageUrl?: string; layout?: string }) {
   const { printing, clicks } = useShownPrinting(name);
   const ref = useRef<HTMLDivElement>(null);
   const seenClicks = useRef(clicks);
@@ -23,12 +25,13 @@ export function CardImage({ name, imageUrl }: { name: string; imageUrl?: string 
   }, [clicks]);
 
   const src = printing?.imageUrl ?? imageUrl;
+  const shown = useShownSide(src);
   return (
-    <div ref={ref} className="mx-auto w-full max-w-[240px] scroll-mt-6">
-      {src ? (
+    <div ref={ref} onContextMenu={rightClickTurns(layout, src)} className="mx-auto w-full max-w-[240px] scroll-mt-6">
+      {shown ? (
         <Image
-          key={src}
-          src={localImage(src)}
+          key={shown}
+          src={localImage(shown)}
           alt={printing ? `${name}, ${printing.label}` : name}
           width={488}
           height={680}
@@ -42,6 +45,7 @@ export function CardImage({ name, imageUrl }: { name: string; imageUrl?: string 
           No image
         </div>
       )}
+      {src && isTwoSided(layout) && <p className="mt-2 text-center text-xs text-foreground/80 [text-shadow:0_1px_3px_rgb(0_0_0/0.6)]">Right-click to turn it over.</p>}
       {printing && (
         <p className="mt-2 text-center text-xs text-foreground/80 [text-shadow:0_1px_3px_rgb(0_0_0/0.6)]">
           Showing {printing.label}.{" "}
