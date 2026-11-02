@@ -3,8 +3,7 @@ import type { PrintingsResponse } from "@/lib/deck-beta/api";
 import { pricePrintings } from "@/lib/printings";
 import { reportSourceError } from "@/lib/sources/http";
 import { findCard, getPrintings } from "@/lib/sources/scryfall";
-import { getPrices } from "@/lib/sources/tcgph";
-import { tcgphSlug } from "@/lib/slugs";
+import { getStorePrices } from "@/lib/sources/stores";
 
 // GET /api/deck-beta/printings?name=Sol%20Ring
 // A deck's Edit tab: every printing of a card, with its art variants and what
@@ -20,8 +19,8 @@ export async function GET(request: NextRequest) {
     if (!card?.oracleId) return Response.json({ found: false } satisfies PrintingsResponse);
     const [printings, prices] = await Promise.all([
       getPrintings(card.oracleId),
-      // The printings are what matter; prices are a bonus if TCGph answers.
-      getPrices(tcgphSlug(card.name)).catch((error) => {
+      // The printings are what matter; prices are a bonus if the stores answer.
+      getStorePrices(card.name).catch((error) => {
         reportSourceError("api/deck-beta/printings price", error);
         return null;
       }),

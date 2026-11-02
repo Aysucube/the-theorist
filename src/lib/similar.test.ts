@@ -5,6 +5,7 @@ import { fakeFetch, fixture } from "./sources/__fixtures__/load";
 import type { CardDetails, ScryfallCard } from "./types";
 
 vi.mock("next/cache", () => ({ cacheLife: () => {} }));
+vi.mock("@/lib/sources/stores", () => ({ withStoreLists: async (prices: unknown) => prices }));
 
 const solRing: ScryfallCard = {
   id: "x",

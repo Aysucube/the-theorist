@@ -276,6 +276,8 @@ export interface TcgphListing {
   quantity?: number;
   pricePhp: number;
   url: string;
+  /** The store lists the card and its price, but nothing says it has a copy. */
+  unconfirmed?: boolean;
 }
 
 export interface TcgphPrint {
@@ -304,7 +306,7 @@ export interface TcgphPrices {
 
 /** One store listing, trimmed to what the price button and shopping list show. */
 export interface ListingBrief
-  extends Pick<TcgphListing, "pricePhp" | "store" | "condition" | "conditionLabel" | "url" | "quantity"> {
+  extends Pick<TcgphListing, "pricePhp" | "store" | "condition" | "conditionLabel" | "url" | "quantity" | "unconfirmed"> {
   /** Which printing, e.g. "CMM #410 · Foil", so a store knows which copy is meant. */
   printing?: string;
 }

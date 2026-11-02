@@ -1,11 +1,12 @@
 import { formatCount, formatPhp } from "@/lib/format";
-import { tcgphSlug } from "@/lib/slugs";
 import { reportSourceError } from "@/lib/sources/http";
-import { cheapestFirst, getPrices, summarizePrices } from "@/lib/sources/tcgph";
+import { getStorePrices } from "@/lib/sources/stores";
+import { cheapestFirst, summarizePrices } from "@/lib/sources/tcgph";
 import type { ScryfallCard, TcgphPrice } from "@/lib/types";
 import { Panel, SourceMessage } from "./panel";
 
 const TITLE = "Philippine store prices";
+const SOURCE = "TCGph, Co Collectibles, Collectibat";
 const SHOWN = 15;
 // Basic lands have 1,600+ listings; the page lists the cheapest ones and links
 // to TCGph for the rest. (The Printings panel covers every printing.)
@@ -14,11 +15,11 @@ const MAX_LISTED = 100;
 export async function TcgphPanel({ card }: { card: ScryfallCard }) {
   let prices;
   try {
-    prices = await getPrices(tcgphSlug(card.name));
+    prices = await getStorePrices(card.name);
   } catch (error) {
     const reason = reportSourceError("TcgphPanel", error);
     return (
-      <Panel title={TITLE} source="TCGph">
+      <Panel title={TITLE} source={SOURCE}>
         <SourceMessage>Couldn’t reach TCGph right now. Try again in a bit.</SourceMessage>
         <p className="mt-1 text-xs text-muted">Reason: {reason}</p>
       </Panel>
@@ -27,8 +28,8 @@ export async function TcgphPanel({ card }: { card: ScryfallCard }) {
 
   if (!prices) {
     return (
-      <Panel title={TITLE} source="TCGph">
-        <SourceMessage>TCGph doesn’t list this card.</SourceMessage>
+      <Panel title={TITLE} source={SOURCE}>
+        <SourceMessage>No Philippine store lists this card.</SourceMessage>
       </Panel>
     );
   }
@@ -47,7 +48,8 @@ export async function TcgphPanel({ card }: { card: ScryfallCard }) {
   const summary = summarizePrices(prices);
 
   return (
-    <Panel title={TITLE} source="TCGph" sourceUrl={prices.url}>
+    // Goes to the card on TCGph, or to the store that has it when TCGph doesn't list it.
+    <Panel title={TITLE} source={prices.url.includes("tcgph.com") ? "TCGph" : rows[0].listing.store} sourceUrl={prices.url}>
       <dl className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
         <Stat label="Cheapest" value={formatPhp(summary.cheapest!.pricePhp)} />
         <Stat label="Stores" value={formatCount(summary.stores)} />
@@ -121,6 +123,7 @@ function ListingTable({ rows }: { rows: TcgphPrice[] }) {
               >
                 {listing.store} ↗
               </a>
+              {listing.unconfirmed && <span className="block text-xs text-amber-400">Stock not confirmed</span>}
             </td>
             <td className="py-2 pr-3 break-words">
               <a href={print.url} target="_blank" rel="noopener noreferrer" className="hover:underline">

@@ -5,6 +5,7 @@ import type { CardPreview } from "@/lib/types";
 import { GET } from "./route";
 
 vi.mock("next/cache", () => ({ cacheLife: () => {} }));
+vi.mock("@/lib/sources/stores", () => ({ withStoreLists: async (prices: unknown) => prices }));
 
 const request = (name: string) =>
   new NextRequest(`http://localhost/api/preview?name=${encodeURIComponent(name)}`);

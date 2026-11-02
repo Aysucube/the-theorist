@@ -4,7 +4,8 @@ A Magic: The Gathering Commander tool for Filipino players. Search a card and se
 
 - **Scryfall**: the card, its rules text and Commander legality
 - **EDHREC**: how often Commander decks play it, and for commanders, recommended cards
-- **TCGph**: what it costs right now at Philippine game stores, in pesos
+- **TCGph**: what it costs right now at Philippine game stores, in pesos, plus two stores that
+  aren't on TCGph, **Co Collectibles** and **Collectibat**
 
 Each card page also shows its **official rulings** and lists **every printing** with the cheapest PH copy of each,
 and hovering any card link shows a quick preview (artwork, cheapest price, shop). Cards on the Commander
@@ -317,6 +318,14 @@ same pages their own websites use, so the app is built to stay a light, polite v
   30s, 30s) and retried rather than skipped.
 - A card is looked up on TCGph by name first; Scryfall is only asked for the full
   name when TCGph doesn't recognise it (mostly double-faced cards).
+- Two stores that aren't on TCGph publish their whole list, so it's read at most every 6
+  hours and looked up from there. A slow list never holds up a price: it's read in the
+  background, and a copy kept in `.data/stores` means the app has prices from the start.
+  **Co Collectibles** is one page on HeroHub. **Collectibat** is its Shopify store's public
+  product feed, which allows only a few requests a minute, so a page is read every 20
+  seconds or so and any wait it asks for is honored: about 6 minutes for the whole list.
+  Until that first read finishes, Collectibat's prices don't show. On a host with no
+  lasting disk or background work, such as Vercel, its full list may never finish.
 - Scryfall calls follow its [published limits](https://scryfall.com/docs/api/rate-limits)
   (2 a second for name lookups and searches, 10 a second otherwise), and after an
   HTTP 429 the app stops calling Scryfall for 30 seconds.
@@ -379,6 +388,11 @@ several instances needs a shared cache handler; see Next.js's `cacheHandlers` do
   saved on the computer when the app runs there (see above), never on a shared server. Nothing
   syncs between devices.
 - Store totals assume a store has enough copies; TCGph only shows stock per listing.
+- Collectibat says whether a card is available but not how many, so each listing counts as one
+  copy. Co Collectibles is in HeroHub's preview mode: its list shows every card it could stock
+  with no stock counts, so its prices are marked **Stock not confirmed** and count as one copy each.
+  They still compete on price, and Shopping says to check first. Once the store shows real counts,
+  the app uses them, drops what's sold out, and the mark goes away.
 - For decks needing more than three stores, the shopping list uses a quick
   approximation, which may not always find the fewest stores.
 

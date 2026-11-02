@@ -1,10 +1,9 @@
 import { formatCount, formatPhp } from "@/lib/format";
 import { pricePrintings, type PricedPrinting } from "@/lib/printings";
 import { scryfallImageAs } from "@/lib/scryfall-images";
-import { tcgphSlug } from "@/lib/slugs";
 import { reportSourceError } from "@/lib/sources/http";
 import { getPrintings } from "@/lib/sources/scryfall";
-import { getPrices } from "@/lib/sources/tcgph";
+import { getStorePrices } from "@/lib/sources/stores";
 import type { Printing, ScryfallCard, TcgphPrices } from "@/lib/types";
 import { Panel, SourceMessage } from "./panel";
 import { PrintingGrid, type PrintingTile } from "./printing-grid";
@@ -12,7 +11,7 @@ import { PrintingGrid, type PrintingTile } from "./printing-grid";
 const TITLE = "Printings";
 
 export async function PrintingsPanel({ card }: { card: ScryfallCard }) {
-  // Both lookups are cached; the TCGph one is shared with the store prices panel.
+  // Both lookups are cached; the prices are shared with the store prices panel.
   const [printings, prices] = await Promise.all([
     card.oracleId
       ? getPrintings(card.oracleId).catch((e) => {
@@ -20,7 +19,7 @@ export async function PrintingsPanel({ card }: { card: ScryfallCard }) {
           return null;
         })
       : Promise.resolve([] as Printing[]),
-    getPrices(tcgphSlug(card.name)).catch((e): TcgphPrices | null | undefined => {
+    getStorePrices(card.name).catch((e): TcgphPrices | null | undefined => {
       reportSourceError("PrintingsPanel", e);
       return undefined;
     }),
@@ -28,7 +27,7 @@ export async function PrintingsPanel({ card }: { card: ScryfallCard }) {
 
   if (printings === null && prices === undefined) {
     return (
-      <Panel title={TITLE} source="Scryfall + TCGph">
+      <Panel title={TITLE} source="Scryfall + PH stores">
         <SourceMessage>Couldn’t load printings right now. Try again in a bit.</SourceMessage>
       </Panel>
     );
@@ -39,7 +38,7 @@ export async function PrintingsPanel({ card }: { card: ScryfallCard }) {
   const cheapest = inStock[0];
 
   return (
-    <Panel title={TITLE} source="Scryfall + TCGph">
+    <Panel title={TITLE} source="Scryfall + PH stores">
       <p className="mb-4 text-sm text-muted">
         {formatCount(total)} {total === 1 ? "printing" : "printings"} ·{" "}
         {formatCount(inStock.length)} in stock at PH stores

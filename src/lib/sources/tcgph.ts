@@ -169,6 +169,7 @@ export function summarizePrices(prices: TcgphPrices): TcgphSummary {
     conditionLabel: listing.conditionLabel,
     url: listing.url,
     quantity: listing.quantity,
+    unconfirmed: listing.unconfirmed,
     printing:
       [print.setCode && `${print.setCode} #${print.collectorNumber}`, print.finish]
         .filter(Boolean)
@@ -190,11 +191,11 @@ export function summarizePrices(prices: TcgphPrices): TcgphSummary {
     listings: enoughFor(listings, LISTED_COPIES_PER_STORE),
   });
 
-  // Each set's cheapest non-foil copy (rows are cheapest first, so the first seen wins).
+  // Each set's cheapest non-foil copy in stock (rows are cheapest first, so the first seen wins).
   const bySet: Record<string, ListingBrief> = {};
   for (const row of rows) {
     const set = row.print.setCode?.toUpperCase();
-    if (!set || (row.print.finish && row.print.finish !== "Nonfoil") || bySet[set]) continue;
+    if (!set || row.listing.unconfirmed || (row.print.finish && row.print.finish !== "Nonfoil") || bySet[set]) continue;
     bySet[set] = brief(row);
   }
 

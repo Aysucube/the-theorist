@@ -31,6 +31,8 @@ export function ShoppingList({
   const boughtCount = ticks.filter(isBought).length;
   const extra = plan.totalPhp - cheapest.totalPhp;
   const stopCount = plan.stops.length;
+  // Stores that list a card without saying they have it.
+  const unconfirmed = plan.stops.filter((s) => s.items.some((i) => i.parts.some((p) => p.offer.unconfirmed))).map((s) => s.store);
 
   return (
     <section className="flex flex-col gap-4 rounded-xl border border-line p-4 sm:p-6">
@@ -39,7 +41,7 @@ export function ShoppingList({
         <p className="mt-1 text-sm text-muted">
           {stopCount === 1 ? (
             <>
-              <strong>{plan.stops[0].store}</strong> has everything in stock:{" "}
+              <strong>{plan.stops[0].store}</strong> {unconfirmed.length > 0 ? "lists everything" : "has everything in stock"}:{" "}
               <strong>{formatPhp(plan.totalPhp)}</strong> in one stop.
             </>
           ) : (
@@ -55,6 +57,7 @@ export function ShoppingList({
               {cheapest.stops.length} stores.
             </>
           )}
+          {unconfirmed.length > 0 && <span className="text-amber-400"> {unconfirmed.join(" and ")} hasn’t confirmed its stock, so check before you go.</span>}
         </p>
       </div>
 
@@ -210,7 +213,7 @@ function StopItem({
           {item.qty > 1 && more.length === 0 && (
             <div className="text-xs text-muted tabular-nums">{formatPhp(first.offer.pricePhp)} each</div>
           )}
-          <div className="text-xs text-muted tabular-nums">{formatCount(item.stock)} in stock</div>
+          {!first.offer.unconfirmed && <div className="text-xs text-muted tabular-nums">{first.offer.quantity === undefined ? "In stock" : `${formatCount(item.stock)} in stock`}</div>}
         </div>
       </div>
       {menu}

@@ -1,8 +1,27 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getCardPreview, getPriceSummary } from "./prices";
 import { fakeFetch, fixture } from "./sources/__fixtures__/load";
+import type { TcgphPrint } from "./types";
+
+// What the stores outside TCGph have, by the name they were asked for.
+const stores = vi.hoisted(() => ({ prints: {} as Record<string, unknown[]>, asked: [] as string[] }));
 
 vi.mock("next/cache", () => ({ cacheLife: () => {} }));
+vi.mock("next/server", () => ({ connection: async () => {} }));
+vi.mock("./sources/co-collectibles", () => ({
+  coCollectiblesPrints: async (name: string) => {
+    stores.asked.push(name);
+    return stores.prints[name] ?? [];
+  },
+}));
+vi.mock("./sources/collectibat", () => ({ collectibatPrints: async () => [] }));
+
+const storeCopy = (pricePhp: number): TcgphPrint => ({
+  printId: "co-1",
+  setName: "Foundations",
+  url: "https://store.test",
+  listings: [{ listingId: "co-1", store: "Co Collectibles", condition: "", pricePhp, url: "https://store.test" }],
+});
 
 const named = (name: string) =>
   `https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(name)}`;
@@ -24,7 +43,11 @@ function scryfallCard(name: string, layout = "normal") {
 }
 
 describe("getPriceSummary", () => {
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    stores.prints = {};
+    stores.asked = [];
+  });
 
   it("prices a card straight from TCGph without asking Scryfall", async () => {
     // Esika's saved TCGph page stands in for Sol Ring's.
@@ -55,6 +78,40 @@ describe("getPriceSummary", () => {
     expect(calls.map((c) => c.url)).toEqual([short, named("Agadeem's Awakening"), full]);
     expect(summary?.url).toBe(full);
     expect(summary?.stores).toBeGreaterThan(0);
+  });
+
+  it("prices a card only the other stores have", async () => {
+    const { fetch } = fakeFetch({
+      "https://tcgph.com/card/brand-new": fixture("tcgph/unknown-card.html"),
+      [named("Brand New")]: scryfallCard("Brand New"),
+    });
+    vi.stubGlobal("fetch", fetch);
+    stores.prints["Brand New"] = [storeCopy(150)];
+
+    const summary = await getPriceSummary("Brand New");
+
+    expect(summary?.url).toBe("https://store.test");
+    expect(summary?.cheapest).toMatchObject({ store: "Co Collectibles", pricePhp: 150 });
+  });
+
+  it("finds TCGph's two-faced page even when another store knows the front face, and shows both", async () => {
+    const short = "https://tcgph.com/card/agadeem-s-awakening";
+    const full = "https://tcgph.com/card/agadeem-s-awakening-agadeem-the-undercrypt";
+    const fullName = "Agadeem's Awakening // Agadeem, the Undercrypt";
+    const { fetch } = fakeFetch({
+      [short]: fixture("tcgph/unknown-card.html"),
+      [named("Agadeem's Awakening")]: scryfallCard(fullName, "modal_dfc"),
+      [full]: fixture("tcgph/esika-god-of-the-tree-the-prismatic-bridge.html"),
+    });
+    vi.stubGlobal("fetch", fetch);
+    stores.prints[fullName] = [storeCopy(1)];
+
+    const summary = await getPriceSummary("Agadeem's Awakening");
+
+    expect(summary?.url).toBe(full);
+    expect(stores.asked).toEqual([fullName]);
+    expect(summary?.cheapest).toMatchObject({ store: "Co Collectibles", pricePhp: 1 });
+    expect(summary?.stores).toBeGreaterThan(1);
   });
 
   it("doesn't ask TCGph twice when Scryfall gives back the same name", async () => {

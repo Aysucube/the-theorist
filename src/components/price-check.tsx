@@ -50,10 +50,10 @@ export function PriceCheck({ name }: { name: string }) {
   );
 }
 
-/** A checked price: "₱90 Vault", linking to the card on TCGph. */
+/** A checked price: "₱90 Vault", linking to the card's store page. */
 export function PriceLabel({ result }: { result: PriceResponse }) {
   if (!result.found) {
-    return <span className="text-xs text-muted">Not on TCGph</span>;
+    return <span className="text-xs text-muted">Not in PH stores</span>;
   }
   if (!result.cheapest) {
     return (
@@ -70,7 +70,7 @@ export function PriceLabel({ result }: { result: PriceResponse }) {
       href={result.url}
       target="_blank"
       rel="noopener noreferrer"
-      title={`Cheapest: ${conditionLabel ?? condition} at ${store}. In stock at ${stores}. Opens TCGph.`}
+      title={`Cheapest: ${[conditionLabel ?? condition, `at ${store}`].filter(Boolean).join(" ")}. Listed at ${stores}.`}
       className="text-xs whitespace-nowrap hover:underline"
     >
       <span className="font-semibold text-emerald-700 tabular-nums dark:text-emerald-400">

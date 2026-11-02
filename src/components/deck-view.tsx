@@ -411,7 +411,7 @@ function CardRow({
 function LinePrice({ qty, lookup }: { qty: number; lookup: Lookup | undefined }) {
   if (!lookup) return <span className="text-muted">—</span>;
   if (lookup === "error") return <span className="text-red-600 dark:text-red-400">Failed</span>;
-  if (!lookup.found) return <span className="text-muted">Not on TCGph</span>;
+  if (!lookup.found) return <span className="text-muted">Not in PH stores</span>;
   // The cheapest copies anywhere, which for several copies may span listings and stores.
   const purchase = buyAnywhere(lookup.byStore, qty);
   if (purchase.qty === 0) return <span className="text-muted">Out of stock</span>;
