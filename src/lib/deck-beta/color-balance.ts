@@ -1,11 +1,11 @@
-// Balancing a deck's colors: which lands to bring in, and what to cut for them,
-// so each color's share of what the lands make meets its share of what the
-// spells ask for. Fixing lands go in first, while the mana base has room for
-// them (the template's count for the deck's colors), and basics finish the job.
-// Whole lands can't always hit a share exactly, so it stops once no swap helps.
-// Pure, so it's easy to test.
+// Fixing a deck's lands: which to bring in, and what to cut for them, so it has
+// as many lands as its curve wants and each color's share of what they make
+// meets its share of what the spells ask for. Fixing lands go in first, while
+// the mana base has room for them (the template's count for the deck's colors),
+// and basics finish the job. Whole lands can't always hit a share exactly, so
+// it stops once the count is right and no swap helps. Pure, so it's easy to test.
 import type { CardDetails } from "@/lib/types";
-import { colorDistribution, isLandCard, LAND_KIND_LABEL, landFit, landKind, landSources, manaBasePlan, type ColorDistribution } from "./lands";
+import { colorDemand, colorDistribution, isLandCard, LAND_KIND_LABEL, landFit, landKind, landSources, manaBasePlan, type ColorDistribution } from "./lands";
 import { cardKey } from "./recommend";
 
 export const DECK_SIZE = 100;
@@ -36,6 +36,12 @@ export interface ColorSwap {
   cut?: BalanceCut;
 }
 
+/** One change to a deck: a land in, a card out, or both. */
+export interface DeckEdit {
+  add?: CardDetails;
+  cut?: BalanceCut;
+}
+
 export interface ColorBalance {
   swaps: ColorSwap[];
   /** Everything that could make room, lands first. */
@@ -52,7 +58,7 @@ export interface BalanceInput {
   /** Copies in the binder: what you own goes in first. */
   owned: (name: string) => number;
   commander?: string;
-  /** How many lands the deck wants: a spell only makes way for a land below this. */
+  /** How many lands the deck wants: it's brought up to this, and a spell only makes way for a land below it. */
   landTarget: number;
   /** Spells that could go when no land can, the first to cut at the front. */
   spellCuts?: BalanceCut[];
@@ -68,7 +74,23 @@ export function isBalanced({ colors }: ColorDistribution): boolean {
   return colors.every((c) => Math.abs(c.short) <= 1);
 }
 
-/** The swaps that bring a deck's lands closest to its spells, with what each one cuts. */
+/** The lands a deck could lose: basics, lands that always enter tapped, and lands that make none of its colors. */
+export function landCuts(cards: DeckLine[], identity: string[], commander?: string): BalanceCut[] {
+  const { colors } = colorDistribution(cards, identity);
+  const own = colors.map((c) => c.color);
+  return cards.flatMap(({ card }): BalanceCut[] => {
+    if (!isLandCard(card) || card.name === commander) return [];
+    const kind = landKind(card);
+    if (kind === "basic") {
+      const extra = colors.find((c) => c.short < 0 && landSources(card, own).includes(c.color));
+      return [{ card, why: extra ? `${COLOR_NAMES[extra.color]} makes more than your spells ask for` : "Basic land" }];
+    }
+    if (landSources(card, own).length === 0) return [{ card, why: "Makes none of your colors" }];
+    return kind === "tapped" ? [{ card, why: "Always enters tapped" }] : [];
+  });
+}
+
+/** The edits that give a deck the lands it wants, in its colors, with what each one cuts. */
 export function balanceColors({ cards, identity, lands, basics, owned, commander, landTarget, spellCuts = [] }: BalanceInput): ColorBalance {
   const { colors } = colorDistribution(cards, identity);
   const own = colors.map((c) => c.color);
@@ -76,25 +98,19 @@ export function balanceColors({ cards, identity, lands, basics, owned, commander
     const makes = landSources(card, own);
     return own.map((c) => Number(makes.includes(c)));
   };
+  // What the spells ask for changes as spells are cut.
+  let pips = colors.map((c) => c.pips);
+  const wants = () => {
+    const total = pips.reduce((a, b) => a + b, 0);
+    return pips.map((n) => (total ? n / total : 0));
+  };
   const gapOf = (sources: number[]) => {
     const total = sources.reduce((a, b) => a + b, 0);
-    return colors.reduce((sum, c, i) => sum + Math.abs(c.pipShare - (total ? sources[i] / total : 0)), 0) / 2;
+    return wants().reduce((sum, want, i) => sum + Math.abs(want - (total ? sources[i] / total : 0)), 0) / 2;
   };
 
   const deckLands = cards.filter(({ card }) => isLandCard(card) && card.name !== commander);
-  const whyCut = (card: CardDetails) => {
-    const kind = landKind(card);
-    if (kind === "basic") {
-      const extra = colors.find((c) => c.short < 0 && landSources(card, own).includes(c.color));
-      return extra ? `${COLOR_NAMES[extra.color]} makes more than your spells ask for` : "Basic land";
-    }
-    if (landSources(card, own).length === 0) return "Makes none of your colors";
-    return kind === "tapped" ? "Always enters tapped" : undefined;
-  };
-  const landCuts = deckLands.flatMap(({ card }): BalanceCut[] => {
-    const why = whyCut(card);
-    return why ? [{ card, why }] : [];
-  });
+  const cuttable = landCuts(cards, identity, commander);
   const stock = new Map(deckLands.map(({ card, qty }) => [card.name, qty]));
 
   const inDeck = new Set(cards.map(({ card }) => cardKey(card.name)));
@@ -109,7 +125,7 @@ export function balanceColors({ cards, identity, lands, basics, owned, commander
   let size = cards.reduce((sum, { qty }) => sum + qty, 0);
   let landCount = deckLands.reduce((sum, { qty }) => sum + qty, 0);
   let nonbasics = deckLands.reduce((sum, { card, qty }) => sum + (landKind(card) === "basic" ? 0 : qty), 0);
-  const { nonbasics: nonbasicRoom, utilityRoom } = manaBasePlan(own.length, landCount);
+  const { nonbasics: nonbasicRoom, utilityRoom } = manaBasePlan(own.length, Math.max(landCount, landTarget));
   const makesNothing = (card: CardDetails) => landSources(card, own).length === 0;
   // Lands that make none of the deck's colors earn their place another way: only those past what the template has room for are offered up.
   let spareUtility = deckLands.reduce((sum, { card, qty }) => sum + (makesNothing(card) ? qty : 0), 0) - utilityRoom;
@@ -117,7 +133,7 @@ export function balanceColors({ cards, identity, lands, basics, owned, commander
   const swaps: ColorSwap[] = [];
   const used = new Set<string>();
 
-  const bestMove = (adds: CardDetails[], cuts: (BalanceCut | undefined)[]) => {
+  const bestMove = (adds: CardDetails[], cuts: (BalanceCut | undefined)[], least = MIN_GAIN) => {
     const now = gapOf(sources);
     let best: { add: CardDetails; cut?: BalanceCut; score: number } | undefined;
     for (const add of adds) {
@@ -127,7 +143,7 @@ export function balanceColors({ cards, identity, lands, basics, owned, commander
         const taken = cut && isLandCard(cut.card) ? vectorOf(cut.card) : own.map(() => 0);
         const gain = now - gapOf(sources.map((n, i) => n + added[i] - taken[i]));
         const score = gain + worth(add) + (cut && landKind(cut.card) === "tapped" ? 0.004 : 0);
-        if (gain >= MIN_GAIN && (!best || score > best.score)) best = { add, cut, score };
+        if (gain >= least && (!best || score > best.score)) best = { add, cut, score };
       }
     }
     return best;
@@ -136,15 +152,18 @@ export function balanceColors({ cards, identity, lands, basics, owned, commander
   // Every color is as close to its share as whole lands can get.
   const settled = () => {
     const total = sources.reduce((a, b) => a + b, 0);
-    return colors.every((c, i) => Math.round(c.pipShare * total - sources[i]) === 0);
+    return wants().every((want, i) => Math.round(want * total - sources[i]) === 0);
   };
 
+  const short = () => landCount < landTarget;
   const run = (adds: () => CardDetails[], open: () => boolean) => {
-    while (open() && !settled()) {
-      const lands = landCuts.filter((c) => (stock.get(c.card.name) ?? 0) > 0 && (spareUtility > 0 || !makesNothing(c.card)));
-      const spell = landCount < landTarget ? spellCuts[spellsCut] : undefined;
-      const room = size < DECK_SIZE && landCount < landTarget;
-      const move = room ? bestMove(adds(), [undefined]) : (bestMove(adds(), lands) ?? (spell ? bestMove(adds(), [spell]) : undefined));
+    while (open() && (short() || !settled())) {
+      const lands = cuttable.filter((c) => (stock.get(c.card.name) ?? 0) > 0 && (spareUtility > 0 || !makesNothing(c.card)));
+      const pool = adds();
+      // Every land the deck is short of goes in, the one that suits the colors best, in a spell's place once the deck is full.
+      const spell = size < DECK_SIZE ? undefined : spellCuts[spellsCut];
+      const topUp = short() && (spell || size < DECK_SIZE) ? bestMove(pool, [spell], -Infinity) : undefined;
+      const move = topUp ?? bestMove(pool, lands);
       if (!move) return;
       const { add, cut } = move;
       const taken = cut && isLandCard(cut.card) ? vectorOf(cut.card) : own.map(() => 0);
@@ -157,7 +176,11 @@ export function balanceColors({ cards, identity, lands, basics, owned, commander
         if (makesNothing(cut.card)) spareUtility--;
       } else {
         landCount++;
-        if (cut) spellsCut++;
+        if (cut) {
+          const demand = colorDemand([cut.card.manaCost ?? ""]);
+          pips = pips.map((n, i) => n - demand[own[i]]);
+          spellsCut++;
+        }
       }
       if (landKind(add) !== "basic") {
         nonbasics++;
@@ -166,17 +189,15 @@ export function balanceColors({ cards, identity, lands, basics, owned, commander
       swaps.push({ add, cut, makes: landSources(add, own), label: LAND_KIND_LABEL[landKind(add) ?? "other"] });
     }
   };
-  if (own.length >= 2) {
-    run(
-      () => fixers.filter((card) => !used.has(card.name)),
-      () => nonbasics < nonbasicRoom,
-    );
-    run(
-      () => basics,
-      () => true,
-    );
-  }
-  return { swaps, cuts: [...landCuts, ...spellCuts.slice(0, SPELL_OPTIONS)] };
+  run(
+    () => fixers.filter((card) => !used.has(card.name)),
+    () => nonbasics < nonbasicRoom,
+  );
+  run(
+    () => basics,
+    () => true,
+  );
+  return { swaps, cuts: [...cuttable, ...spellCuts.slice(0, spellsCut + SPELL_OPTIONS)] };
 }
 
 /** The same swap made several times, as one line. */
@@ -195,11 +216,11 @@ export function groupSwaps(swaps: ColorSwap[]): SwapGroup[] {
   return [...groups.values()];
 }
 
-/** The deck once these swaps are made. */
-export function afterSwaps(cards: DeckLine[], swaps: Pick<ColorSwap, "add" | "cut">[]): DeckLine[] {
+/** The deck once these edits are made. */
+export function afterEdits(cards: DeckLine[], edits: DeckEdit[]): DeckLine[] {
   const lines = new Map(cards.map((line) => [line.card.name, line]));
-  for (const { add, cut } of swaps) {
-    lines.set(add.name, { card: add, qty: (lines.get(add.name)?.qty ?? 0) + 1 });
+  for (const { add, cut } of edits) {
+    if (add) lines.set(add.name, { card: add, qty: (lines.get(add.name)?.qty ?? 0) + 1 });
     const gone = cut && lines.get(cut.card.name);
     if (!gone) continue;
     if (gone.qty > 1) lines.set(gone.card.name, { ...gone, qty: gone.qty - 1 });

@@ -4,6 +4,7 @@ import { useCallback, useId, useMemo, useRef, useState, type MouseEvent, type Re
 import { parseDeckList, MAX_DECK_CARDS, type DeckCard } from "@/lib/deck";
 import type { AnalysisResponse } from "@/lib/deck-beta/api";
 import { estimateDeckBracket, type BracketReport } from "@/lib/deck-beta/bracket";
+import { DECK_SIZE } from "@/lib/deck-beta/color-balance";
 import { commanderOptions } from "@/lib/deck-beta/combos";
 import { decodeDeck, isDeckCode } from "@/lib/deck-beta/deck-code";
 import { commanderGamePlan, planInDeck } from "@/lib/deck-beta/game-plan";
@@ -40,6 +41,7 @@ import { DeckOverview } from "./deck-overview";
 import { EditDeck } from "./edit-deck";
 import { InteractionsPopover } from "./interactions-popover";
 import { LazyCardImage } from "./lazy-card-image";
+import { OverLimitWarning } from "./over-limit";
 import { PlaystylePanel } from "./playstyle-panel";
 import { SynergyMap } from "./synergy-map";
 
@@ -292,6 +294,8 @@ export function DeckWorkspace({
   return (
     <div className="flex flex-col gap-6">
       {header({ report, checking, totalCards, colors: analysis.colors, loaded: loaded.length, showBracket: () => setView("overview"), detailsFor })}
+
+      {totalCards > DECK_SIZE && <OverLimitWarning source={source} total={totalCards} commander={commander} deckCards={deckCards} profile={profile} analysis={analysis} report={report} combos={deckCombos} />}
 
       {intro?.(commander?.name)}
 

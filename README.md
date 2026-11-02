@@ -97,11 +97,13 @@ distribution** (the colored mana your spells ask for against what your lands mak
 calculator for hands and specific cards, its cards in a gallery with **Select Version** on each (any
 set, Showcase, Borderless and Retro Frame art, or promos), the **tokens, emblems and game pieces**
 the deck brings with its meld and transform partners, and cards to add, by what the deck is short
-of and what works with the cards in it. **Quick add: balance colors** brings each color's share of
-your lands to its share of your spells: it proposes lands to bring in (fixing lands you own first,
-then ones you don't, while the mana base has room, then basics) and what to cut for each, shows
-the percentages each swap would give, and changes nothing until you apply them. Keep, skip or change
-any swap, or stick to lands in your binder.
+of and what works with the cards in it. **Quick add lands** gives the deck as many lands as its
+curve wants and brings each color's share of them to its share of your spells: it proposes lands to
+bring in (fixing lands you own first, then ones you don't, while the mana base has room, then
+basics) and what to cut for each, shows the percentages they would give, and changes nothing until
+you apply them. Keep, skip or change any edit, or stick to lands in your binder. A deck over 100
+cards gets a **warning at the top of its page** with the cuts it would miss least: extra lands
+first, then spells at its most crowded costs. Cut them one at a time or all at once, with Undo.
 Right-click it (or use its ⋯ button) to add **only the cards missing from your binder** to
 Shopping, copy it, or delete it.
 

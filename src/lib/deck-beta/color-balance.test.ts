@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CardDetails } from "@/lib/types";
-import { afterSwaps, balanceColors, colorGap, groupSwaps, isBalanced, type BalanceInput } from "./color-balance";
+import { afterEdits, balanceColors, colorGap, groupSwaps, isBalanced, type BalanceInput } from "./color-balance";
 import { colorDistribution } from "./lands";
 
 const card = (name: string, typeLine: string, oracleText: string, manaCost?: string): CardDetails => ({
@@ -43,7 +43,7 @@ describe("balanceColors", () => {
     const cards = [blueSpells, greenSpells, { card: forest, qty: 30 }, { card: island, qty: 10 }];
     const { swaps } = balanceColors(input({ cards }));
     const before = colorDistribution(cards, identity);
-    const after = colorDistribution(afterSwaps(cards, swaps), identity);
+    const after = colorDistribution(afterEdits(cards, swaps), identity);
     expect(swaps.length).toBeGreaterThan(0);
     expect(swaps.every((s) => s.add.name === "Island" && s.cut?.card.name === "Forest")).toBe(true);
     expect(colorGap(after)).toBeLessThan(colorGap(before));
@@ -86,15 +86,52 @@ describe("balanceColors", () => {
     expect(swaps.every((s) => s.cut?.card.name === "Forest")).toBe(true);
   });
 
-  it("only adds what the colors need to a deck that's still being built", () => {
+  it("adds however many lands the deck is short of, in its colors", () => {
     const cards = [{ ...blueSpells, qty: 5 }, { ...greenSpells, qty: 5 }, { card: forest, qty: 8 }, { card: island, qty: 2 }];
     const { swaps } = balanceColors(input({ cards }));
-    const after = colorDistribution(afterSwaps(cards, swaps), identity);
-    expect(swaps.map((s) => s.add.name)).toEqual(Array(swaps.length).fill("Island"));
-    expect(swaps.length).toBeLessThanOrEqual(21);
-    expect(after.colors.every((c) => Math.round(c.short) === 0)).toBe(true);
-    // Stopping there: one more would overshoot.
-    expect(balanceColors(input({ cards: afterSwaps(cards, swaps), lands: [breeding] })).swaps).toEqual([]);
+    const after = afterEdits(cards, swaps);
+    expect(swaps).toHaveLength(28);
+    expect(swaps.every((s) => s.cut === undefined)).toBe(true);
+    expect(colorDistribution(after, identity).lands).toBe(38);
+    expect(isBalanced(colorDistribution(after, identity))).toBe(true);
+  });
+
+  it("adds lands to a deck whose colors are already right", () => {
+    const even = [greenSpells, { ...blueSpells, card: spell("Blue", "{U}") }, { card: forest, qty: 15 }, { card: island, qty: 15 }];
+    const { swaps } = balanceColors(input({ cards: even }));
+    const after = colorDistribution(afterEdits(even, swaps), identity);
+    expect(swaps).toHaveLength(8);
+    expect(after.lands).toBe(38);
+    expect(isBalanced(after)).toBe(true);
+  });
+
+  it("cuts spells for the lands a full deck is short of, in the order given", () => {
+    const cards = [{ ...blueSpells, card: spell("Blue", "{U}") }, { ...greenSpells, qty: 38 }, { card: forest, qty: 16 }, { card: island, qty: 16 }];
+    const spellCuts = ["One", "Two", "Three", "Four", "Five", "Six"].map((name) => ({ card: spell(name, "{1}"), why: "Fills no part of the template" }));
+    const { swaps } = balanceColors(input({ cards, spellCuts }));
+    expect(swaps.map((s) => s.cut?.card.name)).toEqual(["One", "Two", "Three", "Four", "Five", "Six"]);
+    expect(colorDistribution(afterEdits(cards, swaps), identity).lands).toBe(38);
+  });
+
+  it("keeps up with what the spells ask for as spells are cut", () => {
+    const heavy = ["One", "Two", "Three", "Four", "Five", "Six"].map((name) => ({ card: spell(name, "{G}{G}{G}{G}"), qty: 1 }));
+    const cards = [{ ...blueSpells, card: spell("Blue", "{U}{U}") }, { ...greenSpells, qty: 32 }, ...heavy, { card: forest, qty: 16 }, { card: island, qty: 16 }];
+    const spellCuts = heavy.map(({ card: c }) => ({ card: c, why: "Fills no part of the template" }));
+    const { swaps } = balanceColors(input({ cards, spellCuts }));
+    expect(swaps.filter((s) => s.cut && spellCuts.includes(s.cut))).toHaveLength(6);
+    expect(isBalanced(colorDistribution(afterEdits(cards, swaps), identity))).toBe(true);
+  });
+
+  it("leaves a full deck's count alone when it has no spells to give up", () => {
+    const cards = [{ ...blueSpells, card: spell("Blue", "{U}"), qty: 34 }, { ...greenSpells, qty: 34 }, { card: forest, qty: 16 }, { card: island, qty: 16 }];
+    expect(balanceColors(input({ cards })).swaps).toEqual([]);
+  });
+
+  it("gives a deck of one color its lands too", () => {
+    const cards = [greenSpells, { card: forest, qty: 30 }];
+    const { swaps } = balanceColors(input({ cards, identity: ["G"], basics: [forest] }));
+    expect(swaps).toHaveLength(8);
+    expect(swaps.every((s) => s.add.name === "Forest")).toBe(true);
   });
 
   it("offers the lands that could go, and leaves good ones alone", () => {
@@ -148,14 +185,14 @@ describe("balanceColors", () => {
     // The deck has the 38 lands it wants, so each one replaces a Forest.
     expect(swaps).toHaveLength(19);
     expect(swaps.filter((s) => s.cut)).toHaveLength(19);
-    expect(isBalanced(colorDistribution(afterSwaps(cards, swaps), identity))).toBe(true);
+    expect(isBalanced(colorDistribution(afterEdits(cards, swaps), identity))).toBe(true);
   });
 });
 
-describe("afterSwaps", () => {
+describe("afterEdits", () => {
   it("adds and cuts copies, and drops a card with none left", () => {
     const deck = [{ card: forest, qty: 2 }, { card: guildgate, qty: 1 }];
-    const next = afterSwaps(deck, [
+    const next = afterEdits(deck, [
       { add: island, cut: { card: forest, why: "" } },
       { add: island, cut: { card: guildgate, why: "" } },
       { add: breeding },

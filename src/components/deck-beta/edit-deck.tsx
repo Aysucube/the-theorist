@@ -4,19 +4,17 @@ import { AnimatePresence } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useBinder } from "@/lib/binder/store";
 import { useCardDetails } from "@/lib/binder/card-cache";
-import { builderRecommendations, byCardType, fitsIdentity, type BuilderCandidate } from "@/lib/builder/plan";
-import { isBasicLandName } from "@/lib/binder/collection";
-import type { Bracket, BracketReport } from "@/lib/deck-beta/bracket";
+import { byCardType, fitsIdentity } from "@/lib/builder/plan";
+import type { BracketReport } from "@/lib/deck-beta/bracket";
 import { CURVE_LABELS, slotOf } from "@/lib/deck-beta/curve";
 import type { RelatedCard } from "@/lib/deck-beta/related";
 import { cardKey } from "@/lib/deck-beta/recommend";
 import { CATEGORY_INFO, type DeckProfile } from "@/lib/deck-beta/roles";
-import { useBuilderData, useDeckRelated, useTargetBracket, type DeckSource } from "@/lib/deck-beta/store";
+import { useDeckRelated, type DeckSource } from "@/lib/deck-beta/store";
 import { cardTraits, interactionsOf, partnersOf, type DeckAnalysis } from "@/lib/deck-beta/synergy";
 import { formatCount } from "@/lib/format";
 import { fetchJsonWithRetry } from "@/lib/retry";
 import type { CardDetails, ChosenPrinting, DeckCombos } from "@/lib/types";
-import { useGameChangers } from "@/lib/use-game-changers";
 import { BuildCard } from "../builder/build-card";
 import { useHoverPreview } from "../card-link";
 import { GameChangerTag } from "../game-changer-tag";
@@ -27,6 +25,7 @@ import { LazyCardImage } from "./lazy-card-image";
 import { OddsCalculator } from "./odds-calculator";
 import { PrintingPicker } from "./printing-picker";
 import { curveAdvice, CurveChart } from "./template-bits";
+import { useDeckPlan } from "./use-deck-plan";
 
 /** Recommended cards per short category, and synergistic cards in all. */
 const SHORT_PICKS = 6;
@@ -67,41 +66,12 @@ export function EditDeck({
   inDeck: (name: string) => boolean;
 }) {
   const binder = useBinder();
-  const gameChangers = useGameChangers();
-  const [chosenBracket] = useTargetBracket();
   const [costPick, setCostPick] = useState<number>();
   const [pickingFor, setPickingFor] = useState<CardDetails | null>(null);
-  const builder = useBuilderData(commander ? { name: commander.name, layout: commander.layout } : undefined);
-  const data = builder?.state === "done" && builder.result.found ? builder.result : null;
-  const identity = commander?.colorIdentity ?? analysis.colors;
-  const landCount = profile.lands;
-  const deckKey = deckCards.map((d) => `${d.card.name}×${d.qty}`).join("\n");
-
-  const plan = useMemo(() => {
-    if (!data) return null;
-    const candidates: BuilderCandidate[] = data.cards.flatMap((c) => {
-      const card = data.details[c.name];
-      return card && !isBasicLandName(card.name) ? [{ card, synergy: c.synergy, inclusion: c.inclusion, lists: c.lists, ownedCopies: binder.owned(card.name) }] : [];
-    });
-    return builderRecommendations({
-      deck: deckCards,
-      candidates: candidates.filter((c) => cardKey(c.card.name) !== cardKey(commander?.name ?? "")),
-      identity,
-      bracket: (chosenBracket || report.bracket) as Bracket,
-      isGameChanger: gameChangers.has,
-      combos,
-      curveCounts: data.curveCounts,
-      preferOwned: false,
-      commander: commander?.name,
-      lands: landCount,
-    });
-    // The deck key captures the deck's cards.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, deckKey, commander, chosenBracket, report.bracket, combos, gameChangers, binder.cards, landCount]);
+  const { data, loading, plan, identity, spellCuts } = useDeckPlan({ commander, deckCards, profile, analysis, report, combos });
 
   // The cards on offer that work with the most of the deck, read from their rules text.
   const synergistic = useMemo(() => {
-    if (!plan) return [];
     const offered = plan.template.flatMap((s) => s.lists.flatMap((l) => l.picks));
     const unique = [...new Map(offered.map((p) => [cardKey(p.card.name), p])).values()];
     return unique
@@ -112,13 +82,12 @@ export function EditDeck({
       .map(({ pick, partners }) => ({ ...pick, reason: `Works with ${formatCount(partners)} of your cards` }));
   }, [plan, analysis]);
 
-  const curve = plan ? { ...profile.curve, targets: plan.curveSlots.map((s) => s.target) } : profile.curve;
+  const curve = { ...profile.curve, targets: plan.curveSlots.map((s) => s.target) };
   const atCost = costPick === undefined ? [] : deckCards.filter(({ card }) => !/\bLand\b/.test(card.typeLine.split(" // ")[0]) && slotOf(card.cmc) === costPick);
-  // What the colors can reach for: EDHREC's lands for this commander, and the spells the curve can spare, the most crowded cost first.
-  const fixingLands = useMemo(() => (plan ? [...plan.lands.duals, ...plan.lands.fixing].map((p) => p.card) : []), [plan]);
-  const spellCuts = useMemo(() => [...(plan?.curveSlots ?? [])].sort((a, b) => b.have - b.target - (a.have - a.target)).flatMap((slot) => slot.cards), [plan]);
+  // What the colors can reach for: EDHREC's lands for this commander.
+  const fixingLands = useMemo(() => [...plan.lands.duals, ...plan.lands.fixing].map((p) => p.card), [plan]);
   const printingOf = (name: string) => source.printings?.[cardKey(name)];
-  const short = (plan?.template ?? []).filter((s) => s.short > 0 && s.all.leaning.length + s.all.synergy.length > 0).sort((a, b) => b.short / CATEGORY_INFO[b.category].target - a.short / CATEGORY_INFO[a.category].target);
+  const short = plan.template.filter((s) => s.short > 0 && s.all.leaning.length + s.all.synergy.length > 0).sort((a, b) => b.short / CATEGORY_INFO[b.category].target - a.short / CATEGORY_INFO[a.category].target);
 
   const byType = byCardType(deckCards);
   const copiesIn = (lines: DeckLine[]) => lines.reduce((sum, { qty }) => sum + qty, 0);
@@ -165,7 +134,7 @@ export function EditDeck({
           )}
         </section>
 
-        <ColorSection id="edit-colors" className={ANCHOR} source={source} commander={commander?.name} deckCards={deckCards} identity={identity} lands={fixingLands} landTarget={profile.curve.lands.count} spellCuts={spellCuts} />
+        <ColorSection id="edit-colors" className={ANCHOR} source={source} commander={commander?.name} deckCards={deckCards} identity={identity} lands={fixingLands} landTarget={profile.curve.lands.count} spellCuts={spellCuts} planning={loading} />
 
         <section id="edit-cards" className={`flex flex-col gap-6 ${ANCHOR}`}>
           <div className="flex flex-wrap items-baseline justify-between gap-3">
@@ -200,7 +169,7 @@ export function EditDeck({
           </div>
           {!commander ? (
             <p className="text-sm text-muted">Pick a commander to see recommendations.</p>
-          ) : !plan ? (
+          ) : !data ? (
             <p className="flex items-center gap-2 text-sm text-muted">
               <span aria-hidden className="spinner size-4" /> Reading EDHREC’s decks for {commander.name}…
             </p>

@@ -22,6 +22,17 @@ function Icon({ children, ...props }: IconProps) {
   );
 }
 
+/** A warning sign. */
+export function WarningIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M10 3.2 17.6 16.4H2.4Z" />
+      <path d="M10 8.4v3.8" />
+      <path d="M10 14.4v.1" />
+    </Icon>
+  );
+}
+
 export function HomeIcon(props: IconProps) {
   return (
     <Icon {...props}>

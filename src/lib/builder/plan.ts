@@ -181,6 +181,8 @@ export interface TemplateShelf {
 export interface CurveCut {
   card: CardDetails;
   why: string;
+  /** It's holding up a part of the template that has no cards to spare. */
+  keeps?: boolean;
 }
 
 /** One mana value of the deck against the curve it's aiming for. */
@@ -509,7 +511,7 @@ export function builderRecommendations(input: BuilderInput): BuilderGroups & { p
     cards: spells
       .filter((card) => slotOf(card.cmc) === slot)
       .sort((a, b) => worth(a) - worth(b))
-      .map((card) => ({ card, why: whyCut(card) })),
+      .map((card) => ({ card, why: whyCut(card), keeps: jobsOf(card.name).some(needed) })),
   }));
 
   return { template, combos: combosLeft, lands, leftOut: heldBack, profile, manaBase, curveSlots };

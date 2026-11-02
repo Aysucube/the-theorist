@@ -1,26 +1,26 @@
 "use client";
 
 import { useMemo, useState, type ReactNode } from "react";
-import { toast } from "sonner";
 import { useCardDetails } from "@/lib/binder/card-cache";
 import { isBasicLandName } from "@/lib/binder/collection";
 import { useBinder } from "@/lib/binder/store";
-import { afterSwaps, BASIC_OF, balanceColors, colorGap, groupSwaps, isBalanced, type BalanceCut, type ColorBalance, type ColorSwap, type SwapGroup } from "@/lib/deck-beta/color-balance";
+import { afterEdits, BASIC_OF, balanceColors, colorGap, groupSwaps, isBalanced, type BalanceCut, type ColorBalance, type ColorSwap, type SwapGroup } from "@/lib/deck-beta/color-balance";
 import { colorDistribution, isLandCard, type ColorDistribution } from "@/lib/deck-beta/lands";
-import { cardKey } from "@/lib/deck-beta/recommend";
 import { useFixingLands, type DeckSource } from "@/lib/deck-beta/store";
 import { formatCount, formatPercent } from "@/lib/format";
 import type { CardDetails } from "@/lib/types";
 import { useHoverPreview } from "../card-link";
 import { Pip } from "../mana";
+import { applyEdits } from "./apply-edits";
 import { LazyCardImage } from "./lazy-card-image";
 
 type DeckLine = { card: CardDetails; qty: number };
 
 /**
  * What the deck's spells ask of each color against what its lands make, and a
- * quick add that brings the two together: it proposes lands to bring in and
- * cards to cut for them, and nothing changes until you've looked them over.
+ * quick add that gives the deck the lands it wants in those colors: it proposes
+ * lands to bring in and cards to cut for them, and nothing changes until you've
+ * looked them over.
  */
 export function ColorSection({
   id,
@@ -32,6 +32,7 @@ export function ColorSection({
   lands,
   landTarget,
   spellCuts,
+  planning,
 }: {
   id: string;
   className: string;
@@ -44,6 +45,8 @@ export function ColorSection({
   landTarget: number;
   /** Spells that could make way for a land, the first to cut at the front. */
   spellCuts: BalanceCut[];
+  /** EDHREC hasn't answered yet, so the lands and cuts aren't its best. */
+  planning: boolean;
 }) {
   const binder = useBinder();
   const [reviewing, setReviewing] = useState(false);
@@ -55,18 +58,13 @@ export function ColorSection({
   const basics = basicNames.flatMap((name) => detailsFor(name) ?? []);
 
   const pool = [...lands, ...(fixing ?? [])].filter((land) => !ownedOnly || binder.owned(land.name) > 0);
-  const balance = reviewing && basics.length === basicNames.length ? balanceColors({ cards: deckCards, identity, lands: pool, basics, owned: binder.owned, commander, landTarget, spellCuts }) : undefined;
+  const balance = reviewing && !planning && basics.length === basicNames.length ? balanceColors({ cards: deckCards, identity, lands: pool, basics, owned: binder.owned, commander, landTarget, spellCuts }) : undefined;
 
   const apply = (chosen: ColorSwap[]) => {
-    const before = source.deck;
-    const loaded = new Set(deckCards.map((line) => cardKey(line.card.name)));
-    const others = before.filter((c) => !loaded.has(cardKey(c.name)));
-    // Adding them keeps their details, so they show up at once.
-    chosen.forEach((swap) => source.add(swap.add));
-    source.replace([...others, ...afterSwaps(deckCards, chosen).map(({ card, qty }) => ({ name: card.name, qty }))]);
+    applyEdits(source, deckCards, chosen, `Made ${formatCount(chosen.length)} ${chosen.length === 1 ? "edit" : "edits"}`);
     setReviewing(false);
-    toast.success(`Made ${formatCount(chosen.length)} ${chosen.length === 1 ? "edit" : "edits"}`, { action: { label: "Undo", onClick: () => source.replace(before) } });
   };
+  const landsShort = landTarget - colors.lands;
 
   return (
     <section id={id} className={className}>
@@ -75,14 +73,14 @@ export function ColorSection({
           <h3 className="font-semibold">Color distribution</h3>
           <p className="text-xs text-muted">The colored mana your spells ask for, against what your lands can make. Duals count for each of their colors.</p>
         </div>
-        {colors.colors.length >= 2 &&
-          !reviewing &&
-          (isBalanced(colors) ? (
-            <p className="text-xs text-emerald-400">Balanced: your lands match your spells.</p>
-          ) : (
+        {!reviewing &&
+          identity.length > 0 &&
+          (landsShort > 0 || !isBalanced(colors) ? (
             <button type="button" onClick={() => setReviewing(true)} className="btn btn-primary btn-sm">
-              Quick add: balance colors
+              Quick add lands
             </button>
+          ) : (
+            colors.colors.length >= 2 && <p className="text-xs text-emerald-400">Balanced: your lands match your spells.</p>
           ))}
         {reviewing && (
           <label className="flex items-center gap-2 text-xs text-muted">
@@ -91,6 +89,11 @@ export function ColorSection({
           </label>
         )}
       </div>
+      {landsShort > 0 && (
+        <p className="mb-4 text-xs text-amber-400">
+          {formatCount(landsShort)} {landsShort === 1 ? "land" : "lands"} short of the {formatCount(landTarget)} this deck’s curve wants.
+        </p>
+      )}
       {!reviewing ? (
         <ColorChart colors={colors} />
       ) : balance ? (
@@ -139,7 +142,7 @@ function BalanceReview({
   const groups = groupSwaps(balance.swaps).map((group, i) => ({ ...group, cut: cutFor[i] ?? group.cut }));
   const kept = groups.filter((_, i) => !skipped.includes(i));
   const chosen = kept.flatMap((group) => Array<ColorSwap>(group.count).fill(group));
-  const result = afterSwaps(deckCards, chosen);
+  const result = afterEdits(deckCards, chosen);
   const after = colorDistribution(result, identity);
   const cardCount = result.reduce((sum, { qty }) => sum + qty, 0);
   const landCount = result.reduce((sum, { card, qty }) => sum + (isLandCard(card) ? qty : 0), 0);
@@ -160,9 +163,11 @@ function BalanceReview({
           <p className="text-sm text-muted">No swap gets any closer: your lands are as near as whole cards allow{ownedOnly ? " with what’s in your binder" : ""}.</p>
         ) : (
           <>
-            <p className="text-xs text-muted">
-              Your lands are {formatPercent(colorGap(colors))} off what your spells ask for, and would be {formatPercent(colorGap(after))} off after these. Whole lands can’t hit a percentage exactly, so expect a point or two either way.
-            </p>
+            {!isBalanced(colors) && (
+              <p className="text-xs text-muted">
+                Your lands are {formatPercent(colorGap(colors))} off what your spells ask for, and would be {formatPercent(colorGap(after))} off after these. Whole lands can’t hit a percentage exactly, so expect a point or two either way.
+              </p>
+            )}
             <ul className="flex flex-col gap-2">
               {groups.map((group, i) => (
                 <SwapRow
@@ -291,13 +296,15 @@ function SwapCard({ action, card, count, note }: { action: string; card: CardDet
 /** Each color's share of the deck's mana symbols beside its share of the lands' sources, and of the lands after any edits. */
 function ColorChart({ colors, after }: { colors: ColorDistribution; after?: ColorDistribution }) {
   if (colors.colors.length === 0) return <p className="text-sm text-muted">This deck has no colors to balance.</p>;
+  // Edits can cut spells, so with edits in view it's what the spells would ask for then.
+  const asked = (after ?? colors).colors;
   return (
     <div className="flex flex-col gap-4">
       {colors.colors.map((c, i) => (
         <div key={c.color} className="grid grid-cols-[1.5rem_1fr] items-start gap-2">
           <Pip symbol={c.color} className="mt-0.5" />
           <div className="flex flex-col gap-1">
-            <ColorBar label="Spells ask for" share={c.pipShare} detail={`${formatPercent(c.pipShare)} · ${formatCount(Math.round(c.pips))} symbols`} tone="bg-accent" />
+            <ColorBar label="Spells ask for" share={asked[i].pipShare} detail={`${formatPercent(asked[i].pipShare)} · ${formatCount(Math.round(asked[i].pips))} symbols`} tone="bg-accent" />
             <ColorBar label="Lands make" share={c.sourceShare} detail={`${formatPercent(c.sourceShare)} · ${formatCount(c.sources)} lands`} tone="bg-foreground/50" />
             {after && <ColorBar label="After edits" share={after.colors[i].sourceShare} detail={`${formatPercent(after.colors[i].sourceShare)} · ${formatCount(after.colors[i].sources)} lands`} tone="bg-emerald-400" />}
             {!after && c.short >= 2 && <p className="text-xs text-amber-400">About {formatCount(c.short)} sources short for how much your spells ask of it.</p>}
