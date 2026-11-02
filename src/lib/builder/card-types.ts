@@ -6,7 +6,7 @@ import type { BalanceCut } from "@/lib/deck-beta/color-balance";
 import { scaledCurve } from "@/lib/deck-beta/curve";
 import { cardKey } from "@/lib/deck-beta/recommend";
 import type { CardDetails, EdhrecDeckAverages } from "@/lib/types";
-import { allOffered, CARD_TYPES, cardTypeOf, type BuilderGroups, type BuilderPick, type CurveSlot } from "./plan";
+import { allOffered, CARD_TYPES, cardTypeOf, type BuilderGroups, type BuilderPick, type CurveCut, type CurveSlot } from "./plan";
 
 const AVERAGE_OF: Record<string, keyof EdhrecDeckAverages> = {
   Creatures: "creatures",
@@ -18,9 +18,9 @@ const AVERAGE_OF: Record<string, keyof EdhrecDeckAverages> = {
   Battles: "battles",
 };
 /** A deck this close to the average on a type needs no change to it. */
-const CLOSE_ENOUGH = 1;
-/** Cards suggested for each type that's short. */
-const PICKS = 6;
+export const CLOSE_ENOUGH = 1;
+/** Cards suggested for each type that's short: a row of the gallery. */
+export const PICKS = 5;
 
 export interface TypeRow {
   type: string;
@@ -52,10 +52,17 @@ export function typeRatio(cards: { card: CardDetails; qty: number }[], { average
 /** What to do about one type: add `picks`, or cut `cuts`. */
 export interface TypeMove {
   type: string;
-  /** Cards more than the average (negative when it's short). */
+  /** Cards more than it wants (negative when it's short). */
   over: number;
   picks: BuilderPick[];
   cuts: BalanceCut[];
+}
+
+/** Cards to cut, the first at the front: what these decks play least, keeping what the template still needs till last. */
+export function leastPlayed(cards: CurveCut[]): BalanceCut[] {
+  return [...cards]
+    .sort((a, b) => Number(a.keeps ?? false) - Number(b.keeps ?? false) || (a.inclusion ?? 0) - (b.inclusion ?? 0))
+    .map((cut) => ({ card: cut.card, why: cut.inclusion === undefined ? "Not in these decks" : `${Math.round(cut.inclusion * 100)}% of these decks` }));
 }
 
 /**
@@ -69,10 +76,7 @@ export function typeMoves(rows: TypeRow[], groups: BuilderGroups & { curveSlots:
   const offered = allOffered(groups)
     .filter((p) => !barred.has(cardKey(p.card.name)))
     .sort((a, b) => (b.synergy ?? -1) - (a.synergy ?? -1) || (b.inclusion ?? 0) - (a.inclusion ?? 0));
-  const order = groups.curveSlots
-    .flatMap((slot) => slot.cards)
-    .sort((a, b) => Number(a.keeps ?? false) - Number(b.keeps ?? false) || (a.inclusion ?? 0) - (b.inclusion ?? 0))
-    .map((cut) => ({ card: cut.card, why: cut.inclusion === undefined ? "Not in these decks" : `${Math.round(cut.inclusion * 100)}% of these decks` }));
+  const order = leastPlayed(groups.curveSlots.flatMap((slot) => slot.cards));
   return rows.flatMap((row) => {
     const over = row.have - (row.aim ?? row.have);
     if (row.type === "Lands" || Math.abs(over) <= CLOSE_ENOUGH) return [];

@@ -33,6 +33,8 @@ export function ColorSection({
   landTarget,
   spellCuts,
   planning,
+  at = "",
+  scope,
 }: {
   id: string;
   className: string;
@@ -47,6 +49,10 @@ export function ColorSection({
   spellCuts: BalanceCut[];
   /** EDHREC hasn't answered yet, so the lands and cuts aren't its best. */
   planning: boolean;
+  /** How the page is filtered, as words for the heading. */
+  at?: string;
+  /** The spells the page is filtered to, for the chart to read in place of all of them. */
+  scope?: DeckLine[];
 }) {
   const binder = useBinder();
   const [reviewing, setReviewing] = useState(false);
@@ -55,6 +61,7 @@ export function ColorSection({
   const basicNames = identity.flatMap((color) => BASIC_OF[color] ?? []);
   const { detailsFor } = useCardDetails(reviewing ? basicNames : []);
   const colors = useMemo(() => colorDistribution(deckCards, identity), [deckCards, identity]);
+  const scoped = useMemo(() => scope && colorDistribution([...scope, ...deckCards.filter(({ card }) => isLandCard(card))], identity), [scope, deckCards, identity]);
   const basics = basicNames.flatMap((name) => detailsFor(name) ?? []);
 
   const pool = [...lands, ...(fixing ?? [])].filter((land) => !ownedOnly || binder.owned(land.name) > 0);
@@ -70,7 +77,7 @@ export function ColorSection({
     <section id={id} className={className}>
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1 basis-64">
-          <h3 className="font-semibold">Color distribution</h3>
+          <h3 className="font-semibold">Color distribution{!reviewing && at}</h3>
           <p className="text-xs text-muted">The colored mana your spells ask for, against what your lands can make. Duals count for each of their colors.</p>
         </div>
         {!reviewing &&
@@ -95,7 +102,7 @@ export function ColorSection({
         </p>
       )}
       {!reviewing ? (
-        <ColorChart colors={colors} />
+        <ColorChart colors={scoped ?? colors} wholeDeck={!scoped} />
       ) : balance ? (
         <BalanceReview
           key={balance.swaps.map((s) => `${s.add.name}>${s.cut?.card.name}`).join()}
@@ -293,8 +300,8 @@ function SwapCard({ action, card, count, note }: { action: string; card: CardDet
   );
 }
 
-/** Each color's share of the deck's mana symbols beside its share of the lands' sources, and of the lands after any edits. */
-function ColorChart({ colors, after }: { colors: ColorDistribution; after?: ColorDistribution }) {
+/** Each color's share of the deck's mana symbols beside its share of the lands' sources, and of the lands after any edits. How many sources it's short is only for the whole deck. */
+function ColorChart({ colors, after, wholeDeck = true }: { colors: ColorDistribution; after?: ColorDistribution; wholeDeck?: boolean }) {
   if (colors.colors.length === 0) return <p className="text-sm text-muted">This deck has no colors to balance.</p>;
   // Edits can cut spells, so with edits in view it's what the spells would ask for then.
   const asked = (after ?? colors).colors;
@@ -307,7 +314,7 @@ function ColorChart({ colors, after }: { colors: ColorDistribution; after?: Colo
             <ColorBar label="Spells ask for" share={asked[i].pipShare} detail={`${formatPercent(asked[i].pipShare)} · ${formatCount(Math.round(asked[i].pips))} symbols`} tone="bg-accent" />
             <ColorBar label="Lands make" share={c.sourceShare} detail={`${formatPercent(c.sourceShare)} · ${formatCount(c.sources)} lands`} tone="bg-foreground/50" />
             {after && <ColorBar label="After edits" share={after.colors[i].sourceShare} detail={`${formatPercent(after.colors[i].sourceShare)} · ${formatCount(after.colors[i].sources)} lands`} tone="bg-emerald-400" />}
-            {!after && c.short >= 2 && <p className="text-xs text-amber-400">About {formatCount(c.short)} sources short for how much your spells ask of it.</p>}
+            {!after && wholeDeck && c.short >= 2 && <p className="text-xs text-amber-400">About {formatCount(c.short)} sources short for how much your spells ask of it.</p>}
           </div>
         </div>
       ))}

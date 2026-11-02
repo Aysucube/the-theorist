@@ -17,8 +17,7 @@ function gapOf({ have, aim }: TypeRow): string {
 /**
  * A deck's card types against the average deck for its commander on EDHREC: a
  * bar for each type with a tick at what to aim for, in cards and as a share of
- * the deck, then cards to add for the types it's short of and cuts for the ones
- * it has too many of.
+ * the deck, then what would bring the two together.
  */
 export function TypeRatio({ rows, moves, owned, onAdd, onRemove }: { rows: TypeRow[]; moves: TypeMove[]; owned: (name: string) => number; onAdd: (card: CardDetails) => void; onRemove: (name: string) => void }) {
   const total = rows.reduce((sum, row) => sum + row.have, 0);
@@ -87,29 +86,34 @@ export function TypeRatio({ rows, moves, owned, onAdd, onRemove }: { rows: TypeR
           ))}
         </tbody>
       </table>
-      {moves.map((move) =>
-        move.over < 0 ? (
-          <PickGrid key={move.type} title={`${move.type}: ${formatCount(-move.over)} short`} picks={move.picks} owned={owned} onAdd={onAdd} />
-        ) : (
-          <div key={move.type}>
-            <h4 className="text-sm font-semibold">
-              {move.type}: {formatCount(move.over)} over
-            </h4>
-            <p className="mb-2 text-xs text-muted">The ones these decks play least.</p>
-            <ul className="flex flex-wrap gap-x-3 gap-y-2">
-              {move.cuts.map((cut) => (
-                <li key={cut.card.name} className="flex items-center gap-1">
-                  <CardName name={cut.card.name} />
-                  <span className="text-xs text-muted tabular-nums">{cut.why}</span>
-                  <button type="button" onClick={() => onRemove(cut.card.name)} aria-label={`Remove ${cut.card.name} from the deck`} className="flex size-6 items-center justify-center rounded-md text-muted hover:bg-subtle hover:text-foreground">
-                    ×
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ),
-      )}
+      <Moves moves={moves} owned={owned} onAdd={onAdd} onRemove={onRemove} />
     </div>
+  );
+}
+
+/** For each thing a deck has too few of, cards to add; for each it has too many of, cuts. */
+export function Moves({ moves, owned, onAdd, onRemove }: { moves: TypeMove[]; owned: (name: string) => number; onAdd: (card: CardDetails) => void; onRemove: (name: string) => void }) {
+  return moves.map((move) =>
+    move.over < 0 ? (
+      <PickGrid key={move.type} title={`${move.type}: ${formatCount(-move.over)} short`} picks={move.picks} owned={owned} onAdd={onAdd} />
+    ) : (
+      <div key={move.type}>
+        <h4 className="text-sm font-semibold">
+          {move.type}: {formatCount(move.over)} over
+        </h4>
+        <p className="mb-2 text-xs text-muted">The ones these decks play least.</p>
+        <ul className="flex flex-wrap gap-x-3 gap-y-2">
+          {move.cuts.map((cut) => (
+            <li key={cut.card.name} className="flex items-center gap-1">
+              <CardName name={cut.card.name} />
+              <span className="text-xs text-muted tabular-nums">{cut.why}</span>
+              <button type="button" onClick={() => onRemove(cut.card.name)} aria-label={`Remove ${cut.card.name} from the deck`} className="flex size-6 items-center justify-center rounded-md text-muted hover:bg-subtle hover:text-foreground">
+                ×
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+    ),
   );
 }

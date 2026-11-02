@@ -1,15 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useBinder } from "@/lib/binder/store";
 import { useCardDetails } from "@/lib/binder/card-cache";
-import { typeMoves, typeRatio } from "@/lib/builder/card-types";
+import { typeRatio } from "@/lib/builder/card-types";
+import { deckNeeds } from "@/lib/builder/needs";
 import { byCardType, fitsIdentity } from "@/lib/builder/plan";
 import type { BracketReport } from "@/lib/deck-beta/bracket";
 import { CURVE_LABELS, slotOf } from "@/lib/deck-beta/curve";
+import { isLandCard } from "@/lib/deck-beta/lands";
 import type { RelatedCard } from "@/lib/deck-beta/related";
 import { cardKey } from "@/lib/deck-beta/recommend";
-import { CATEGORY_INFO, type DeckProfile } from "@/lib/deck-beta/roles";
+import { CATEGORIES, CATEGORY_INFO, type DeckProfile } from "@/lib/deck-beta/roles";
 import { useDeckRelated, type DeckSource } from "@/lib/deck-beta/store";
 import { cardTraits, interactionsOf, partnersOf, type DeckAnalysis } from "@/lib/deck-beta/synergy";
 import { formatCount } from "@/lib/format";
@@ -21,30 +23,32 @@ import { GameChangerTag } from "../game-changer-tag";
 import { ManaCost } from "../mana";
 import { HoverName } from "./bits";
 import { ColorSection } from "./color-section";
+import { DeckPanel, type Gauge } from "./deck-panel";
 import { LazyCardImage } from "./lazy-card-image";
 import { OddsCalculator } from "./odds-calculator";
 import { PrintingPicker } from "./printing-picker";
-import { curveAdvice, CurveChart, curveSource } from "./template-bits";
-import { TypeRatio } from "./type-ratio";
+import { CATEGORY_COLORS, THREATS_ABOUT, THREATS_COLOR } from "./template-bits";
+import { Moves } from "./type-ratio";
 import { useDeckPlan } from "./use-deck-plan";
 
-/** Recommended cards per short category, and synergistic cards in all. */
-const SHORT_PICKS = 6;
-const SYNERGY_PICKS = 12;
+/** Synergistic cards in all: two rows of the gallery. */
+const SYNERGY_PICKS = 10;
 
 /** The side tabs jump here; this keeps a section's heading clear of what stays stuck to the top of the page. */
-const ANCHOR = "scroll-mt-28 lg:scroll-mt-20";
+const ANCHOR = "scroll-mt-40 lg:scroll-mt-28 xl:scroll-mt-20";
 const GALLERY = "grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-4 md:grid-cols-5";
 
 type DeckLine = { card: CardDetails; qty: number };
-type Jump = { id: string; label: string; count?: number; sub?: boolean };
+type Jump = { id: string; label: string; count?: number; sub?: boolean; /** Only there on a phone, where the panel doesn't follow you. */ phone?: boolean };
 
 const typeAnchor = (type: string) => `edit-cards-${type.toLowerCase().replace(/\W+/g, "-")}`;
+const share = (n: number, of: number) => `${Math.round((n / Math.max(1, of)) * 100)}%`;
 
 /**
- * Editing a deck, with side tabs to each part: its mana curve, colors and card
- * types, its cards with a version for each, the odds of drawing what it needs,
- * the tokens and partners it brings, and cards to add.
+ * Editing a deck: tabs to each part of the page, and beside it a panel that
+ * follows you down with the deck's mana curve, card types and template. Picking
+ * a cost on the curve filters the page to it: the colors its spells ask for, its
+ * cards, the odds of drawing them, the tokens they bring and what to add at it.
  */
 export function EditDeck({
   source,
@@ -67,11 +71,12 @@ export function EditDeck({
   inDeck: (name: string) => boolean;
 }) {
   const binder = useBinder();
-  const [costPick, setCostPick] = useState<number>();
+  const [cost, setCost] = useState<number>();
   const [pickingFor, setPickingFor] = useState<CardDetails | null>(null);
   const { data, loading, plan, identity, spellCuts } = useDeckPlan({ commander, deckCards, analysis, report, combos });
-  const typeRows = useMemo(() => typeRatio(deckCards, { averages: data?.averages, commander: commander?.name }), [deckCards, data, commander]);
-  const moves = useMemo(() => typeMoves(typeRows, plan), [typeRows, plan]);
+  const { curve } = plan.profile;
+  const typeRows = useMemo(() => typeRatio(deckCards, { averages: data?.averages, commander: commander?.name, lands: curve.lands.count }), [deckCards, data, commander, curve.lands.count]);
+  const needs = useMemo(() => deckNeeds(plan, typeRows, { cost }), [plan, typeRows, cost]);
 
   // The cards on offer that work with the most of the deck, read from their rules text.
   const synergistic = useMemo(() => {
@@ -81,29 +86,61 @@ export function EditDeck({
       .map((pick) => ({ pick, partners: partnersOf(interactionsOf(cardTraits(pick.card, analysis.vocabulary), analysis.traits, pick.card.name)).size }))
       .filter((p) => p.partners > 0)
       .sort((a, b) => b.partners - a.partners || (b.pick.synergy ?? -1) - (a.pick.synergy ?? -1))
-      .slice(0, SYNERGY_PICKS)
       .map(({ pick, partners }) => ({ ...pick, reason: `Works with ${formatCount(partners)} of your cards` }));
   }, [plan, analysis]);
+  const fillsANeed = new Set([...needs.best, ...needs.moves.flatMap((m) => m.picks)].map((p) => cardKey(p.card.name)));
+  const moreSynergy = synergistic.filter((p) => (cost === undefined || slotOf(p.card.cmc) === cost) && !fillsANeed.has(cardKey(p.card.name))).slice(0, SYNERGY_PICKS);
 
-  const { curve } = plan.profile;
-  const atCost = costPick === undefined ? [] : deckCards.filter(({ card }) => !/\bLand\b/.test(card.typeLine.split(" // ")[0]) && slotOf(card.cmc) === costPick);
+  // The filter counts what the curve counts: spells, and not the commander.
+  const spellsAt = useMemo(() => (cost === undefined ? undefined : deckCards.filter(({ card }) => card.name !== commander?.name && !isLandCard(card) && slotOf(card.cmc) === cost)), [cost, deckCards, commander]);
+  const namesAt = spellsAt?.map(({ card }) => card.name);
+  const at = cost === undefined ? "" : ` at ${CURVE_LABELS[cost]} mana`;
+  const countAt = (names: string[]) => names.filter((name) => namesAt?.includes(name)).length;
+
+  const typesAt = spellsAt && typeRatio(spellsAt, {});
+  const inDeckTotal = typeRows.reduce((sum, row) => sum + row.have, 0);
+  const aimedTotal = typeRows.reduce((sum, row) => sum + (row.aim ?? 0), 0);
+  const typeGauges: Gauge[] = typeRows.map(({ type, have, aim }) => ({
+    label: type,
+    have,
+    aim,
+    at: typesAt?.find((row) => row.type === type)?.have,
+    about: `${share(have, inDeckTotal)} of your deck${aim === undefined ? "" : `, ${share(aim, aimedTotal)} of the suggested one`}`,
+  }));
+  const threats = plan.threats.flatMap((t) => t.have);
+  const templateGauges: Gauge[] = [
+    ...CATEGORIES.map((c) => ({ label: CATEGORY_INFO[c].label, have: plan.profile.categories[c].length, aim: CATEGORY_INFO[c].target, at: countAt(plan.profile.categories[c]), about: CATEGORY_INFO[c].about, color: CATEGORY_COLORS[c] })),
+    { label: "Threats", have: threats.length, aim: plan.threatTarget, at: countAt(threats), about: THREATS_ABOUT, color: THREATS_COLOR },
+  ];
+
   // What the colors can reach for: EDHREC's lands for this commander.
   const fixingLands = useMemo(() => [...plan.lands.duals, ...plan.lands.fixing].map((p) => p.card), [plan]);
   const printingOf = (name: string) => source.printings?.[cardKey(name)];
-  const short = plan.template.filter((s) => s.short > 0 && s.all.leaning.length + s.all.synergy.length > 0).sort((a, b) => b.short / CATEGORY_INFO[b.category].target - a.short / CATEGORY_INFO[a.category].target);
 
-  const byType = byCardType(deckCards);
+  const shown = spellsAt ?? deckCards;
+  const byType = byCardType(shown);
   const copiesIn = (lines: DeckLine[]) => lines.reduce((sum, { qty }) => sum + qty, 0);
   const jumps: Jump[] = [
-    { id: "edit-curve", label: "Mana curve" },
+    { id: "edit-panel", label: "Overview", phone: true },
     { id: "edit-colors", label: "Color distribution" },
-    { id: "edit-types", label: "Card types" },
-    { id: "edit-cards", label: "Cards", count: copiesIn(deckCards) },
+    { id: "edit-cards", label: "Cards", count: copiesIn(shown) },
     ...byType.map((group) => ({ id: typeAnchor(group.type), label: group.type, count: copiesIn(group.picks), sub: true })),
     { id: "edit-odds", label: "Draw odds" },
     { id: "edit-related", label: "Tokens and related" },
     { id: "edit-recommendations", label: "Recommendations" },
   ];
+
+  // The page shrinks and grows under a filter, so keep the part being read in view, from its top.
+  const resume = useRef<string>(undefined);
+  const pickCost = (slot: number) => {
+    resume.current = sectionBeingRead(jumps.filter((jump) => !jump.sub).map((jump) => jump.id));
+    setCost(slot === cost ? undefined : slot);
+  };
+  useLayoutEffect(() => {
+    if (resume.current) document.getElementById(resume.current)?.scrollIntoView({ block: "start", behavior: "instant" });
+    resume.current = undefined;
+  }, [cost]);
+
   const tile = (line: DeckLine) => (
     <DeckTile
       key={line.card.name}
@@ -116,52 +153,39 @@ export function EditDeck({
   );
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[10.5rem_minmax(0,1fr)] lg:gap-8">
-      <SectionTabs jumps={jumps} />
-      <div className="flex min-w-0 flex-col gap-12">
-        <section id="edit-curve" className={ANCHOR}>
-          <h3 className="font-semibold">Mana curve</h3>
-          <p className="mb-6 text-xs text-muted">
-            Spells by mana value, against {curveSource(curve)}. Click a cost to see your cards at it. {curveAdvice(curve)}
-          </p>
-          <CurveChart curve={curve} picked={costPick} onPick={(slot) => setCostPick(slot === costPick ? undefined : slot)} />
-          {costPick !== undefined && (
-            <div className="reveal-fast mt-6">
-              <p className="mb-3 text-sm font-semibold">
-                Your cards at {CURVE_LABELS[costPick]} mana <span className="font-normal text-muted tabular-nums">({formatCount(atCost.length)})</span>
-                <button type="button" onClick={() => setCostPick(undefined)} className="link ml-3 text-xs font-normal text-muted">
-                  Hide
-                </button>
-              </p>
-              {atCost.length > 0 ? <ul className={GALLERY}>{[...atCost].sort((a, b) => a.card.name.localeCompare(b.card.name)).map(tile)}</ul> : <p className="text-sm text-muted">No spells at this cost.</p>}
-            </div>
-          )}
-        </section>
-
-        <ColorSection id="edit-colors" className={ANCHOR} source={source} commander={commander?.name} deckCards={deckCards} identity={identity} lands={fixingLands} landTarget={profile.curve.lands.count} spellCuts={spellCuts} planning={loading} />
-
-        <section id="edit-types" className={`flex flex-col gap-4 ${ANCHOR}`}>
-          <div>
-            <h3 className="font-semibold">Card types</h3>
-            <p className="text-xs text-muted">
-              {data?.averages
-                ? `Your deck by card type. Each dashed line is the average deck for ${commander?.name} on EDHREC, from ${formatCount(data.numDecks)} decks.`
-                : loading
-                  ? `Your deck by card type, while EDHREC’s decks for ${commander?.name} load.`
-                  : "Your deck by card type. EDHREC has no decks to hold it against."}
-            </p>
-          </div>
-          <TypeRatio rows={typeRows} moves={moves} owned={binder.owned} onAdd={source.add} onRemove={source.remove} />
-        </section>
+    <div className="grid grid-cols-1 gap-6 lg:mx-[calc((100%_-_min(100vw_-_3rem,88rem))/2)] lg:grid-cols-[minmax(0,1fr)_18rem] lg:gap-x-8 xl:grid-cols-[10.5rem_minmax(0,1fr)_18rem]">
+      <SectionTabs jumps={jumps}>
+        <div role="group" aria-label="Filter the page by mana value" className="mt-2 grid grid-cols-6 gap-1 lg:hidden">
+          {CURVE_LABELS.map((label, slot) => (
+            <button key={label} type="button" aria-pressed={cost === slot} aria-label={`Cards at ${label} mana`} onClick={() => pickCost(slot)} className="pill justify-center px-0 tabular-nums">
+              {label}
+            </button>
+          ))}
+        </div>
+      </SectionTabs>
+      <div className="relative lg:contents">
+        <span id="edit-panel" className={`absolute top-0 lg:hidden ${ANCHOR}`} />
+        <DeckPanel
+          curve={curve}
+          cost={cost}
+          onCost={pickCost}
+          types={typeGauges}
+          template={templateGauges}
+          className="no-scrollbar lg:sticky lg:top-28 lg:col-start-2 lg:row-start-2 lg:max-h-[calc(100dvh-8rem)] lg:self-start lg:overflow-y-auto xl:top-20 xl:col-start-3 xl:row-start-1 xl:max-h-[calc(100dvh-6rem)]"
+        />
+      </div>
+      <div className="flex min-w-0 flex-col gap-12 lg:col-start-1 lg:row-start-2 xl:col-start-2 xl:row-start-1">
+        <ColorSection id="edit-colors" className={ANCHOR} source={source} commander={commander?.name} deckCards={deckCards} identity={identity} lands={fixingLands} landTarget={profile.curve.lands.count} spellCuts={spellCuts} planning={loading} at={at} scope={spellsAt} />
 
         <section id="edit-cards" className={`flex flex-col gap-6 ${ANCHOR}`}>
           <div className="flex flex-wrap items-baseline justify-between gap-3">
             <div className="min-w-0 flex-1 basis-64">
-              <h3 className="font-semibold">Cards</h3>
+              <h3 className="font-semibold">Cards{at}</h3>
               <p className="text-xs text-muted">{source.setPrinting ? "Select Version picks a card’s set, its Showcase, Borderless or Retro Frame art, or a promo." : "Save this deck to My Decks to select versions of its cards."}</p>
             </div>
             <AddCard identity={identity} inDeck={inDeck} onAdd={source.add} />
           </div>
+          {byType.length === 0 && <p className="text-sm text-muted">No spells at this cost.</p>}
           {byType.map((group) => (
             <div key={group.type} id={typeAnchor(group.type)} className={ANCHOR}>
               <h4 className="mb-3 text-sm font-semibold">
@@ -173,17 +197,17 @@ export function EditDeck({
         </section>
 
         <section id="edit-odds" className={ANCHOR}>
-          <h3 className="font-semibold">Draw odds</h3>
+          <h3 className="font-semibold">Draw odds{at}</h3>
           <p className="mb-4 text-xs text-muted">The chance of drawing what you need, from the cards in this deck. Opening hands are 7 cards, and you draw one a turn after your first.</p>
-          <OddsCalculator deckCards={deckCards} profile={profile} commander={commander?.name} />
+          <OddsCalculator deckCards={deckCards} profile={profile} commander={commander?.name} scope={namesAt && { label: `${CURVE_LABELS[cost!]} mana`, names: namesAt }} />
         </section>
 
-        <RelatedSection names={deckCards.map((d) => d.card.name)} inDeck={inDeck} />
+        <RelatedSection names={deckCards.map((d) => d.card.name)} inDeck={inDeck} at={at} only={namesAt} />
 
         <section id="edit-recommendations" className={`flex flex-col gap-6 ${ANCHOR}`}>
           <div>
-            <h3 className="font-semibold">Recommendations</h3>
-            <p className="text-xs text-muted">From EDHREC’s {commander?.name ?? "commander’s"} decks, what your deck is short of and what works with the cards you’ve already got.</p>
+            <h3 className="font-semibold">Recommendations{at}</h3>
+            <p className="text-xs text-muted">From EDHREC’s {commander?.name ?? "commander’s"} decks: what your deck still needs for its mana curve, its lands, the template, its threats and its card types, then what works with the cards you’ve already got.</p>
           </div>
           {!commander ? (
             <p className="text-sm text-muted">Pick a commander to see recommendations.</p>
@@ -193,16 +217,10 @@ export function EditDeck({
             </p>
           ) : (
             <>
-              <PickGrid title="Synergistic with your deck" picks={synergistic} owned={binder.owned} onAdd={source.add} />
-              {short.map((shelf) => (
-                <PickGrid
-                  key={shelf.category}
-                  title={`${CATEGORY_INFO[shelf.category].label}: ${formatCount(shelf.short)} short`}
-                  picks={[...shelf.all.leaning, ...shelf.all.synergy].slice(0, SHORT_PICKS)}
-                  owned={binder.owned}
-                  onAdd={source.add}
-                />
-              ))}
+              {needs.best.length + needs.moves.length === 0 && <p className="text-sm text-muted">{cost === undefined ? "Nothing’s missing: your curve, lands, template, threats and card types are all on target." : "Nothing to add or cut at this cost."}</p>}
+              <PickGrid title="Fills the most gaps" picks={needs.best} owned={binder.owned} onAdd={source.add} />
+              <Moves moves={needs.moves} owned={binder.owned} onAdd={source.add} onRemove={source.remove} />
+              <PickGrid title="Synergistic with your deck" picks={moreSynergy} owned={binder.owned} onAdd={source.add} />
             </>
           )}
         </section>
@@ -215,8 +233,17 @@ export function EditDeck({
   );
 }
 
-/** The part of the page being read: the last whose top has reached this far down the window, just below where the side tabs jump to. */
-const READING_LINE = 128;
+/** How far below where the tabs jump to a part of the page has to come to be the part being read. */
+const READING_GAP = 48;
+
+const onPage = (ids: string[]) => ids.flatMap((id) => document.getElementById(id) ?? []).filter((el) => el.getClientRects().length > 0);
+
+/** The last of these parts of the page that the reader has reached, if any. */
+function sectionBeingRead(ids: string[]): string | undefined {
+  const parts = onPage(ids);
+  const line = parts.length > 0 ? parseFloat(getComputedStyle(parts[0]).scrollMarginTop) + READING_GAP : 0;
+  return parts.filter((el) => el.getBoundingClientRect().top <= line).at(-1)?.id;
+}
 
 function useActiveSection(ids: string[]): [string, (id: string) => void] {
   const [active, setActive] = useState(ids[0]);
@@ -227,8 +254,7 @@ function useActiveSection(ids: string[]): [string, (id: string) => void] {
     const read = () => {
       frame = 0;
       const atEnd = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4;
-      const passed = list.filter((id) => (document.getElementById(id)?.getBoundingClientRect().top ?? Infinity) <= READING_LINE);
-      setActive(atEnd ? list[list.length - 1] : (passed.at(-1) ?? list[0]));
+      setActive(atEnd ? list[list.length - 1] : (sectionBeingRead(list) ?? onPage(list)[0]?.id ?? list[0]));
     };
     const schedule = () => {
       if (!frame) frame = requestAnimationFrame(read);
@@ -243,8 +269,8 @@ function useActiveSection(ids: string[]): [string, (id: string) => void] {
   return [active, setActive];
 }
 
-/** Tabs down the left of the page, or along the top on a phone, that jump to each part of it and show where you are. */
-function SectionTabs({ jumps }: { jumps: Jump[] }) {
+/** Tabs down the left of the page, or along the top where it's too narrow for that, that jump to each part of it and show where you are. */
+function SectionTabs({ jumps, children }: { jumps: Jump[]; children: ReactNode }) {
   const [active, setActive] = useActiveSection(jumps.map((j) => j.id));
   const list = useRef<HTMLUListElement>(null);
 
@@ -261,17 +287,17 @@ function SectionTabs({ jumps }: { jumps: Jump[] }) {
   };
 
   return (
-    <nav aria-label="Parts of this page" className="sticky top-14 z-20 -mx-4 bg-background/85 px-4 py-2 backdrop-blur sm:-mx-6 sm:px-6 lg:top-20 lg:mx-0 lg:self-start lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
-      <ul ref={list} className="no-scrollbar relative flex gap-1 overflow-x-auto lg:max-h-[calc(100dvh-6rem)] lg:flex-col lg:gap-0.5 lg:overflow-x-visible lg:overflow-y-auto">
+    <nav aria-label="Parts of this page" className="sticky top-14 z-20 -mx-4 bg-background/85 px-4 py-2 backdrop-blur sm:-mx-6 sm:px-6 lg:col-span-full lg:mx-0 lg:px-0 xl:top-20 xl:col-span-1 xl:self-start xl:bg-transparent xl:p-0 xl:backdrop-blur-none">
+      <ul ref={list} className="no-scrollbar relative flex gap-1 overflow-x-auto xl:max-h-[calc(100dvh-6rem)] xl:flex-col xl:gap-0.5 xl:overflow-x-visible xl:overflow-y-auto">
         {jumps.map((jump) => {
           const on = active === jump.id;
           return (
-            <li key={jump.id} className={jump.sub ? "hidden shrink-0 lg:block" : "shrink-0"}>
+            <li key={jump.id} className={jump.sub ? "hidden shrink-0 xl:block" : jump.phone ? "shrink-0 lg:hidden" : "shrink-0"}>
               <button
                 type="button"
                 onClick={() => go(jump.id)}
                 aria-current={on ? "true" : undefined}
-                className={`flex w-full items-baseline justify-between gap-2 rounded-full px-3 py-1.5 text-left whitespace-nowrap transition-colors duration-150 lg:rounded-lg ${jump.sub ? "text-xs lg:pl-6" : "text-sm"} ${on ? "bg-accent/15 font-medium text-accent" : "text-muted hover:text-foreground"}`}
+                className={`flex w-full items-baseline justify-between gap-2 rounded-full px-3 py-1.5 text-left whitespace-nowrap transition-colors duration-150 xl:rounded-lg ${jump.sub ? "text-xs xl:pl-6" : "text-sm"} ${on ? "bg-accent/15 font-medium text-accent" : "text-muted hover:text-foreground"}`}
               >
                 {jump.label}
                 {jump.count !== undefined && <span className="text-[11px] tabular-nums opacity-60">{formatCount(jump.count)}</span>}
@@ -280,6 +306,7 @@ function SectionTabs({ jumps }: { jumps: Jump[] }) {
           );
         })}
       </ul>
+      {children}
     </nav>
   );
 }
@@ -400,15 +427,17 @@ function FoundCard({ card, onAdd }: { card: CardDetails; onAdd: () => void }) {
   );
 }
 
-/** The tokens, emblems, game pieces and partners the deck's cards bring. */
-function RelatedSection({ names, inDeck }: { names: string[]; inDeck: (name: string) => boolean }) {
+/** The tokens, emblems, game pieces and partners the deck's cards bring; with `only`, just what those cards bring. */
+function RelatedSection({ names, inDeck, at, only }: { names: string[]; inDeck: (name: string) => boolean; at: string; only?: string[] }) {
   const state = useDeckRelated(names);
-  const related = state?.state === "done" ? state.result : undefined;
+  const found = state?.state === "done" ? state.result : undefined;
+  const bringing = (cards: RelatedCard[]) => (only ? cards.filter((card) => card.from.some((name) => only.includes(name))) : cards);
+  const related = found && { tokens: bringing(found.tokens), emblems: bringing(found.emblems), pieces: bringing(found.pieces), pairs: only ? found.pairs.filter((pair) => only.includes(pair.from)) : found.pairs };
   const empty = related && related.tokens.length + related.emblems.length + related.pieces.length + related.pairs.length === 0;
   return (
     <section id="edit-related" className={`flex flex-col gap-5 ${ANCHOR}`}>
       <div>
-        <h3 className="font-semibold">Tokens and related cards</h3>
+        <h3 className="font-semibold">Tokens and related cards{at}</h3>
         <p className="text-xs text-muted">What to have ready at the table: the tokens your deck makes, its emblems and game pieces, and the cards it melds with or transforms into.</p>
       </div>
       {state?.state === "error" ? (
@@ -418,7 +447,7 @@ function RelatedSection({ names, inDeck }: { names: string[]; inDeck: (name: str
           <span aria-hidden className="spinner size-4" /> Reading what your cards make…
         </p>
       ) : empty ? (
-        <p className="text-sm text-muted">This deck doesn’t make any tokens or bring any extra pieces.</p>
+        <p className="text-sm text-muted">{only ? "Nothing at this cost makes tokens or brings extra pieces." : "This deck doesn’t make any tokens or bring any extra pieces."}</p>
       ) : (
         <>
           <RelatedGrid title="Tokens" cards={related.tokens} />

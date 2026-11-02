@@ -17,6 +17,9 @@ export const CATEGORY_COLORS: Record<Category, string> = {
   plan: "#a78bfa",
 };
 
+export const THREATS_COLOR = "#e879f9";
+export const THREATS_ABOUT = "Anything that advances a win condition, pressures resources or forces opponents to react, whether it’s a card, a board state or something you do.";
+
 /** The flexibility tag: shown only on cards that fill two or more categories, naming them. */
 export function FlexTag({ categories, compact = false }: { categories: Category[]; compact?: boolean }) {
   if (categories.length < 2) return null;
@@ -134,10 +137,11 @@ export function TemplateMeters({ profile, onOpen }: { profile: DeckProfile; onOp
  * The spells by mana value against the commander's curve, or a low, wide one:
  * bars for the deck, a tick for the target, with the average, the early plays
  * and the land count. With `onPick`, each mana value (and its bar) can be clicked.
+ * `side` is for a narrow panel: shorter, with the counts but not the figures.
  */
-export function CurveChart({ curve, compact = false, picked, onPick }: { curve: CurveReport; compact?: boolean; picked?: number; onPick?: (slot: number) => void }) {
+export function CurveChart({ curve, compact = false, side = false, picked, onPick }: { curve: CurveReport; compact?: boolean; side?: boolean; picked?: number; onPick?: (slot: number) => void }) {
   const top = Math.max(1, ...curve.counts, ...curve.targets);
-  const height = compact ? 56 : 112;
+  const height = compact ? 56 : side ? 84 : 112;
   return (
     <div className="flex flex-col gap-3">
       <div className="grid grid-cols-6 items-end gap-2" style={{ height }} role="img" aria-label={`Mana curve: ${curve.counts.map((n, i) => `${n} at ${CURVE_LABELS[i]}`).join(", ")}`}>
@@ -146,7 +150,7 @@ export function CurveChart({ curve, compact = false, picked, onPick }: { curve: 
           return (
             <div key={i} onClick={onPick && (() => onPick(i))} className={`relative flex h-full flex-col justify-end ${onPick ? "cursor-pointer" : ""}`}>
               <span
-                className={`block w-full origin-bottom rounded-t-md transition-[transform,background-color] duration-300 ease-out ${over ? "bg-amber-400/80" : picked === i ? "bg-accent" : "bg-accent/80"}`}
+                className={`block w-full origin-bottom rounded-t-md transition-[transform,background-color,opacity] duration-300 ease-out ${over ? "bg-amber-400/80" : picked === i ? "bg-accent" : "bg-accent/80"} ${picked !== undefined && picked !== i ? "opacity-40" : ""}`}
                 style={{ height: "100%", transform: `scaleY(${n / top})` }}
               />
               <span aria-hidden className="absolute inset-x-0 border-t border-dashed border-foreground/50" style={{ bottom: `${(curve.targets[i] / top) * 100}%` }} />
@@ -173,7 +177,7 @@ export function CurveChart({ curve, compact = false, picked, onPick }: { curve: 
           ),
         )}
       </div>
-      {!compact && (
+      {!compact && !side && (
         <dl className="grid grid-cols-3 gap-3 text-sm">
           <div>
             <dt className="text-xs text-muted">Average mana value</dt>

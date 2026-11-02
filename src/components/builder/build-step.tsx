@@ -13,6 +13,7 @@ import { THREAT_KINDS, THREAT_PURPOSES, type ThreatKind } from "@/lib/deck-beta/
 import { fetchJsonWithRetry } from "@/lib/retry";
 import { formatCount } from "@/lib/format";
 import type { CardDetails, EdhrecTheme } from "@/lib/types";
+import { THREATS_ABOUT, THREATS_COLOR } from "../deck-beta/template-bits";
 import { ArrowDownIcon } from "../theme/icons";
 import { BuildCard } from "./build-card";
 import { Meter } from "./deck-rail";
@@ -20,8 +21,6 @@ import { usePlaystyleHover, type PlaystyleContext } from "./playstyle-hover";
 
 type Tab = Category | "lands" | "threats";
 const LANDS_COLOR = "#8d9bb8";
-const THREATS_COLOR = "#e879f9";
-const THREATS_ABOUT = "Anything that advances a win condition, pressures resources or forces opponents to react, whether it’s a card, a board state or something you do.";
 /** Letters a search needs before it looks anything up. */
 const SEARCH_FROM = 2;
 /** Cards shown for a cost picked on the mana curve. */

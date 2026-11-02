@@ -12,13 +12,16 @@ import { useHoverPreview } from "../card-link";
 /** Turns shown in the turn-by-turn table. */
 const TURNS = [1, 2, 3, 4, 5, 6, 8, 10];
 const LANDS = "Lands";
+const EVERY = "Every card";
 
 /**
  * The odds of drawing what the deck needs: pick groups of cards or specific
  * cards, how many of them, and by which turn, on the play or on the draw. It's
  * a hypergeometric calculation over the library (the deck without its commander).
+ * With `scope`, the groups hold only those cards, and with none picked it looks
+ * for all of them.
  */
-export function OddsCalculator({ deckCards, profile, commander }: { deckCards: { card: CardDetails; qty: number }[]; profile: DeckProfile; commander?: string }) {
+export function OddsCalculator({ deckCards, profile, commander, scope }: { deckCards: { card: CardDetails; qty: number }[]; profile: DeckProfile; commander?: string; scope?: { label: string; names: string[] } }) {
   const listId = useId();
   const [groups, setGroups] = useState<string[]>([LANDS]);
   const [named, setNamed] = useState<string[]>([]);
@@ -30,19 +33,29 @@ export function OddsCalculator({ deckCards, profile, commander }: { deckCards: {
   const library = deckCards.filter(({ card }) => card.name !== commander);
   const librarySize = library.reduce((sum, { qty }) => sum + qty, 0);
   const copies = new Map(library.map(({ card, qty }) => [card.name, qty]));
-  const namesIn = (group: string) => (group === LANDS ? library.filter(({ card }) => isLandCard(card)).map(({ card }) => card.name) : (profile.categories[group as keyof typeof profile.categories] ?? []));
-  const options = [LANDS, ...CATEGORIES];
-  const label = (group: string) => (group === LANDS ? LANDS : CATEGORY_INFO[group as keyof typeof CATEGORY_INFO].label);
+  const landNames = library.filter(({ card }) => isLandCard(card)).map(({ card }) => card.name);
+  const namesIn = (group: string) => {
+    if (group === EVERY) return scope?.names ?? [];
+    if (group === LANDS) return landNames;
+    const names = profile.categories[group as keyof typeof profile.categories] ?? [];
+    return scope ? names.filter((name) => scope.names.includes(name)) : names;
+  };
+  const options = scope ? [EVERY, ...CATEGORIES] : [LANDS, ...CATEGORIES];
+  const label = (group: string) => (group === EVERY ? (scope?.label ?? EVERY) : group === LANDS ? LANDS : CATEGORY_INFO[group as keyof typeof CATEGORY_INFO].label);
   const countIn = (names: string[]) => names.reduce((sum, name) => sum + (copies.get(name) ?? 0), 0);
 
-  const wanted = new Set([...groups.flatMap(namesIn), ...named]);
+  // Lands have no mana value to filter by, and every card there is takes in the rest.
+  const looking = scope ? groups.filter((group) => group !== LANDS) : groups;
+  const pressed = (group: string) => (group === EVERY ? looking.length === 0 : looking.includes(group));
+  const toggle = (group: string) => setGroups(group === EVERY ? groups.filter((g) => g === LANDS) : groups.includes(group) ? groups.filter((g) => g !== group) : [...groups, group]);
+  const wanted = new Set([...(scope && looking.length === 0 ? [EVERY] : looking).flatMap(namesIn), ...named]);
   const hits = countIn([...wanted]);
   const seenBy = (t: number) => cardsSeenByTurn(t) + (onDraw ? 1 : 0);
   const seen = seenBy(turn);
   const chance = chanceAtLeast(librarySize, hits, seen, want);
   const spread = hitSpread(librarySize, hits, seen).slice(0, 9);
   const top = Math.max(...spread, 0.01);
-  const landCount = countIn(namesIn(LANDS));
+  const landCount = countIn(landNames);
   const openers = hitSpread(librarySize, landCount, 7);
   const keepable = openers.slice(2, 6).reduce((a, b) => a + b, 0);
   const addCard = (name: string) => {
@@ -58,7 +71,7 @@ export function OddsCalculator({ deckCards, profile, commander }: { deckCards: {
             <p className="text-sm font-medium">Look for</p>
             <div role="group" aria-label="Groups of cards" className="mt-2 flex flex-wrap gap-1.5">
               {options.map((group) => (
-                <button key={group} type="button" aria-pressed={groups.includes(group)} onClick={() => setGroups(groups.includes(group) ? groups.filter((g) => g !== group) : [...groups, group])} className="pill">
+                <button key={group} type="button" aria-pressed={pressed(group)} onClick={() => toggle(group)} className="pill">
                   {label(group)}
                   <span className="text-[11px] tabular-nums opacity-60">{formatCount(countIn(namesIn(group)))}</span>
                 </button>
@@ -143,20 +156,22 @@ export function OddsCalculator({ deckCards, profile, commander }: { deckCards: {
         </ul>
       </div>
 
-      <div>
-        <p className="text-sm font-medium">Lands in your opening hand</p>
-        <p className="text-xs text-muted">
-          With {formatCount(landCount)} lands, {formatPercent(keepable)} of opening hands hold 2 to 5 lands.
-        </p>
-        <ul className="mt-2 grid grid-cols-4 gap-2 sm:grid-cols-8">
-          {openers.map((share, count) => (
-            <li key={count} className={`rounded-lg px-2 py-1.5 text-center ${count >= 2 && count <= 5 ? "bg-accent/15" : "bg-subtle"}`}>
-              <span className="block text-[11px] text-muted">{count} lands</span>
-              <span className="text-sm font-semibold tabular-nums">{formatPercent(share)}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
+      {!scope && (
+        <div>
+          <p className="text-sm font-medium">Lands in your opening hand</p>
+          <p className="text-xs text-muted">
+            With {formatCount(landCount)} lands, {formatPercent(keepable)} of opening hands hold 2 to 5 lands.
+          </p>
+          <ul className="mt-2 grid grid-cols-4 gap-2 sm:grid-cols-8">
+            {openers.map((share, count) => (
+              <li key={count} className={`rounded-lg px-2 py-1.5 text-center ${count >= 2 && count <= 5 ? "bg-accent/15" : "bg-subtle"}`}>
+                <span className="block text-[11px] text-muted">{count} lands</span>
+                <span className="text-sm font-semibold tabular-nums">{formatPercent(share)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

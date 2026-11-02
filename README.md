@@ -111,17 +111,24 @@ Zone's template and videos on mana curves and mana bases):
 A deck in progress is saved as you go, so you can leave and continue later. Saved decks go to
 **My Decks**, each shown by its commander with its name and how many cards you'd need to buy.
 **Click one to open its page**: everything below, for that deck, with every change saved to it.
-Its **Edit deck** tab, with side tabs to each part, holds the deck's mana curve, its **color
-distribution** (the colored mana your spells ask for against what your lands make), its **card
-types** against EDHREC's average deck for the commander, a **draw odds** calculator for hands and
-specific cards, its cards in a gallery with **Select Version** on each (any
-set, Showcase, Borderless and Retro Frame art, or promos), the **tokens, emblems and game pieces**
-the deck brings with its meld and transform partners, and cards to add, by what the deck is short
-of and what works with the cards in it. **Quick add lands** gives the deck as many lands as its
-curve wants and brings each color's share of them to its share of your spells: it proposes lands to
-bring in (fixing lands you own first, then ones you don't, while the mana base has room, then
-basics) and what to cut for each, shows the percentages they would give, and changes nothing until
-you apply them. Keep, skip or change any edit, or stick to lands in your binder. A deck over 100
+Its **Edit deck** tab has tabs to each part of the page, and beside it a panel that **follows you
+down the page** with the deck's mana curve, its **card types** against EDHREC's average deck for the
+commander, and the template (ramp, card advantage and the rest, and threats). **Click a cost on the
+curve to filter the whole page to it**: the colors those spells ask for, the cards, the draw odds,
+the tokens they bring and what to add at that cost, while the panel shows how much of each is
+there. On a phone the panel stays at the top, and the costs stay pinned under the tabs. The page
+holds its **color distribution** (the colored mana your spells ask for against what your lands
+make), its cards in a gallery with **Select Version** on each (any set, Showcase, Borderless and
+Retro Frame art, or promos), a **draw odds** calculator for hands and specific cards, the **tokens,
+emblems and game pieces** the deck brings with its meld and transform partners, and
+**recommendations for whatever it still needs**: first the cards that fill the most gaps at once,
+then cards for each mana value short of its line (and cuts for each one over it), its lands, each
+part of the template and its threats, and its card types, then what works with the cards in it. A
+card at a cost that's already full sinks, so filling one gap doesn't open another. **Quick add
+lands** gives the deck as many lands as its curve wants and brings each color's share of them to
+its share of your spells: it proposes lands to bring in (fixing lands you own first, then ones you
+don't, while the mana base has room, then basics) and what to cut for each, shows the percentages
+they would give, and changes nothing until you apply them. Keep, skip or change any edit, or stick to lands in your binder. A deck over 100
 cards gets a **warning at the top of its page** with the cuts it would miss least: extra lands
 first, then spells at its most crowded costs. Cut them one at a time or all at once, with Undo.
 Right-click it (or use its ⋯ button) to add **only the cards missing from your binder** to
