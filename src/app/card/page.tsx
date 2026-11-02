@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { connection } from "next/server";
 import { Suspense } from "react";
 import { CardOverview } from "@/components/card-overview";
 import { CardSearch } from "@/components/card-search";
@@ -52,6 +53,8 @@ async function Results({ searchParams }: { searchParams: SearchParams }) {
   if (!query) {
     return <SourceMessage>Enter a card name to begin.</SourceMessage>;
   }
+  // The stores' lists change with time, so what's below can't be prerendered.
+  await connection();
 
   // 1. Scryfall resolves the typed text to one exact card name.
   let lookup;

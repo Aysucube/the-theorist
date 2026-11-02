@@ -4,8 +4,8 @@ A Magic: The Gathering Commander tool for Filipino players. Search a card and se
 
 - **Scryfall**: the card, its rules text and Commander legality
 - **EDHREC**: how often Commander decks play it, and for commanders, recommended cards
-- **TCGph**: what it costs right now at Philippine game stores, in pesos, plus two stores that
-  aren't on TCGph, **Co Collectibles** and **Collectibat**
+- **TCGph**: what it costs right now at Philippine game stores, in pesos, plus three stores that
+  aren't on TCGph: **Co Collectibles**, **Collectibat** and **Dragon's Hoard**
 
 Each card page also shows its **official rulings** and lists **every printing** with the cheapest PH copy of each,
 and hovering any card link shows a quick preview (artwork, cheapest price, shop). Cards on the Commander
@@ -326,6 +326,10 @@ same pages their own websites use, so the app is built to stay a light, polite v
   seconds or so and any wait it asks for is honored: about 6 minutes for the whole list.
   Until that first read finishes, Collectibat's prices don't show. On a host with no
   lasting disk or background work, such as Vercel, its full list may never finish.
+- **Dragon's Hoard** has over 30,000 singles, too many to read that way, so it's asked one card
+  at a time through its site's search, cached for an hour, at most 2 searches a second. After any
+  error it's left alone for a minute. Before adding a store, check [TCGph's list](https://tcgph.com/stores):
+  Dragon Master Collectibles (**DM**), Roll Play (**RP**) and **Tolarian** Dropout are already on it.
 - Scryfall calls follow its [published limits](https://scryfall.com/docs/api/rate-limits)
   (2 a second for name lookups and searches, 10 a second otherwise), and after an
   HTTP 429 the app stops calling Scryfall for 30 seconds.
@@ -388,6 +392,10 @@ several instances needs a shared cache handler; see Next.js's `cacheHandlers` do
   saved on the computer when the app runs there (see above), never on a shared server. Nothing
   syncs between devices.
 - Store totals assume a store has enough copies; TCGph only shows stock per listing.
+- Dragon's Hoard's search gives a product's lowest and highest price but not which copy is which,
+  and most products hold a non-foil and a foil. Such a product shows its lowest price, marked "Foil
+  or nonfoil" with the range, and stays out of the market deals; in a small sample, one in seven had
+  that lowest copy sold out. Each product counts as one copy, Near Mint, as all of those checked were.
 - Collectibat says whether a card is available but not how many, so each listing counts as one
   copy. Co Collectibles is in HeroHub's preview mode: its list shows every card it could stock
   with no stock counts, so its prices are marked **Stock not confirmed** and count as one copy each.

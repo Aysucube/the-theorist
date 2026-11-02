@@ -6,7 +6,7 @@ import type { ScryfallCard, TcgphPrice } from "@/lib/types";
 import { Panel, SourceMessage } from "./panel";
 
 const TITLE = "Philippine store prices";
-const SOURCE = "TCGph, Co Collectibles, Collectibat";
+const SOURCE = "TCGph and three other stores";
 const SHOWN = 15;
 // Basic lands have 1,600+ listings; the page lists the cheapest ones and links
 // to TCGph for the rest. (The Printings panel covers every printing.)

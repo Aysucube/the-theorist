@@ -7,7 +7,6 @@ import type { TcgphPrint } from "./types";
 const stores = vi.hoisted(() => ({ prints: {} as Record<string, unknown[]>, asked: [] as string[] }));
 
 vi.mock("next/cache", () => ({ cacheLife: () => {} }));
-vi.mock("next/server", () => ({ connection: async () => {} }));
 vi.mock("./sources/co-collectibles", () => ({
   coCollectiblesPrints: async (name: string) => {
     stores.asked.push(name);
@@ -15,6 +14,7 @@ vi.mock("./sources/co-collectibles", () => ({
   },
 }));
 vi.mock("./sources/collectibat", () => ({ collectibatPrints: async () => [] }));
+vi.mock("./sources/dragons-hoard", () => ({ dragonsHoardPrints: async () => [] }));
 
 const storeCopy = (pricePhp: number): TcgphPrint => ({
   printId: "co-1",

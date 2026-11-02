@@ -3,11 +3,11 @@ import type { TcgphPrices, TcgphPrint } from "@/lib/types";
 import { summarizePrices } from "./tcgph";
 import { withStoreLists } from "./stores";
 
-const lists = vi.hoisted(() => ({ co: [] as unknown[], collectibat: [] as unknown[] }));
+const lists = vi.hoisted(() => ({ co: [] as unknown[], collectibat: [] as unknown[], dragonsHoard: (async () => []) as () => Promise<unknown[]> }));
 vi.mock("next/cache", () => ({ cacheLife: () => {} }));
-vi.mock("next/server", () => ({ connection: async () => {} }));
 vi.mock("./co-collectibles", () => ({ coCollectiblesPrints: async () => lists.co }));
 vi.mock("./collectibat", () => ({ collectibatPrints: async () => lists.collectibat }));
+vi.mock("./dragons-hoard", () => ({ dragonsHoardPrints: () => lists.dragonsHoard() }));
 
 const print = (store: string, pricePhp: number, over: Partial<TcgphPrint["listings"][number]> = {}): TcgphPrint => ({
   printId: `${store}-${pricePhp}`,
@@ -24,9 +24,10 @@ describe("withStoreLists", () => {
   beforeEach(() => {
     lists.co = [];
     lists.collectibat = [];
+    lists.dragonsHoard = async () => [];
   });
 
-  it("leaves TCGph's answer alone when neither store has the card", async () => {
+  it("leaves TCGph's answer alone when no store has the card", async () => {
     expect(await withStoreLists(tcgph, "Sol Ring")).toBe(tcgph);
     expect(await withStoreLists(null, "Sol Ring")).toBeNull();
   });
@@ -42,6 +43,21 @@ describe("withStoreLists", () => {
       ["HMO", 200],
       ["Collectibat", 300],
     ]);
+  });
+
+  it("keeps the other prices when a store can't be reached", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    lists.co = [print("Co Collectibles", 150)];
+    lists.dragonsHoard = async () => {
+      throw new Error("down");
+    };
+    const summary = summarizePrices((await withStoreLists(tcgph, "Sol Ring"))!);
+    expect(summary.byStore.map((o) => o.store)).toEqual(["Co Collectibles", "HMO"]);
+  });
+
+  it("adds Dragon's Hoard's copies too", async () => {
+    lists.dragonsHoard = async () => [print("Dragon's Hoard", 90)];
+    expect(summarizePrices((await withStoreLists(tcgph, "Sol Ring"))!).cheapest).toMatchObject({ store: "Dragon's Hoard", pricePhp: 90 });
   });
 
   it("stands in when TCGph doesn't know the card", async () => {
