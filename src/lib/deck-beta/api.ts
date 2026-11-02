@@ -136,5 +136,6 @@ export type CommanderPlanResponse =
       themes: EdhrecTheme[];
       averages?: EdhrecDeckAverages;
       curveAverage?: number;
+      curveCounts?: number[];
       articles: EdhrecArticle[];
     };

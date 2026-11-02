@@ -9,22 +9,25 @@
 // The plan also takes combo pieces, and lands get a shelf of their own, dual
 // lands first, rated for the commander's colors. Chosen playstyles steer the
 // numbers, so every card is judged by those playstyles' decks. Then the deck's
-// curve is held against the average deck's, to see what to cut. Kept free of
-// React so it's easy to test.
+// curve is held against the average deck's, to see what to cut. The deck's
+// threats get a shelf per kind, sized by how much these decks lean on each. Kept
+// free of React so it's easy to test.
 import type { BuilderResponse, PlaystyleCard, PlaystyleResponse } from "@/lib/deck-beta/api";
 import { comboBracket, isMassLandDenial, MAX_GAME_CHANGERS, type Bracket } from "@/lib/deck-beta/bracket";
-import { landTarget, slotOf } from "@/lib/deck-beta/curve";
+import { landTarget, MIN_LANDS, scaledCurve, slotOf, type CommanderCurve } from "@/lib/deck-beta/curve";
 import { planUpgrades, scoreCandidate, type Candidate, type Pick, type UpgradePlan } from "@/lib/deck-beta/doctor";
 import { colorDemand, fetchedColors, fixesColors, LAND_KIND_LABEL, landFit, landKind, manaBasePlan, type ManaBasePlan } from "@/lib/deck-beta/lands";
 import { cardKey } from "@/lib/deck-beta/recommend";
 import { parseTypeLine } from "@/lib/deck-beta/synergy";
 import { CATEGORIES, CATEGORY_INFO, categoryGaps, deckProfile, type Category, type DeckProfile } from "@/lib/deck-beta/roles";
+import { THREAT_KINDS, THREAT_TARGET, threatKind, type ThreatKind } from "@/lib/deck-beta/threats";
 import { byImpact } from "@/lib/deck-beta/walkthrough";
 import type { CardDetails, Combo, DeckCombos } from "@/lib/types";
 
+export { MIN_LANDS, scaledCurve };
+
 /** A Commander deck: 99 cards and the commander. */
 export const DECK_SIZE = 100;
-export const MIN_LANDS = 30;
 export const MAX_LANDS = 42;
 
 export const BASIC_FOR: Record<string, string> = { W: "Plains", U: "Island", B: "Swamp", R: "Mountain", G: "Forest" };
@@ -185,6 +188,8 @@ export interface CurveCut {
   why: string;
   /** It's holding up a part of the template that has no cards to spare. */
   keeps?: boolean;
+  /** The share of these decks that play it. */
+  inclusion?: number;
 }
 
 /** One mana value of the deck against the curve it's aiming for. */
@@ -207,6 +212,17 @@ export interface LandShelf {
   slow: BuilderPick[];
 }
 
+/** One kind of threat: what the deck has of it, how much these decks lean on it, and what else it could play. */
+export interface ThreatShelf {
+  kind: ThreatKind;
+  /** The deck's cards of this kind. */
+  have: string[];
+  /** About how many of its spells these decks give to it, from what EDHREC says they play; 0 for combos, which are this deck's own. */
+  aim: number;
+  /** Cards to add, within the bracket, the ones these decks lean on first. */
+  picks: BuilderPick[];
+}
+
 export interface BuilderGroups {
   /** Every category of the template, in its usual order. */
   template: TemplateShelf[];
@@ -214,6 +230,10 @@ export interface BuilderGroups {
   combos: { pick: BuilderPick; combo: Combo }[];
   lands: LandShelf;
   leftOut: UpgradePlan["leftOut"];
+  /** Every kind of threat there's anything to say about. */
+  threats: ThreatShelf[];
+  /** About how many threats these decks run in all. */
+  threatTarget: number;
 }
 
 /** Everything on offer across the tabs, each card once. */
@@ -267,8 +287,8 @@ export interface BuilderInput {
   combos?: DeckCombos | null;
   /** The chosen playstyles' cards from EDHREC, best first. */
   playstyle?: PlaystylePick[];
-  /** The average deck's spells at each mana value, from EDHREC: the curve to aim for. */
-  curveCounts?: number[];
+  /** The curve these decks average on EDHREC: the one to aim for. */
+  curve?: CommanderCurve;
   /** Favour cards in the binder. */
   preferOwned: boolean;
   /** The commander, left out of the curve. */
@@ -341,18 +361,6 @@ export function mergePlaystyles(chosen: { name: string; style: FoundPlaystyle }[
   };
 }
 
-/** An average deck's curve, scaled to this many spells, in whole cards that add up. */
-export function scaledCurve(counts: number[], spells: number): number[] {
-  const total = counts.reduce((a, b) => a + b, 0);
-  if (total === 0) return counts.map(() => 0);
-  const exact = counts.map((n) => (n / total) * spells);
-  const out = exact.map(Math.floor);
-  const order = exact.map((e, i) => ({ i, r: e - Math.floor(e) })).sort((a, b) => b.r - a.r);
-  const left = spells - out.reduce((a, b) => a + b, 0);
-  for (let k = 0; k < left; k++) out[order[k % order.length].i]++;
-  return out;
-}
-
 /** Recommendations for the deck as it stands; they change as cards go in. */
 export function builderRecommendations(input: BuilderInput): BuilderGroups & { profile: DeckProfile; manaBase: ManaBasePlan; curveSlots: CurveSlot[] } {
   const { deck, identity, bracket, isGameChanger, combos, preferOwned, perGroup = 12 } = input;
@@ -383,6 +391,8 @@ export function builderRecommendations(input: BuilderInput): BuilderGroups & { p
     (c.synergy ?? 0) >= PLAN_SYNERGY || leanOf(c.card.name) >= LEANS_IN || (style.size === 0 && (byName.get(cardKey(c.card.name))?.lists.some((l) => l === "High Lift Cards" || l === "High Synergy Cards") ?? false));
   const profile = deckProfile(deck, {
     commander: input.commander,
+    aim: input.curve,
+    plannedLands: input.lands,
     isPlan: (name) => {
       const c = byName.get(cardKey(name));
       return c ? isPlanCandidate(c) : (style.get(cardKey(name))?.synergy ?? 0) >= PLAN_SYNERGY || leanOf(name) >= LEANS_IN;
@@ -515,10 +525,36 @@ export function builderRecommendations(input: BuilderInput): BuilderGroups & { p
   const shown = new Set([...planShelf.lists.flatMap((l) => l.picks), ...planShelf.moreForStyle, ...planShelf.outside, ...planShelf.heldBack].map((p) => cardKey(p.card.name)));
   const combosLeft = combosGroup.filter((g) => !shown.has(cardKey(g.pick.card.name)));
 
-  // The curve to aim for: the average deck's on EDHREC, for this deck's spells; failing that, a low, wide one.
-  const spellTarget = 99 - manaBase.lands;
-  const targets = input.curveCounts ? scaledCurve(input.curveCounts, spellTarget) : profile.curve.targets;
-  const jobsOf = (name: string) => CATEGORIES.filter((c) => profile.categories[c].includes(name));
+  // The threats: every card sorted into one kind, a combo counting once the deck
+  // has it, or for the card that would complete it. How much these decks lean on
+  // each kind is its share of what they play, as a share of this deck's spells;
+  // combos are this deck's own, so EDHREC's numbers say nothing about them.
+  const inBracket = (c: Combo) => comboBracket(c) <= comboLimit;
+  const pieces = new Set([...(combos?.included ?? []).filter(inBracket).flatMap((c) => c.cards), ...(combos?.almostIncluded ?? []).filter(inBracket).flatMap((c) => c.cards.filter((n) => !has(n)))].map((n) => cardKey(n)));
+  const kindOf = (card: CardDetails) => threatKind(card, pieces.has(cardKey(card.name)));
+  const played = candidates.filter((c) => !isLand(c.card) && c.inclusion !== undefined);
+  const weight = played.reduce((sum, c) => sum + c.inclusion!, 0);
+  const plannedSpells = profile.curve.targets.reduce((a, b) => a + b, 0);
+  const shares = new Map<ThreatKind, number>();
+  for (const c of played) {
+    const kind = threatKind(c.card);
+    if (kind) shares.set(kind, (shares.get(kind) ?? 0) + c.inclusion! / weight);
+  }
+  const inDeckCards = deck.map((d) => d.card).filter((card) => cardKey(card.name) !== cardKey(input.commander ?? ""));
+  const threats = THREAT_KINDS.map(({ kind }): ThreatShelf => {
+    const picks = plan.eligible
+      .filter((p) => kindOf(p.card) === kind)
+      .sort((a, b) => Number(onEdhrec(b.card.name)) - Number(onEdhrec(a.card.name)) || leanOf(b.card.name) - leanOf(a.card.name) || (b.synergy ?? -1) - (a.synergy ?? -1) || b.score - a.score);
+    return {
+      kind,
+      have: inDeckCards.filter((card) => kindOf(card) === kind).map((card) => card.name),
+      aim: (shares.get(kind) ?? 0) * plannedSpells,
+      picks: arrange(picks, (c) => (inStyle(c.card.name) ? deckStats(c) : "Not in these playstyle decks")),
+    };
+  }).filter((t) => t.have.length + t.picks.length > 0);
+  const threatTarget = weight > 0 ? Math.round([...shares.values()].reduce((a, b) => a + b, 0) * plannedSpells) : THREAT_TARGET;
+
+  const jobsOf =(name: string) => CATEGORIES.filter((c) => profile.categories[c].includes(name));
   const needed = (c: Category) => profile.categories[c].length <= CATEGORY_INFO[c].target;
   // What a card is worth to the deck: its synergy, how far it leans into the playstyle, and the jobs it does.
   const worth = (card: CardDetails) => {
@@ -533,15 +569,15 @@ export function builderRecommendations(input: BuilderInput): BuilderGroups & { p
     return needs ? `Keeps ${CATEGORY_INFO[needs].label} filled` : `${CATEGORY_INFO[jobs[0]].label} has plenty`;
   };
   const spells = deck.map((d) => d.card).filter((card) => !isLand(card) && cardKey(card.name) !== cardKey(input.commander ?? ""));
-  const curveSlots = targets.map((target, slot): CurveSlot => ({
+  const curveSlots = profile.curve.targets.map((target, slot): CurveSlot => ({
     slot,
     have: profile.curve.counts[slot],
     target,
     cards: spells
       .filter((card) => slotOf(card.cmc) === slot)
       .sort((a, b) => worth(a) - worth(b))
-      .map((card) => ({ card, why: whyCut(card), keeps: jobsOf(card.name).some(needed) })),
+      .map((card) => ({ card, why: whyCut(card), keeps: jobsOf(card.name).some(needed), inclusion: byName.get(cardKey(card.name))?.inclusion })),
   }));
 
-  return { template, combos: combosLeft, lands, leftOut: heldBack, profile, manaBase, curveSlots };
+  return { template, combos: combosLeft, lands, leftOut: heldBack, threats, threatTarget, profile, manaBase, curveSlots };
 }

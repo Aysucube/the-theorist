@@ -30,6 +30,7 @@ export async function GET(request: NextRequest) {
       themes: stats.themes ?? [],
       averages: stats.averages,
       curveAverage: stats.curveAverage,
+      curveCounts: stats.curveCounts,
       articles,
     };
     return Response.json(body, { headers: { "Cache-Control": "public, max-age=3600" } });

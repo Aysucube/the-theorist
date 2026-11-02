@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { bracketPath, comboBracket, isMassLandDenial, type Bracket, type BracketReport } from "@/lib/deck-beta/bracket";
+import { commanderCurve } from "@/lib/deck-beta/curve";
 import { curveCuts, planUpgrades, type Candidate, type Pick } from "@/lib/deck-beta/doctor";
 import type { GamePlan } from "@/lib/deck-beta/game-plan";
 import { isSlowRamp, LAND_KIND_LABEL, landFit, landKind, manaBase } from "@/lib/deck-beta/lands";
@@ -20,7 +21,7 @@ import { ManaCost } from "../mana";
 import { BracketSection } from "./bracket-panel";
 import { CombosList, type DeckForOdds } from "./combos-panel";
 import { LazyCardImage } from "./lazy-card-image";
-import { CardName, CurveChart, curveAdvice, FlexTag, GamePlanCard, TemplateMeters } from "./template-bits";
+import { CardName, CurveChart, curveAdvice, curveSource, FlexTag, GamePlanCard, TemplateMeters } from "./template-bits";
 
 /** One-card-away combos offered. */
 const COMBOS_SHOWN = 5;
@@ -101,7 +102,7 @@ export function DeckOverview({
   const baseKey = base.map((c) => `${c.card.name}×${c.qty}`).join("\n");
   const upgrades = useMemo(() => {
     if (!found) return null;
-    const baseProfile = deckProfile(base, { commander: commander?.name, isPlan });
+    const baseProfile = deckProfile(base, { commander: commander?.name, isPlan, aim: commanderCurve(found) });
     const names = new Set(base.map((c) => cardKey(c.card.name)));
     const candidates: Candidate[] = found.cards.flatMap((c) =>
       found.details[c.name] ? [{ card: found.details[c.name], synergy: c.synergy, inclusion: c.inclusion }] : [],
@@ -171,7 +172,7 @@ export function DeckOverview({
         </section>
         <section>
           <h3 className="font-semibold">Mana curve</h3>
-          <p className="mb-6 text-xs text-muted">Spells by mana value (dashes: a low, wide curve for a finished deck). {curveAdvice(profile.curve)}</p>
+          <p className="mb-6 text-xs text-muted">Spells by mana value (dashes: {curveSource(profile.curve)}, for a finished deck). {curveAdvice(profile.curve)}</p>
           <CurveChart curve={profile.curve} />
         </section>
       </div>
@@ -346,7 +347,7 @@ export function DeckOverview({
       <section>
         <h3 className="font-semibold">Cuts for a lower curve</h3>
         <p className="mb-2 text-xs text-muted">
-          Spells of 5 mana or more that fill no template category, most expensive first, then cards that do no job and link to nothing
+          {profile.curve.fromCommander ? "Spells above this commander’s average cost, at a cost that’s over its curve," : "Spells of 5 mana or more"} that fill no template category, most expensive first, then cards that do no job and link to nothing
           else in your deck. Cutting them for cheap ramp and card draw lowers the curve.
         </p>
         {cuts.length === 0 && loose.length === 0 ? (

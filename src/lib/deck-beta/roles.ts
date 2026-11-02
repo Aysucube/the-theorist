@@ -9,7 +9,7 @@
 // flexible. These are heuristics read from rules text, not rules.
 import type { CardDetails } from "@/lib/types";
 import { tutorTarget } from "./combos";
-import { manaCurve, type CurveReport } from "./curve";
+import { manaCurve, type CommanderCurve, type CurveReport } from "./curve";
 
 export type Role =
   | "ramp"
@@ -61,7 +61,7 @@ const CATEGORY_ROLES: Record<Exclude<Category, "plan">, Role[]> = {
 };
 
 /** The card's rules text, lower-cased, with its own name (and reminder text) taken out. */
-function text(card: CardDetails): string {
+export function rulesText(card: CardDetails): string {
   let t = card.oracleText.replace(/\([^)]*\)/g, "");
   for (const face of card.name.split(" // ")) {
     t = t.split(face).join("this card");
@@ -77,7 +77,7 @@ export function cardRoles(card: CardDetails): Set<Role> {
   const roles = new Set<Role>();
   const type = card.typeLine.split(" // ")[0];
   if (/\bLand\b/.test(type)) return roles;
-  const t = text(card);
+  const t = rulesText(card);
   const spell = /\b(?:Instant|Sorcery)\b/.test(type);
 
   if (
@@ -214,7 +214,7 @@ export interface DeckProfile {
 
 export function deckProfile(
   cards: { card: CardDetails; qty: number }[],
-  { commander, isPlan = () => false }: { commander?: string; isPlan?: (name: string) => boolean } = {},
+  { commander, isPlan = () => false, aim, plannedLands }: { commander?: string; isPlan?: (name: string) => boolean; /** The commander's curve, for the deck's to aim at. */ aim?: CommanderCurve; /** The lands it's set to run, when they aren't all in `cards`. */ plannedLands?: number } = {},
 ): DeckProfile {
   const roles = Object.fromEntries(Object.keys(ROLE_LABEL).map((r) => [r, [] as string[]])) as Record<Role, string[]>;
   const categories = Object.fromEntries(CATEGORIES.map((c) => [c, [] as string[]])) as Record<Category, string[]>;
@@ -234,7 +234,7 @@ export function deckProfile(
     if (c.length >= 2) flexible.push({ name: card.name, categories: c });
     if (c.length === 0) unplaced.push(card.name);
   }
-  return { roles, categories, flexible, unplaced, lands, curve: manaCurve(cards, commander) };
+  return { roles, categories, flexible, unplaced, lands, curve: manaCurve(cards, commander, { aim, lands: plannedLands }) };
 }
 
 /** How many more of each category the deck could use, by the template. Zero when it has enough. */

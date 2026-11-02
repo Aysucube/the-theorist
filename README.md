@@ -38,10 +38,14 @@ Zone's template and videos on mana curves and mana bases):
   disruption** (board wipes, fogs, taxes) and about 30 cards for its **plan** (enablers, payoffs and
   enhancers for what the deck does). The categories add up to more than 99 on purpose: the best
   cards fill two at once, and those carry a **Flexible** tag (the only tag cards get).
-- **The mana curve**: spells by mana value against a low, wide curve (about 3 mana on average, 4
-  in 10 spells at 2 or less), so there's something to cast every turn from the start and two
-  spells a turn soon after. Upgrades put **cheap ramp and card advantage first** to secure it, and
-  expensive cards that do no job are suggested as cuts.
+- **The mana curve**: spells by mana value against **the curve its commander's decks average on
+  EDHREC**, scaled to the deck's spells, so a commander that wants big spells isn't told to cut them
+  and one that wants cheap ones is held to that. Each of the curve's numbers follows: the bars' dashed
+  lines, the early plays to aim for, what counts as top-heavy and which cards rise in the
+  recommendations. With no such numbers it aims for a low, wide curve (about 3 mana on average, 4 in
+  10 spells at 2 or less), so there's something to cast every turn from the start and two spells a
+  turn soon after. Upgrades put **cheap ramp and card advantage first** to secure it, and expensive
+  cards that do no job are suggested as cuts.
 - **Lands by the curve**: 38 for a mid-range deck, 33 to 35 for a low curve, 39 or 40 for a high
   one.
 - **The mana base by colors**: mostly basics and room for 8 to 10 utility lands in one color;
@@ -88,19 +92,29 @@ Zone's template and videos on mana curves and mana bases):
    deck, then what to add on top: **dual lands** for the commander's colors, more fixing, utility lands
    and lands that enter tapped, each taking a basic's place. A **Playstyle** dropdown above the tabs
    switches at any point, with the same hover, and the lists re-rank. Click a cost on the **mana
-   curve** to see the tab's most synergistic cards at that cost. The deck comes together on the other
-   side: its commander, a count to 100, its mana curve, its bracket, and the newest cards on a stack.
+   curve** to see the tab's most synergistic cards at that cost. A **Threats** tab sorts what can
+   threaten the table: anything that advances a win condition (combos, alternate wins, extra turns,
+   drain, swarms, team pump, big attackers), pressures resources (theft, stax, attrition) or forces a
+   reaction (planeswalkers, engines). Each kind shows the deck's own cards and more to add, with the
+   ones these decks lean on most first, and the tab's target is how much of their spells go to
+   threats. It's read from rules text, so treat it as a guide. The deck comes together on the other
+   side: its commander, a count to 100, its mana curve and card types, its bracket, and the newest
+   cards on a stack.
 7. **Mana curve**: the deck's curve against the average deck's on EDHREC for your playstyles, scaled
    to your spells. Each cost that's over its line lists its cards, the weakest first, with why and a
    **Remove** button; costs that are under take you back to Build for cards at that cost.
-8. **Finish**: name it and save it. Basic lands fill the rest of the mana base.
+8. **Card types**: the deck's creatures, instants, sorceries and so on, in cards and as a share of the
+   deck, against EDHREC's average deck for your playstyles, scaled to your lands. Types that are short
+   list the strongest cards to add, and types that are over list the cuts it would miss least.
+9. **Finish**: name it and save it. Basic lands fill the rest of the mana base.
 
 A deck in progress is saved as you go, so you can leave and continue later. Saved decks go to
 **My Decks**, each shown by its commander with its name and how many cards you'd need to buy.
 **Click one to open its page**: everything below, for that deck, with every change saved to it.
 Its **Edit deck** tab, with side tabs to each part, holds the deck's mana curve, its **color
-distribution** (the colored mana your spells ask for against what your lands make), a **draw odds**
-calculator for hands and specific cards, its cards in a gallery with **Select Version** on each (any
+distribution** (the colored mana your spells ask for against what your lands make), its **card
+types** against EDHREC's average deck for the commander, a **draw odds** calculator for hands and
+specific cards, its cards in a gallery with **Select Version** on each (any
 set, Showcase, Borderless and Retro Frame art, or promos), the **tokens, emblems and game pieces**
 the deck brings with its meld and transform partners, and cards to add, by what the deck is short
 of and what works with the cards in it. **Quick add lands** gives the deck as many lands as its

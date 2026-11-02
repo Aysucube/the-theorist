@@ -369,13 +369,26 @@ describe("builderRecommendations", () => {
       builderRecommendations({ deck: deck(cards), candidates: [], identity: ["B", "G"], bracket: 3, isGameChanger: () => false, preferOwned: false, commander: commander.name, lands: 38, ...extra });
 
     it("aims for the average deck's curve, scaled to this deck's spells", () => {
-      const { curveSlots } = build([], { curveCounts: [10, 20, 15, 8, 4, 3] });
+      const { curveSlots } = build([], { curve: { counts: [10, 20, 15, 8, 4, 3], average: 3 } });
       expect(curveSlots.map((s) => s.target).reduce((a, b) => a + b, 0)).toBe(61);
       expect(curveSlots[1].target).toBe(21);
     });
 
     it("falls back on a low, wide curve", () => {
       expect(build([]).curveSlots.map((s) => s.target)).toEqual(build([]).profile.curve.targets);
+    });
+
+    it("shows the same curve everywhere: the rail, the chart and the cuts", () => {
+      const plan = build([], { curve: { counts: [2, 6, 10, 14, 16, 16], average: 4.4 } });
+      expect(plan.profile.curve.targets).toEqual(plan.curveSlots.map((s) => s.target));
+      expect(plan.profile.curve).toMatchObject({ fromCommander: true, averageTarget: 4.4 });
+    });
+
+    it("scales the commander's curve to the lands chosen", () => {
+      const counts = [10, 20, 15, 8, 4, 3];
+      const total = (lands: number) => build([], { curve: { counts, average: 3 }, lands }).curveSlots.reduce((sum, s) => sum + s.target, 0);
+      expect(total(36)).toBe(63);
+      expect(total(40)).toBe(59);
     });
 
     it("counts the deck's spells at each cost, leaving out the commander and lands", () => {
@@ -400,6 +413,61 @@ describe("builderRecommendations", () => {
       const ramps = Array.from({ length: 11 }, (_, i) => card(`Dork ${i}`, "Creature — Elf", "{T}: Add {G}.", { cmc: 1 }));
       const { curveSlots } = build(ramps);
       expect(curveSlots[0].cards[0].why).toBe("Ramp has plenty");
+    });
+  });
+
+  describe("threats", () => {
+    const candidateOf = (c: CardDetails, extra: Partial<BuilderCandidate> = {}): BuilderCandidate => ({ card: c, lists: ["Top Cards"], ownedCopies: 0, ...extra });
+    const drainer = card("Drainer", "Enchantment", "Whenever a creature dies, each opponent loses 1 life.");
+    const engine = card("Engine", "Enchantment", "Whenever a creature enters, draw a card.");
+    const rock = card("Rock", "Artifact", "{T}: Add {C}.");
+    const build = (inDeck: CardDetails[], candidates: BuilderCandidate[], extra: Partial<Parameters<typeof builderRecommendations>[0]> = {}) =>
+      builderRecommendations({ deck: [{ card: commander, qty: 1 }, ...inDeck.map((c) => ({ card: c, qty: 1 }))], candidates, identity: ["B", "G"], bracket: 3, isGameChanger: () => false, preferOwned: false, commander: commander.name, lands: 38, ...extra });
+    const shelf = (plan: ReturnType<typeof build>, kind: string) => plan.threats.find((t) => t.kind === kind);
+
+    it("sorts the deck's cards and what's on offer by kind, leaving out the commander and what threatens no one", () => {
+      const plan = build([engine, rock], [candidateOf(drainer, { inclusion: 0.5 }), candidateOf(rock, { inclusion: 0.9 })]);
+      expect(shelf(plan, "engine")?.have).toEqual(["Engine"]);
+      expect(shelf(plan, "drain")?.picks.map((p) => p.card.name)).toEqual(["Drainer"]);
+      expect(plan.threats.flatMap((t) => t.have)).toEqual(["Engine"]);
+    });
+
+    it("sizes each kind by how much these decks play it, as a share of the deck's spells", () => {
+      const plan = build([], [candidateOf(drainer, { inclusion: 0.5 }), candidateOf(engine, { inclusion: 0.25 }), candidateOf(rock, { inclusion: 0.25 })]);
+      expect(shelf(plan, "drain")?.aim).toBeCloseTo(30.5, 5);
+      expect(shelf(plan, "engine")?.aim).toBeCloseTo(15.25, 5);
+      expect(plan.threatTarget).toBe(46);
+    });
+
+    it("falls back on a rough target when EDHREC says nothing", () => {
+      expect(build([], []).threatTarget).toBe(20);
+    });
+
+    it("keeps out what the bracket does", () => {
+      const nope = card("Armageddon", "Sorcery", "Destroy all lands.");
+      expect(build([], [candidateOf(nope, { inclusion: 0.5 })]).threats).toEqual([]);
+    });
+
+    const combo = { id: "1", cards: ["Rock", "Engine"], templates: [], results: ["Infinite mana"], steps: "" } as unknown as Combo;
+
+    it("counts the card that would complete a combo, but not the ones waiting on it", () => {
+      const plan = build([engine], [candidateOf(rock, { inclusion: 0.5 })], { combos: { included: [], almostIncluded: [combo], wider: [] } as never });
+      expect(shelf(plan, "combo")?.picks.map((p) => p.card.name)).toEqual(["Rock"]);
+      expect(shelf(plan, "combo")?.have).toEqual([]);
+      expect(shelf(plan, "engine")?.have).toEqual(["Engine"]);
+    });
+
+    it("counts every piece of a combo the deck has", () => {
+      const plan = build([engine, rock], [], { combos: { included: [combo], almostIncluded: [], wider: [] } as never });
+      expect(shelf(plan, "combo")?.have).toEqual(["Engine", "Rock"]);
+    });
+
+    it("sizes kinds by EDHREC alone, whatever combos this deck is near", () => {
+      const candidates = [candidateOf(drainer, { inclusion: 0.5 }), candidateOf(engine, { inclusion: 0.5 })];
+      const near = { id: "2", cards: ["Drainer", "Engine"], templates: [], results: ["Win"], steps: "" } as unknown as Combo;
+      const plan = build([], candidates, { combos: { included: [], almostIncluded: [near], wider: [] } as never });
+      expect(shelf(plan, "combo")?.aim).toBe(0);
+      expect(plan.threatTarget).toBe(build([], candidates).threatTarget);
     });
   });
 

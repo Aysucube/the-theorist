@@ -7,6 +7,7 @@ import { BRACKET_STYLE } from "@/components/deck-beta/bracket-badge";
 import { CATEGORY_COLORS, CurveChart } from "@/components/deck-beta/template-bits";
 import { bracketLabel, type BracketReport } from "@/lib/deck-beta/bracket";
 import { CATEGORIES, CATEGORY_INFO, type DeckProfile } from "@/lib/deck-beta/roles";
+import type { TypeRow } from "@/lib/builder/card-types";
 import { byCardType, DECK_SIZE } from "@/lib/builder/plan";
 import type { DraftCommander } from "@/lib/builder/draft";
 import type { CardDetails } from "@/lib/types";
@@ -19,14 +20,15 @@ const STACK = 7;
 /**
  * The deck as it comes together: the commander, how full it is, its mana
  * curve (and the template, when the build step's tabs aren't showing it), its
- * bracket, and the cards themselves — the newest fanned out on a stack they
- * fly into.
+ * card types, its bracket, and the cards themselves — the newest fanned out on
+ * a stack they fly into.
  */
 export function DeckRail({
   commander,
   cards,
   basics,
   profile,
+  types,
   template = false,
   curvePick,
   onCurvePick,
@@ -40,6 +42,8 @@ export function DeckRail({
   /** Basic lands the deck will fill in. */
   basics: number;
   profile?: DeckProfile;
+  /** The deck by card type, against EDHREC's average. */
+  types?: TypeRow[];
   /** Show the template's meters. */
   template?: boolean;
   /** The mana curve slot picked, to see the cards at that cost. */
@@ -120,6 +124,22 @@ export function DeckRail({
               {profile.curve.spells ? `Average ${profile.curve.average.toFixed(1)} · ` : ""}
               {profile.curve.early}/{profile.curve.earlyTarget} plays at 2 or less
             </p>
+          </div>
+        )}
+
+        {types?.some((row) => row.aim !== undefined) && (
+          <div className="hidden flex-col gap-1.5 lg:flex">
+            <p className="eyebrow">Card types</p>
+            {types.map((row) => (
+              <div key={row.type} className="grid grid-cols-[6rem_1fr_2.5rem] items-center gap-2 text-xs">
+                <span className="truncate text-muted">{row.type}</span>
+                <Meter value={row.have / Math.max(1, row.aim ?? 0)} />
+                <span className="text-right tabular-nums">
+                  {row.have}
+                  <span className="text-muted">/{row.aim ?? 0}</span>
+                </span>
+              </div>
+            ))}
           </div>
         )}
 

@@ -40,7 +40,7 @@ export function OverLimitWarning({
   report: BracketReport;
   combos: DeckCombos | null | undefined;
 }) {
-  const { loading, plan, identity } = useDeckPlan({ commander, deckCards, profile, analysis, report, combos });
+  const { loading, plan, identity } = useDeckPlan({ commander, deckCards, analysis, report, combos });
   const [showAll, setShowAll] = useState(false);
   const over = total - DECK_SIZE;
   const cuts = useMemo(

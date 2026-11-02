@@ -1,6 +1,6 @@
 "use client";
 
-import { CurveChart } from "@/components/deck-beta/template-bits";
+import { CurveChart, curveSource } from "@/components/deck-beta/template-bits";
 import type { CurveCut, CurveSlot } from "@/lib/builder/plan";
 import { CURVE_LABELS, type CurveReport } from "@/lib/deck-beta/curve";
 import { useHoverPreview } from "../card-link";
@@ -8,15 +8,13 @@ import { LazyCardImage } from "../deck-beta/lazy-card-image";
 import { GameChangerTag } from "../game-changer-tag";
 
 /**
- * 7. Mana curve: the deck's curve held against the average deck's, with the
- * cards to cut at each mana value that's over, the weakest first, and a way
- * back to Build for the ones that are short.
+ * 7. Mana curve: the deck's curve held against its commander's, with the cards
+ * to cut at each mana value that's over, the weakest first, and a way back to
+ * Build for the ones that are short.
  */
 export function CurveStep({
   curve,
   slots,
-  averageTarget,
-  usesEdhrec,
   themeName,
   total,
   ownedFor,
@@ -25,10 +23,6 @@ export function CurveStep({
 }: {
   curve: CurveReport;
   slots: CurveSlot[];
-  /** The average mana value of the curve it's aiming for. */
-  averageTarget?: number;
-  /** The target is EDHREC's average deck, not the template's low, wide curve. */
-  usesEdhrec: boolean;
   themeName?: string;
   /** Cards in the deck so far. */
   total: number;
@@ -40,16 +34,15 @@ export function CurveStep({
   const over = slots.filter((s) => s.have > s.target).sort((a, b) => b.have - b.target - (a.have - a.target) || b.slot - a.slot);
   const under = slots.filter((s) => s.have < s.target);
   const toCut = over.reduce((sum, s) => sum + s.have - s.target, 0);
-  const source = usesEdhrec ? `the average ${themeName ? `${themeName} deck` : "deck for this commander"} on EDHREC` : "a low, wide curve";
 
   return (
     <div className="flex flex-col gap-10">
       <div className="flex flex-col gap-8">
         <p className="text-sm text-muted">
-          Each bar is your deck; each dashed line is {source}, scaled to your spells.
-          {averageTarget !== undefined && curve.spells > 0 && ` Your spells average ${curve.average.toFixed(1)} mana, against ${averageTarget.toFixed(1)}.`}
+          Each bar is your deck; each dashed line is {curveSource(curve, themeName)}, scaled to your spells.
+          {curve.fromCommander && curve.spells > 0 && ` Your spells average ${curve.average.toFixed(1)} mana, against ${curve.averageTarget.toFixed(1)}.`}
         </p>
-        <CurveChart curve={{ ...curve, targets: slots.map((s) => s.target) }} />
+        <CurveChart curve={curve} />
       </div>
 
       {over.length === 0 ? (

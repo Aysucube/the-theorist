@@ -5,9 +5,9 @@ import { isBasicLandName } from "@/lib/binder/collection";
 import { useBinder } from "@/lib/binder/store";
 import { builderRecommendations, type BuilderCandidate } from "@/lib/builder/plan";
 import type { Bracket, BracketReport } from "@/lib/deck-beta/bracket";
+import { commanderCurve } from "@/lib/deck-beta/curve";
 import { spellCutOrder } from "@/lib/deck-beta/deck-size";
 import { cardKey } from "@/lib/deck-beta/recommend";
-import type { DeckProfile } from "@/lib/deck-beta/roles";
 import { useBuilderData, useTargetBracket } from "@/lib/deck-beta/store";
 import type { DeckAnalysis } from "@/lib/deck-beta/synergy";
 import type { CardDetails, DeckCombos } from "@/lib/types";
@@ -21,14 +21,12 @@ import { useGameChangers } from "@/lib/use-game-changers";
 export function useDeckPlan({
   commander,
   deckCards,
-  profile,
   analysis,
   report,
   combos,
 }: {
   commander?: CardDetails;
   deckCards: { card: CardDetails; qty: number }[];
-  profile: DeckProfile;
   analysis: DeckAnalysis;
   report: BracketReport;
   combos: DeckCombos | null | undefined;
@@ -41,7 +39,6 @@ export function useDeckPlan({
   // Cuts read from the deck alone can name its best cards, so anything that suggests cuts waits for this.
   const loading = Boolean(commander) && (builder === undefined || builder.state === "loading" || builder.state === "waiting");
   const identity = commander?.colorIdentity ?? analysis.colors;
-  const landCount = profile.lands;
   const deckKey = deckCards.map((d) => `${d.card.name}×${d.qty}`).join("\n");
 
   const plan = useMemo(() => {
@@ -56,14 +53,13 @@ export function useDeckPlan({
       bracket: (chosenBracket || report.bracket) as Bracket,
       isGameChanger: gameChangers.has,
       combos,
-      curveCounts: data?.curveCounts,
+      curve: commanderCurve(data),
       preferOwned: false,
       commander: commander?.name,
-      lands: landCount,
     });
     // The deck key captures the deck's cards.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, deckKey, commander, chosenBracket, report.bracket, combos, gameChangers, binder.cards, landCount]);
+  }, [data, deckKey, commander, chosenBracket, report.bracket, combos, gameChangers, binder.cards]);
 
   const spellCuts = useMemo(() => spellCutOrder(plan.curveSlots), [plan]);
   return { data, loading, plan, identity, spellCuts };

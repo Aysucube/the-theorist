@@ -6,6 +6,7 @@ import type { AnalysisResponse } from "@/lib/deck-beta/api";
 import { estimateDeckBracket, type BracketReport } from "@/lib/deck-beta/bracket";
 import { DECK_SIZE } from "@/lib/deck-beta/color-balance";
 import { commanderOptions } from "@/lib/deck-beta/combos";
+import { commanderCurve } from "@/lib/deck-beta/curve";
 import { decodeDeck, isDeckCode } from "@/lib/deck-beta/deck-code";
 import { commanderGamePlan, planInDeck } from "@/lib/deck-beta/game-plan";
 import { deckHubs } from "@/lib/deck-beta/playstyle";
@@ -210,7 +211,11 @@ export function DeckWorkspace({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [libraryKey],
   );
-  // Each card once with its copies, for the template, the curve and the lands.
+  // The commander's game plan, from its card and how EDHREC's decks build it.
+  const planState = useCommanderPlan(commander ? { name: commander.name, layout: commander.layout } : undefined);
+  const planData = planState?.state === "done" && planState.result.found ? planState.result : undefined;
+
+  // Each card once with its copies, for the template, the curve and the lands. The curve follows the commander's.
   const { deckCards, profile } = useMemo(() => {
     const counted = new Map<string, { card: CardDetails; qty: number }>();
     for (const e of entries) {
@@ -219,10 +224,10 @@ export function DeckWorkspace({
       counted.set(e.details.name, { card: e.details, qty: (seen?.qty ?? 0) + e.qty });
     }
     const cards = [...counted.values()];
-    return { deckCards: cards, profile: deckProfile(cards, { commander: commander?.name, isPlan }) };
+    return { deckCards: cards, profile: deckProfile(cards, { commander: commander?.name, isPlan, aim: commanderCurve(planData) }) };
     // The library key captures the deck's cards and copies (and its commander).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [libraryKey, isPlan]);
+  }, [libraryKey, isPlan, planData]);
   const gameChangers = useGameChangers();
   // undefined while Commander Spellbook hasn't answered; null if it couldn't be reached.
   const deckCombos = result ? result.combos : remote?.state === "error" ? null : undefined;
@@ -243,9 +248,6 @@ export function DeckWorkspace({
   // Combos a card away, then the wider ones EDHREC lists for the commander.
   const nearCombos = useMemo(() => [...(deckCombos?.almostIncluded ?? []), ...(deckCombos?.wider ?? [])], [deckCombos]);
 
-  // The commander's game plan, from its card and how EDHREC's decks build it.
-  const planState = useCommanderPlan(commander ? { name: commander.name, layout: commander.layout } : undefined);
-  const planData = planState?.state === "done" && planState.result.found ? planState.result : undefined;
   const gamePlan = useMemo(
     () =>
       commander

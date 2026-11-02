@@ -9,7 +9,7 @@
 // chosen bracket are left out.
 import type { CardDetails } from "@/lib/types";
 import { isExtraTurn, isMassLandDenial, MAX_GAME_CHANGERS, type Bracket } from "./bracket";
-import { cheapness, EARLY_SHARE, type CurveReport } from "./curve";
+import { curveFit, slotOf, type CurveReport } from "./curve";
 import { isSlowRamp } from "./lands";
 import { CATEGORIES, CATEGORY_INFO, cardRoles, categoriesOf, categoryGaps, type Category, type DeckProfile, type Role } from "./roles";
 
@@ -93,7 +93,7 @@ const defaultIsPlan = (c: Candidate) => (c.synergy ?? 0) >= PLAN_SYNERGY;
 export function curvePressure(curve: CurveReport | undefined): number {
   if (!curve || curve.spells < 8) return 1;
   if (curve.topHeavy) return 1.6;
-  return curve.early / curve.spells < EARLY_SHARE ? 1.3 : 1;
+  return curve.early / curve.spells < curve.earlyShare ? 1.3 : 1;
 }
 
 /** Signs of a strong card for higher brackets (0–1): tutors, fast mana, free spells, cheap interaction. */
@@ -115,7 +115,7 @@ export function scoreCandidate(candidate: Candidate, gaps: Partial<Record<Catego
   const gameChanger = options.isGameChanger?.(candidate.card.name) ?? false;
   // Cheap ramp and card advantage matter most to the curve: they're what you cast early, and twice a turn.
   const curveRole = roles.includes("ramp") || roles.includes("draw");
-  const cheap = cheapness(candidate.card.cmc) * w.cheap * curvePressure(options.curve) * (curveRole ? 1.5 : 1);
+  const cheap = curveFit(candidate.card.cmc, options.curve) * w.cheap * curvePressure(options.curve) * (curveRole ? 1.5 : 1);
   const fit =
     (candidate.inclusion ?? 0) * w.inclusion +
     Math.max(0, candidate.synergy ?? 0) * w.synergy +
@@ -219,15 +219,19 @@ export function planUpgrades(profile: DeckProfile, candidates: Candidate[], inDe
 
 /**
  * Deck cards that push the curve up without pulling their weight: spells of 5
- * mana or more that fill no category (or only the plan, when the deck has plenty
- * of plan cards), most expensive first. Places to cut for a lower curve.
+ * mana or more (with the commander's curve to go by, spells above its average
+ * at a cost that's over its line) that fill no category (or only the plan, when
+ * the deck has plenty of plan cards), most expensive first. Places to cut for a
+ * lower curve.
  */
 export function curveCuts(cards: CardDetails[], profile: DeckProfile, commander?: string, limit = 6): CardDetails[] {
   const flexible = new Set(profile.flexible.map((f) => f.name));
   const planHeavy = profile.categories.plan.length > CATEGORY_INFO.plan.target;
   const jobs = (name: string) => CATEGORIES.filter((c) => profile.categories[c].includes(name));
+  const { curve } = profile;
+  const pushesUp = (cmc: number) => (curve.fromCommander ? cmc > curve.averageTarget && curve.counts[slotOf(cmc)] > curve.targets[slotOf(cmc)] : cmc >= 5);
   return cards
-    .filter((c) => c.name !== commander && c.cmc >= 5 && !/\bLand\b/.test(c.typeLine.split(" // ")[0]) && !flexible.has(c.name))
+    .filter((c) => c.name !== commander && pushesUp(c.cmc) && !/\bLand\b/.test(c.typeLine.split(" // ")[0]) && !flexible.has(c.name))
     .filter((c) => {
       const j = jobs(c.name);
       return j.length === 0 || (planHeavy && j.length === 1 && j[0] === "plan");

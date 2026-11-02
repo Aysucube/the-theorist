@@ -6,9 +6,9 @@ import type { DeckCard } from "@/lib/deck";
 import type { Bracket } from "@/lib/deck-beta/bracket";
 import { createLocalStore, useHydrated } from "@/lib/local-store";
 
-export const STEPS = ["Commander", "Playstyle", "Bracket", "Synergies", "Lands", "Build", "Mana curve", "Finish"] as const;
+export const STEPS = ["Commander", "Playstyle", "Bracket", "Synergies", "Lands", "Build", "Mana curve", "Card types", "Finish"] as const;
 /** Each step's place in STEPS. */
-export const STEP = { commander: 0, playstyle: 1, bracket: 2, synergies: 3, lands: 4, build: 5, curve: 6, finish: 7 } as const;
+export const STEP = { commander: 0, playstyle: 1, bracket: 2, synergies: 3, lands: 4, build: 5, curve: 6, types: 7, finish: 8 } as const;
 /** How many playstyles a deck can combine. */
 export const MAX_PLAYSTYLES = 3;
 

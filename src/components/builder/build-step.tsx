@@ -2,13 +2,14 @@
 
 import { Tabs } from "@base-ui/react/tabs";
 import { AnimatePresence } from "motion/react";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { CATEGORY_COLORS } from "@/components/deck-beta/template-bits";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { CardName, CATEGORY_COLORS } from "@/components/deck-beta/template-bits";
 import { MAX_PLAYSTYLES, type DraftPlaystyle } from "@/lib/builder/draft";
-import { allOffered, byCardType, fitsIdentity, searchCards, type BuilderGroups, type BuilderPick, type LandShelf, type TemplateShelf } from "@/lib/builder/plan";
+import { allOffered, byCardType, fitsIdentity, searchCards, type BuilderGroups, type BuilderPick, type LandShelf, type TemplateShelf, type ThreatShelf } from "@/lib/builder/plan";
 import { useCardDetails } from "@/lib/binder/card-cache";
 import { CURVE_LABELS, slotOf } from "@/lib/deck-beta/curve";
 import { CATEGORIES, CATEGORY_INFO, type Category, type DeckProfile } from "@/lib/deck-beta/roles";
+import { THREAT_KINDS, THREAT_PURPOSES, type ThreatKind } from "@/lib/deck-beta/threats";
 import { fetchJsonWithRetry } from "@/lib/retry";
 import { formatCount } from "@/lib/format";
 import type { CardDetails, EdhrecTheme } from "@/lib/types";
@@ -17,8 +18,10 @@ import { BuildCard } from "./build-card";
 import { Meter } from "./deck-rail";
 import { usePlaystyleHover, type PlaystyleContext } from "./playstyle-hover";
 
-type Tab = Category | "lands";
+type Tab = Category | "lands" | "threats";
 const LANDS_COLOR = "#8d9bb8";
+const THREATS_COLOR = "#e879f9";
+const THREATS_ABOUT = "Anything that advances a win condition, pressures resources or forces opponents to react, whether it’s a card, a board state or something you do.";
 /** Letters a search needs before it looks anything up. */
 const SEARCH_FROM = 2;
 /** Cards shown for a cost picked on the mana curve. */
@@ -32,7 +35,8 @@ type PickProps = { ownedFor: (name: string) => number; onAdd: (card: CardDetails
  * Cards, Top Cards, High Lift, then by card type, after the cards that set the
  * chosen playstyles apart, with cards their decks don't play last. The plan
  * also holds combo pieces; the lands tab shows the basics that come with the
- * deck and the dual lands and others to add on top. It opens on the category
+ * deck and the dual lands and others to add on top; the threats tab sorts what
+ * the deck can threaten the table with by kind. It opens on the category
  * furthest from its target. Adding a card sends it into the deck and the lists
  * re-rank. A dropdown switches playstyles at any point, a search above the tabs
  * finds any card, and clicking a cost on the mana curve narrows the tab to its
@@ -113,6 +117,7 @@ export function BuildStep({
   const [query, setQuery] = useState("");
   const searching = query.trim().length >= SEARCH_FROM;
   const offered = useMemo(() => allOffered(groups), [groups]);
+  const threatsInDeck = groups.threats.reduce((sum, t) => sum + t.have.length, 0);
 
   // The chart stays beside the lists (or far above them on a phone): bring the cards into view.
   useEffect(() => {
@@ -169,6 +174,7 @@ export function BuildStep({
             about: CATEGORY_INFO[c].about,
           })),
           { value: "lands" as const, label: "Lands", have: profile.lands, target: landTarget, color: LANDS_COLOR, about: "Nonbasic lands. Basics fill the rest." },
+          { value: "threats" as const, label: "Threats", have: threatsInDeck, target: groups.threatTarget, color: THREATS_COLOR, about: THREATS_ABOUT },
         ]}
       />
 
@@ -208,6 +214,7 @@ export function BuildStep({
               <LandGroups lands={groups.lands} preferOwned={preferOwned} jumps {...pickProps} />
             </>
           )}
+          {tab === "threats" && <ThreatShelves threats={groups.threats} have={threatsInDeck} target={groups.threatTarget} themeName={themeName} slot={curvePick} onClear={onClearCurvePick} {...pickProps} />}
         </div>
       )}
     </div>
@@ -331,7 +338,7 @@ function TemplateTabs({
 }) {
   return (
     <Tabs.Root value={value} onValueChange={(next) => onValueChange(next as Tab)}>
-      <Tabs.List aria-label="The template" className="relative isolate grid grid-cols-2 gap-2 sm:grid-cols-3">
+      <Tabs.List aria-label="The template" className="relative isolate grid grid-cols-2 gap-2 sm:grid-cols-4">
         {items.map((item) => (
           <Tabs.Tab key={item.value} value={item.value} title={item.about} className="template-tab">
             <span className="flex items-start justify-between gap-2">
@@ -451,6 +458,95 @@ function Shelf({
   );
 }
 
+const threatInfo = (kind: ThreatKind) => THREAT_KINDS.find((k) => k.kind === kind)!;
+
+/**
+ * The threats the deck can run, under what each does for it: the kinds its decks
+ * lean on most come first, each with the deck's own cards and more to add.
+ */
+function ThreatShelves({
+  threats,
+  have,
+  target,
+  themeName,
+  slot,
+  onClear,
+  ...pickProps
+}: PickProps & {
+  threats: ThreatShelf[];
+  have: number;
+  target: number;
+  themeName?: string;
+  /** The mana curve slot picked, to see the threats at that cost. */
+  slot?: number;
+  onClear: () => void;
+}) {
+  const decks = themeName ? `${themeName} decks` : "This commander’s decks";
+  const leanedOn = [...threats]
+    .filter((t) => t.aim >= 1)
+    .sort((a, b) => b.aim - a.aim)
+    .slice(0, 3)
+    .map((t) => threatInfo(t.kind).label.toLowerCase());
+  const parts = THREAT_PURPOSES.map(({ purpose, label }) => ({
+    label,
+    shelves: threats.filter((t) => threatInfo(t.kind).purpose === purpose).sort((a, b) => Number(b.kind === "combo") - Number(a.kind === "combo") || b.aim - a.aim),
+  })).filter((part) => part.shelves.length > 0);
+  const atCost = (picks: BuilderPick[]) => (slot === undefined ? picks : picks.filter((p) => slotOf(p.card.cmc) === slot));
+  const inOrder = parts.flatMap((part) => part.shelves);
+
+  return (
+    <>
+      <div className="mb-2 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1 basis-64">
+          <h3 className="flex items-center gap-2 font-semibold">
+            <span aria-hidden className="size-2 rounded-full" style={{ background: THREATS_COLOR }} />
+            Threats{slot !== undefined && ` at ${CURVE_LABELS[slot]} mana`}
+            <span className="text-sm font-normal text-muted">{have < target ? `${target - have} to go` : "filled"}</span>
+          </h3>
+          <p className="text-sm text-muted">
+            {THREATS_ABOUT} {leanedOn.length > 0 && `${decks} lean on ${new Intl.ListFormat("en").format(leanedOn)}.`} Read from rules text, so treat it as a guide.
+          </p>
+        </div>
+        {slot !== undefined && (
+          <button type="button" onClick={onClear} className="btn btn-ghost btn-sm text-muted">
+            Show all Threats
+          </button>
+        )}
+      </div>
+      <SectionJumps sections={inOrder.map((t) => ({ title: threatInfo(t.kind).label, count: atCost(t.picks).length }))} />
+      {threats.length === 0 && <p className="text-sm text-muted">No threats to suggest here yet. Add more of the commander’s key cards and check back.</p>}
+      {parts.map((part) => (
+        <div key={part.label} className="flex flex-col gap-3">
+          <p className="eyebrow">{part.label}</p>
+          {part.shelves.map((t) => {
+            const { label, about } = threatInfo(t.kind);
+            const typical = t.kind === "combo" ? "" : t.aim >= 1 ? ` ${decks} run about ${Math.round(t.aim)}.` : ` Few of ${themeName ? "these" : "this commander’s"} decks run them.`;
+            return (
+              <Group
+                key={t.kind}
+                title={label}
+                note={`${about}${typical}`}
+                lead={
+                  t.have.length > 0 && (
+                    <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted">
+                      In your deck:
+                      {t.have.map((name) => (
+                        <CardName key={name} name={name} />
+                      ))}
+                    </p>
+                  )
+                }
+                picks={atCost(t.picks)}
+                {...pickProps}
+              />
+            );
+          })}
+        </div>
+      ))}
+    </>
+  );
+}
+
 const sectionId = (title: string) => `section-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
 
 /** Shortcuts to a tab's sections, staying in view as they scroll past. */
@@ -542,6 +638,7 @@ type SectionCard = { card: CardDetails; categories?: Category[]; reason?: string
 function Group({
   title,
   note,
+  lead,
   picks,
   byType = false,
   flies = true,
@@ -550,13 +647,15 @@ function Group({
 }: PickProps & {
   title: string;
   note?: string;
+  /** Shown above the cards, and keeps the section open when it has none. */
+  lead?: ReactNode;
   picks: SectionCard[];
   byType?: boolean;
   /** Off for a section whose cards also show in another, so only one copy flies into the deck. */
   flies?: boolean;
 }) {
   const [open, setOpen] = useState(true);
-  if (picks.length === 0) return null;
+  if (picks.length === 0 && !lead) return null;
   const types = byType ? byCardType(picks) : [];
   const grid = (cards: SectionCard[]) => (
     <ul className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 xl:grid-cols-4">
@@ -579,6 +678,7 @@ function Group({
       {open && (
         <div className="reveal-fast mt-1 flex flex-col gap-4">
           {note && <p className="text-sm text-muted">{note}</p>}
+          {lead}
           {types.length > 1
             ? types.map((part) => (
                 <div key={part.type} className="flex flex-col gap-3 border-t border-line pt-4 first:border-0 first:pt-0">
@@ -588,7 +688,7 @@ function Group({
                   {grid(part.picks)}
                 </div>
               ))
-            : grid(picks)}
+            : picks.length > 0 && grid(picks)}
         </div>
       )}
     </section>

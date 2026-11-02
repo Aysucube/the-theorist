@@ -1,9 +1,9 @@
 "use client";
 
-import { AnimatePresence } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useBinder } from "@/lib/binder/store";
 import { useCardDetails } from "@/lib/binder/card-cache";
+import { typeMoves, typeRatio } from "@/lib/builder/card-types";
 import { byCardType, fitsIdentity } from "@/lib/builder/plan";
 import type { BracketReport } from "@/lib/deck-beta/bracket";
 import { CURVE_LABELS, slotOf } from "@/lib/deck-beta/curve";
@@ -15,7 +15,7 @@ import { cardTraits, interactionsOf, partnersOf, type DeckAnalysis } from "@/lib
 import { formatCount } from "@/lib/format";
 import { fetchJsonWithRetry } from "@/lib/retry";
 import type { CardDetails, ChosenPrinting, DeckCombos } from "@/lib/types";
-import { BuildCard } from "../builder/build-card";
+import { PickGrid } from "../builder/build-card";
 import { useHoverPreview } from "../card-link";
 import { GameChangerTag } from "../game-changer-tag";
 import { ManaCost } from "../mana";
@@ -24,7 +24,8 @@ import { ColorSection } from "./color-section";
 import { LazyCardImage } from "./lazy-card-image";
 import { OddsCalculator } from "./odds-calculator";
 import { PrintingPicker } from "./printing-picker";
-import { curveAdvice, CurveChart } from "./template-bits";
+import { curveAdvice, CurveChart, curveSource } from "./template-bits";
+import { TypeRatio } from "./type-ratio";
 import { useDeckPlan } from "./use-deck-plan";
 
 /** Recommended cards per short category, and synergistic cards in all. */
@@ -41,9 +42,9 @@ type Jump = { id: string; label: string; count?: number; sub?: boolean };
 const typeAnchor = (type: string) => `edit-cards-${type.toLowerCase().replace(/\W+/g, "-")}`;
 
 /**
- * Editing a deck, with side tabs to each part: its mana curve and colors, its
- * cards with a version for each, the odds of drawing what it needs, the tokens
- * and partners it brings, and cards to add.
+ * Editing a deck, with side tabs to each part: its mana curve, colors and card
+ * types, its cards with a version for each, the odds of drawing what it needs,
+ * the tokens and partners it brings, and cards to add.
  */
 export function EditDeck({
   source,
@@ -68,7 +69,9 @@ export function EditDeck({
   const binder = useBinder();
   const [costPick, setCostPick] = useState<number>();
   const [pickingFor, setPickingFor] = useState<CardDetails | null>(null);
-  const { data, loading, plan, identity, spellCuts } = useDeckPlan({ commander, deckCards, profile, analysis, report, combos });
+  const { data, loading, plan, identity, spellCuts } = useDeckPlan({ commander, deckCards, analysis, report, combos });
+  const typeRows = useMemo(() => typeRatio(deckCards, { averages: data?.averages, commander: commander?.name }), [deckCards, data, commander]);
+  const moves = useMemo(() => typeMoves(typeRows, plan), [typeRows, plan]);
 
   // The cards on offer that work with the most of the deck, read from their rules text.
   const synergistic = useMemo(() => {
@@ -82,7 +85,7 @@ export function EditDeck({
       .map(({ pick, partners }) => ({ ...pick, reason: `Works with ${formatCount(partners)} of your cards` }));
   }, [plan, analysis]);
 
-  const curve = { ...profile.curve, targets: plan.curveSlots.map((s) => s.target) };
+  const { curve } = plan.profile;
   const atCost = costPick === undefined ? [] : deckCards.filter(({ card }) => !/\bLand\b/.test(card.typeLine.split(" // ")[0]) && slotOf(card.cmc) === costPick);
   // What the colors can reach for: EDHREC's lands for this commander.
   const fixingLands = useMemo(() => [...plan.lands.duals, ...plan.lands.fixing].map((p) => p.card), [plan]);
@@ -94,6 +97,7 @@ export function EditDeck({
   const jumps: Jump[] = [
     { id: "edit-curve", label: "Mana curve" },
     { id: "edit-colors", label: "Color distribution" },
+    { id: "edit-types", label: "Card types" },
     { id: "edit-cards", label: "Cards", count: copiesIn(deckCards) },
     ...byType.map((group) => ({ id: typeAnchor(group.type), label: group.type, count: copiesIn(group.picks), sub: true })),
     { id: "edit-odds", label: "Draw odds" },
@@ -118,7 +122,7 @@ export function EditDeck({
         <section id="edit-curve" className={ANCHOR}>
           <h3 className="font-semibold">Mana curve</h3>
           <p className="mb-6 text-xs text-muted">
-            Spells by mana value, against {data?.curveCounts ? "the average deck for this commander on EDHREC" : "a low, wide curve"}. Click a cost to see your cards at it. {curveAdvice(profile.curve)}
+            Spells by mana value, against {curveSource(curve)}. Click a cost to see your cards at it. {curveAdvice(curve)}
           </p>
           <CurveChart curve={curve} picked={costPick} onPick={(slot) => setCostPick(slot === costPick ? undefined : slot)} />
           {costPick !== undefined && (
@@ -135,6 +139,20 @@ export function EditDeck({
         </section>
 
         <ColorSection id="edit-colors" className={ANCHOR} source={source} commander={commander?.name} deckCards={deckCards} identity={identity} lands={fixingLands} landTarget={profile.curve.lands.count} spellCuts={spellCuts} planning={loading} />
+
+        <section id="edit-types" className={`flex flex-col gap-4 ${ANCHOR}`}>
+          <div>
+            <h3 className="font-semibold">Card types</h3>
+            <p className="text-xs text-muted">
+              {data?.averages
+                ? `Your deck by card type. Each dashed line is the average deck for ${commander?.name} on EDHREC, from ${formatCount(data.numDecks)} decks.`
+                : loading
+                  ? `Your deck by card type, while EDHREC’s decks for ${commander?.name} load.`
+                  : "Your deck by card type. EDHREC has no decks to hold it against."}
+            </p>
+          </div>
+          <TypeRatio rows={typeRows} moves={moves} owned={binder.owned} onAdd={source.add} onRemove={source.remove} />
+        </section>
 
         <section id="edit-cards" className={`flex flex-col gap-6 ${ANCHOR}`}>
           <div className="flex flex-wrap items-baseline justify-between gap-3">
@@ -468,28 +486,3 @@ function RelatedTile({ card }: { card: RelatedCard }) {
   );
 }
 
-function PickGrid({
-  title,
-  picks,
-  owned,
-  onAdd,
-}: {
-  title: string;
-  picks: { card: CardDetails; categories?: import("@/lib/deck-beta/roles").Category[]; reason?: string }[];
-  owned: (name: string) => number;
-  onAdd: (card: CardDetails) => void;
-}) {
-  if (picks.length === 0) return null;
-  return (
-    <div>
-      <h4 className="mb-3 text-sm font-semibold">{title}</h4>
-      <ul className={GALLERY}>
-        <AnimatePresence mode="popLayout" initial={false}>
-          {picks.map((p, i) => (
-            <BuildCard key={p.card.name} card={p.card} ownedCopies={owned(p.card.name)} categories={p.categories} reason={p.reason} index={i} flies={false} onAdd={onAdd} />
-          ))}
-        </AnimatePresence>
-      </ul>
-    </div>
-  );
-}

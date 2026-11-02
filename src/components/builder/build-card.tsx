@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { FlexTag } from "@/components/deck-beta/template-bits";
 import type { Category } from "@/lib/deck-beta/roles";
 import type { CardDetails } from "@/lib/types";
@@ -86,5 +86,32 @@ export function BuildCard({
         )}
       </div>
     </motion.li>
+  );
+}
+
+/** A titled gallery of cards to add. */
+export function PickGrid({
+  title,
+  picks,
+  owned,
+  onAdd,
+}: {
+  title: string;
+  picks: { card: CardDetails; categories?: Category[]; reason?: string }[];
+  owned: (name: string) => number;
+  onAdd: (card: CardDetails) => void;
+}) {
+  if (picks.length === 0) return null;
+  return (
+    <div>
+      <h4 className="mb-3 text-sm font-semibold">{title}</h4>
+      <ul className="grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-4 md:grid-cols-5">
+        <AnimatePresence mode="popLayout" initial={false}>
+          {picks.map((p, i) => (
+            <BuildCard key={p.card.name} card={p.card} ownedCopies={owned(p.card.name)} categories={p.categories} reason={p.reason} index={i} flies={false} onAdd={onAdd} />
+          ))}
+        </AnimatePresence>
+      </ul>
+    </div>
   );
 }

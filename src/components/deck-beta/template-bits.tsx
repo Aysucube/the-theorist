@@ -131,9 +131,9 @@ export function TemplateMeters({ profile, onOpen }: { profile: DeckProfile; onOp
 }
 
 /**
- * The spells by mana value against a low, wide curve: bars for the deck, a
- * tick for the target, with the average, the early plays and the land count.
- * With `onPick`, each mana value (and its bar) can be clicked.
+ * The spells by mana value against the commander's curve, or a low, wide one:
+ * bars for the deck, a tick for the target, with the average, the early plays
+ * and the land count. With `onPick`, each mana value (and its bar) can be clicked.
  */
 export function CurveChart({ curve, compact = false, picked, onPick }: { curve: CurveReport; compact?: boolean; picked?: number; onPick?: (slot: number) => void }) {
   const top = Math.max(1, ...curve.counts, ...curve.targets);
@@ -177,7 +177,10 @@ export function CurveChart({ curve, compact = false, picked, onPick }: { curve: 
         <dl className="grid grid-cols-3 gap-3 text-sm">
           <div>
             <dt className="text-xs text-muted">Average mana value</dt>
-            <dd className={`font-semibold tabular-nums ${curve.topHeavy ? "text-amber-400" : ""}`}>{curve.spells ? curve.average.toFixed(2) : "—"}</dd>
+            <dd className="font-semibold tabular-nums">
+              <span className={curve.topHeavy ? "text-amber-400" : ""}>{curve.spells ? curve.average.toFixed(2) : "—"}</span>
+              {curve.fromCommander && <span className="font-normal text-muted"> / {curve.averageTarget.toFixed(2)}</span>}
+            </dd>
           </div>
           <div>
             <dt className="text-xs text-muted">Plays at 2 or less</dt>
@@ -198,9 +201,15 @@ export function CurveChart({ curve, compact = false, picked, onPick }: { curve: 
 /** What the curve says, in a line: top-heavy, short of early plays, or in good shape. */
 export function curveAdvice(curve: CurveReport): string {
   if (curve.spells === 0) return "Add spells to see the curve.";
-  if (curve.topHeavy) return `Top-heavy: spells average ${curve.average.toFixed(1)} mana. Swap a few of the 5+ drops for cheap ramp and card draw, so you can cast two spells a turn.`;
+  const against = curve.fromCommander ? `, against ${curve.averageTarget.toFixed(1)} in this commander’s decks` : "";
+  if (curve.topHeavy) return `Top-heavy: spells average ${curve.average.toFixed(1)} mana${against}. Swap a few of the 5+ drops for cheap ramp and card draw, so you can cast two spells a turn.`;
   if (curve.early < curve.earlyTarget) return `${formatCount(curve.earlyTarget - curve.early)} more plays at 2 mana or less would fill your early turns and let you double-spell.`;
-  return `A low curve: plenty to cast early, and two spells a turn soon after. ${curve.lands.why}`;
+  return `${curve.fromCommander ? "On curve for this commander" : "A low curve"}: plenty to cast early, and two spells a turn soon after. ${curve.lands.why}`;
+}
+
+/** What the dashes on a mana curve chart stand for. */
+export function curveSource(curve: CurveReport, themeName?: string): string {
+  return curve.fromCommander ? `the average ${themeName ? `${themeName} deck` : "deck for this commander"} on EDHREC` : "a low, wide curve";
 }
 
 /**

@@ -7,8 +7,10 @@ import { BRACKET_STYLE } from "@/components/deck-beta/bracket-badge";
 import { useBinder } from "@/lib/binder/store";
 import { rememberDetails, useCardDetails } from "@/lib/binder/card-cache";
 import { isBasicLandName } from "@/lib/binder/collection";
+import { typeMoves, typeRatio } from "@/lib/builder/card-types";
 import { STEP, STEPS, togglePlaystyle, useBuilderDraft, type DraftPlaystyle } from "@/lib/builder/draft";
 import { builderRecommendations, coreCards, fitsIdentity, mergePlaystyles, predictedAverage, recommendLands, splitBasics, withPlaystyle, type BuilderCandidate } from "@/lib/builder/plan";
+import { commanderCurve } from "@/lib/deck-beta/curve";
 import { commanderGamePlan } from "@/lib/deck-beta/game-plan";
 import { manaBasePlan } from "@/lib/deck-beta/lands";
 import { cardTraits, subtypeVocabulary } from "@/lib/deck-beta/synergy";
@@ -17,8 +19,10 @@ import { bracketLabel, estimateDeckBracket } from "@/lib/deck-beta/bracket";
 import { cardKey } from "@/lib/deck-beta/recommend";
 import { requestPlaystyle, retryBuilderData, useBuilderData, useDeckAnalysis, useDeckLibrary, useFixingLands, usePlaystyles } from "@/lib/deck-beta/store";
 import { useGameChangers } from "@/lib/use-game-changers";
+import { formatCount } from "@/lib/format";
 import type { CardDetails } from "@/lib/types";
 import { AppLink as Link, useAppRouter } from "../app-link";
+import { TypeRatio } from "../deck-beta/type-ratio";
 import { FEATURES, morphName } from "../theme/features";
 import { FeatureBadge } from "../theme/page-header";
 import { BuildStep, RecommendedLands } from "./build-step";
@@ -36,7 +40,8 @@ const HEADINGS = [
   { title: "What EDHREC knows", note: "Start the deck with the cards that suit your commander best, before you build the rest." },
   { title: "Set your lands", note: "Start from the recommendation; basics re-balance as the deck grows." },
   { title: "Build the deck", note: "Recommendations follow the deck: each card you add changes what it needs next." },
-  { title: "Perfect the mana curve", note: "Cut what pushes your deck past the average curve, the weakest cards first." },
+  { title: "Perfect the mana curve", note: "Cut what pushes your deck past this commander’s curve, the weakest cards first." },
+  { title: "Balance the card types", note: "See how your deck’s mix of creatures, spells and lands compares with this commander’s decks." },
   { title: "Name it", note: "Save it to My Decks. You can price what’s missing from there." },
 ];
 
@@ -179,7 +184,7 @@ export function CreateDeck() {
       isGameChanger: gameChangers.has,
       combos: analysisResult?.combos,
       playstyle: themeCards,
-      curveCounts: styled?.curveCounts,
+      curve: commanderCurve(styled),
       preferOwned: draft.preferOwned,
       commander: commanderName,
       lands,
@@ -195,6 +200,15 @@ export function CreateDeck() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [plan, draft.bracket, deckKey, gameChangers],
   );
+
+  // The deck by card type, against the average deck for these commanders and playstyles.
+  const typeRows = useMemo(
+    () => typeRatio(deck, { averages: styled?.averages, commander: commanderName, lands, basics }),
+    // The deck key captures the deck's cards.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [deckKey, commanderCard, styled, lands, basics],
+  );
+  const moves = useMemo(() => (plan ? typeMoves(typeRows, plan) : []), [typeRows, plan]);
 
   const report = useMemo(
     () =>
@@ -227,7 +241,7 @@ export function CreateDeck() {
   };
   const edhrecDone = builder?.state === "done" || builder?.state === "error";
   const notFound = builder?.state === "done" && !builder.result.found;
-  const canContinue = [Boolean(draft.commander), edhrecDone, Boolean(draft.bracket), edhrecDone, true, true, true, false][step];
+  const canContinue = [Boolean(draft.commander), edhrecDone, Boolean(draft.bracket), edhrecDone, true, true, true, true, false][step];
   const toggleTheme = (theme: DraftPlaystyle) => update({ themes: togglePlaystyle(draft.themes, theme) });
   const retryStyles = () => chosen.forEach((t, i) => playstyles[i]?.state !== "done" && requestPlaystyle(commanderRef!, t.slug, true, identity));
   const playstyleContext = { commander: commanderRef, colors: identity };
@@ -303,6 +317,7 @@ export function CreateDeck() {
               cards={deckCards}
               basics={step >= STEP.lands ? basics : 0}
               profile={step >= STEP.build ? plan?.profile : undefined}
+              types={step >= STEP.build ? typeRows : undefined}
               template={step === STEP.finish}
               curvePick={step === STEP.build ? curvePick : undefined}
               onCurvePick={step === STEP.build ? (slot) => setCurvePick(slot === curvePick ? undefined : slot) : undefined}
@@ -437,8 +452,6 @@ export function CreateDeck() {
                       <CurveStep
                         curve={plan.profile.curve}
                         slots={plan.curveSlots}
-                        averageTarget={styled?.curveAverage}
-                        usesEdhrec={Boolean(styled?.curveCounts)}
                         themeName={themeName}
                         total={1 + deckCards.length + basics}
                         ownedFor={binder.owned}
@@ -453,6 +466,16 @@ export function CreateDeck() {
                         <span aria-hidden className="spinner size-4" /> Reading the deck’s curve…
                       </p>
                     ))}
+                  {step === STEP.types && (
+                    <div className="flex flex-col gap-6">
+                      <p className="text-sm text-muted">
+                        {styled?.averages
+                          ? `Each bar is your deck; each dashed line is the average ${themeName ? `${themeName} deck` : "deck for this commander"} on EDHREC, from ${formatCount(styled.numDecks)} decks, scaled to your ${lands} lands.`
+                          : "EDHREC has no decks to hold this one against, so these are your deck’s own numbers."}
+                      </p>
+                      <TypeRatio rows={typeRows} moves={moves} owned={binder.owned} onAdd={add} onRemove={removeCard} />
+                    </div>
+                  )}
                   {step === STEP.finish && draft.commander && (
                     <FinishStep
                       defaultName={`${draft.commander.name.split(",")[0]}${themeName ? ` · ${themeName}` : ""}`}
@@ -481,7 +504,7 @@ export function CreateDeck() {
                     </Link>
                   )}
                   <button type="button" disabled={!canContinue} onClick={() => go(step + 1)} data-cast className="btn btn-primary btn-lg">
-                    {step === STEP.curve ? "Finish" : "Continue"}
+                    {step === STEP.types ? "Finish" : "Continue"}
                   </button>
                 </div>
               )}
