@@ -312,7 +312,9 @@ actually charge is the TCGph price under each card. Two sources for the trends, 
    while the repository is public.
 2. **The app's own tracking.** Otherwise the app saves every card's price once a day from
    Scryfall's daily card file (about 25 MB) into `.data/price-history`. It compares against
-   earlier days, so surges show from the second day it runs, and weekly ones after a week.
+   earlier days, so surges show from the second day it runs, and weekly ones after a week. When
+   the app runs on your computer, it reads that file on its own as well (see below: it also holds
+   every card's details), so prices are saved whether or not the Market page is opened.
 
 Only Commander-legal cards that cost at least $2 (about ₱127) and rose by at least 10% (and 50 cents) count.
 
@@ -341,6 +343,23 @@ Scryfall and Commander Spellbook have official APIs. EDHREC and TCGph are read f
 same pages their own websites use, so the app is built to stay a light, polite visitor:
 
 - Every lookup is cached: Scryfall and EDHREC for a day, TCGph prices for an hour.
+- **EDHREC pages are kept on the computer** (`.data/edhrec`, about 25 KB a page) when the app runs
+  there, so restarting or updating The Theorist doesn't mean reading them again. A page is used as
+  it is for a day; after that it still answers at once while a fresh copy is read in the background,
+  and when EDHREC can't be reached, the last copy stands. Two lookups that want one page at the same
+  time share one read. EDHREC's article searches (`.data/edhrec-articles`) and Commander
+  Spellbook's combo steps (`.data/spellbook-combos`, a week each) are kept the same way. Copies
+  nobody has needed for a month (two for combos) are deleted. The folders are safe to delete.
+- **Every card's details come from Scryfall's daily card file**, the same one price tracking reads,
+  kept in `.data/cards` (about 3 MB) and in memory. EDHREC's lists name hundreds of cards, and
+  Scryfall's API answers 75 at a time at 2 requests a second, so one commander's cards used to take
+  10 seconds or more; now they take no time, and only a card the file doesn't have yet goes to the
+  API. The file is checked when the app starts (if there's none yet; otherwise 10 minutes later,
+  out of the way of the first pages) and every 3 hours after. On the very first start, card lookups
+  wait for it rather than race its download.
+- When a commander is picked in Create Commander Deck, its combos and its first three playstyles
+  (for the commander and in its colors) are read ahead in the background, so the Playstyle step
+  usually has them ready. A playstyle's three EDHREC pages are read at once rather than in turn.
 - Prices are fetched only when someone asks (a "Check ₱" click or "Price this deck").
   Decks are priced one card at a time; a busy source is waited out (5s, 10s, 20s,
   30s, 30s) and retried rather than skipped.

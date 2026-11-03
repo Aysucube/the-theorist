@@ -4,6 +4,7 @@ import { fixingLandsQuery } from "@/lib/deck-beta/lands";
 import type { RelatedLook, RelatedPart } from "@/lib/deck-beta/related";
 import { printingVariants } from "@/lib/printings";
 import type { CardDetails, CardInfo, Printing, Ruling, ScryfallCard, ScryfallLookup } from "@/lib/types";
+import { indexedDetails } from "./card-index";
 import { SourceError, sourceFetch } from "./http";
 import { createThrottle } from "./throttle";
 
@@ -21,7 +22,8 @@ interface RawFace {
   image_uris?: { normal?: string; small?: string; art_crop?: string };
 }
 
-interface RawCard extends RawFace {
+/** A card as Scryfall's API and daily file give it (the fields we read). */
+export interface RawCard extends RawFace {
   id: string;
   oracle_id?: string;
   layout: string;
@@ -321,13 +323,21 @@ function toCardInfo(card: RawCard): CardInfo {
   };
 }
 
+const infoOf = ({ name, typeLine, manaCost, colorIdentity, imageUrl }: CardInfo): CardInfo => ({ name, typeLine, manaCost, colorIdentity, imageUrl });
+
 /**
  * Type line, mana cost, colors and image for many cards at once, keyed by the name as
- * given. Uses Scryfall's bulk lookup (2 requests for a 100-card deck instead
- * of 100). Names Scryfall doesn't know are left out; for split cards, which it
- * only finds by their first half, the first half is tried too.
+ * given. Cards in the computer's copy of Scryfall's daily file come from there at
+ * once (see card-index.ts); the rest use Scryfall's bulk lookup (2 requests for a
+ * 100-card deck instead of 100). Names Scryfall doesn't know are left out; for split
+ * cards, which it only finds by their first half, the first half is tried too.
  */
 export async function getCardInfo(names: string[]): Promise<Record<string, CardInfo>> {
+  const { found, missing } = await indexedDetails(names);
+  return { ...mapValues(found, infoOf), ...(missing.length > 0 ? await fetchCardInfo(missing) : {}) };
+}
+
+async function fetchCardInfo(names: string[]): Promise<Record<string, CardInfo>> {
   "use cache: remote";
   cacheLife("days");
 
@@ -336,13 +346,18 @@ export async function getCardInfo(names: string[]): Promise<Record<string, CardI
 
 /** Like getCardInfo, plus the rules text and keywords the deck beta reads to find synergies. */
 export async function getCardDetails(names: string[]): Promise<Record<string, CardDetails>> {
+  const { found, missing } = await indexedDetails(names);
+  return { ...found, ...(missing.length > 0 ? await fetchCardDetails(missing) : {}) };
+}
+
+async function fetchCardDetails(names: string[]): Promise<Record<string, CardDetails>> {
   "use cache: remote";
   cacheLife("days");
 
   return mapValues(await collectCards(names), toCardDetails);
 }
 
-function toCardDetails(card: RawCard): CardDetails {
+export function toCardDetails(card: RawCard): CardDetails {
   const front = card.card_faces?.[0];
   return {
     ...toCardInfo(card),

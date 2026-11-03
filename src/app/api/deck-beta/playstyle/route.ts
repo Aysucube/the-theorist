@@ -33,7 +33,18 @@ export async function GET(request: NextRequest) {
 
   try {
     const slug = edhrecSlug(commander, layout);
-    const stats = theme ? await getCommanderTheme(slug, theme) : await getCommanderStats(slug);
+    const leaning = theme !== "" && colors !== undefined;
+    // Every page it reads, asked for at once. The commander's own playstyle page still works without the colors' one.
+    const [stats, overall, inColors] = await Promise.all([
+      theme ? getCommanderTheme(slug, theme) : getCommanderStats(slug),
+      leaning ? getCommanderStats(slug) : null,
+      leaning && colors !== undefined
+        ? getThemeInColors(theme, [...colors]).catch((error) => {
+            reportSourceError("api/deck-beta/playstyle colors", error);
+            return null;
+          })
+        : null,
+    ]);
     if (!stats) return Response.json({ found: false } satisfies PlaystyleResponse);
 
     // Each card once, with its best showing across EDHREC's lists.
@@ -51,15 +62,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    if (theme && colors !== undefined) {
-      const [overall, inColors] = await Promise.all([
-        getCommanderStats(slug),
-        // The commander's own playstyle page still works without it.
-        getThemeInColors(theme, [...colors]).catch((error) => {
-          reportSourceError("api/deck-beta/playstyle colors", error);
-          return null;
-        }),
-      ]);
+    if (leaning) {
       const shareOverall = new Map(cardsIn(overall?.lists).map((c) => [c.name, c.inclusion]));
       const colorCards = cardsIn(inColors?.lists);
       const colorSynergy = new Map(colorCards.map((c) => [c.name, c.synergy]));

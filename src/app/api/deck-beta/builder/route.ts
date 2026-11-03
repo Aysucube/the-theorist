@@ -1,10 +1,11 @@
-import type { NextRequest } from "next/server";
+import { after, type NextRequest } from "next/server";
 import type { BuilderCard, BuilderResponse } from "@/lib/deck-beta/api";
-import { getCommanderStats } from "@/lib/sources/edhrec";
+import { getCommanderStats, readAheadForCommander } from "@/lib/sources/edhrec";
 import { getCommanderArticles } from "@/lib/sources/edhrec-articles";
 import { reportSourceError } from "@/lib/sources/http";
 import { getCardDetails } from "@/lib/sources/scryfall";
 import { edhrecSlug } from "@/lib/slugs";
+import type { CardDetails } from "@/lib/types";
 
 /** Cards that get full details: all EDHREC lists, as the Build step offers them all (six Scryfall requests). */
 const DETAILED = 450;
@@ -23,8 +24,18 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const stats = await getCommanderStats(edhrecSlug(commander, layout));
+    const slug = edhrecSlug(commander, layout);
+    // Further reading on how it's played, asked for alongside; the builder works without it.
+    const reading = getCommanderArticles(commander).catch(() => []);
+    const stats = await getCommanderStats(slug);
     if (!stats) return Response.json({ found: false } satisfies BuilderResponse);
+
+    // Once this is sent, read ahead the playstyles and combos the next steps ask for.
+    after(async () => {
+      const found = await getCardDetails([commander]).catch((): Record<string, CardDetails> => ({}));
+      const colors = found[commander]?.colorIdentity ?? [];
+      await readAheadForCommander(slug, (stats.themes ?? []).map((t) => t.slug), colors);
+    });
 
     // Each card once, with every list it appears in and its best synergy.
     const byName = new Map<string, BuilderCard>();
@@ -42,11 +53,7 @@ export async function GET(request: NextRequest) {
     const cards = [...byName.values()];
     const weight = (c: BuilderCard) => (c.inclusion ?? 0) + Math.max(0, c.synergy ?? 0) + (c.lists.some((l) => /new/i.test(l)) ? 1 : 0);
     const toDetail = [...cards].sort((a, b) => weight(b) - weight(a)).slice(0, DETAILED);
-    const [details, articles] = await Promise.all([
-      getCardDetails(toDetail.map((c) => c.name)),
-      // Further reading on how it's played; the builder works without it.
-      getCommanderArticles(commander).catch(() => []),
-    ]);
+    const [details, articles] = await Promise.all([getCardDetails(toDetail.map((c) => c.name)), reading]);
 
     const body: BuilderResponse = {
       found: true,

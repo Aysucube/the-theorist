@@ -41,6 +41,15 @@ export async function POST(request: Request) {
   // Sorted, so the same deck hits the cache whatever order it was pasted in.
   const main = [...new Set(cards.filter((c) => cardKey(c) !== cardKey(commander)))].sort();
   const slug = edhrecSlug(commander, typeof layout === "string" ? layout : "normal");
+  const edhrecCombosRead = getCommanderCombos(slug).catch((error): EdhrecCombo[] | null => {
+    reportSourceError("api/deck-beta/analysis", error);
+    return null;
+  });
+  // Steps for EDHREC's first combos are read while Commander Spellbook searches the deck; the ones its
+  // search returns anyway are just cached for the next analysis.
+  void edhrecCombosRead.then((combos) =>
+    inBatches((combos ?? []).slice(0, EXTRA_DETAILS), 4, (c) => getCombo(c.id).catch(() => null)),
+  );
   const [spellbook, bracket, stats, edhrecCombos] = await Promise.all([
     findCombos([commander], main).catch((error) => {
       reportSourceError("api/deck-beta/analysis", error);
@@ -54,10 +63,7 @@ export async function POST(request: Request) {
       reportSourceError("api/deck-beta/analysis", error);
       return null;
     }),
-    getCommanderCombos(slug).catch((error): EdhrecCombo[] | null => {
-      reportSourceError("api/deck-beta/analysis", error);
-      return null;
-    }),
+    edhrecCombosRead,
   ]);
 
   // EDHREC's combos for the commander that Spellbook's search didn't return

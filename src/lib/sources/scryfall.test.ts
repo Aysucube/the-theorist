@@ -1,8 +1,17 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fakeFetch, fixture } from "./__fixtures__/load";
-import { AUTOCOMPLETE_LIMIT, getCardInfo, getGameChangers, getPrintings, getRulings, rankSuggestions, suggestCardNames } from "./scryfall";
+import type { CardDetails } from "@/lib/types";
+import { AUTOCOMPLETE_LIMIT, getCardDetails, getCardInfo, getGameChangers, getPrintings, getRulings, rankSuggestions, suggestCardNames } from "./scryfall";
 
 vi.mock("next/cache", () => ({ cacheLife: () => {} }));
+// The computer's copy of Scryfall's daily file: empty unless a test fills it.
+const indexed = vi.hoisted(() => new Map<string, CardDetails>());
+vi.mock("./card-index", () => ({
+  indexedDetails: async (names: string[]) => ({
+    found: Object.fromEntries(names.flatMap((n) => (indexed.has(n) ? [[n, indexed.get(n)!]] : []))),
+    missing: names.filter((n) => !indexed.has(n)),
+  }),
+}));
 
 const AUTOCOMPLETE = "https://api.scryfall.com/cards/autocomplete";
 const atra = () => fixture("scryfall/autocomplete-atra.json");
@@ -176,6 +185,29 @@ describe("getCardInfo", () => {
       "sol ring": { name: "Sol Ring", typeLine: "Artifact", manaCost: "{1}", colorIdentity: [] },
       "Fire // Ice": { name: "Fire // Ice", typeLine: "Instant // Instant", manaCost: "{1}{R} // {1}{U}", colorIdentity: ["R", "U"] },
     });
+  });
+
+  it("takes the cards the computer's daily file has from there, and asks Scryfall only for the rest", async () => {
+    indexed.set("Sol Ring", { name: "Sol Ring", typeLine: "Artifact", manaCost: "{1}", colorIdentity: [], imageUrl: "https://cards.scryfall.io/sol.jpg", layout: "normal", oracleText: "{T}: Add {C}{C}.", keywords: [], cmc: 1 });
+    const asked: string[][] = [];
+    vi.stubGlobal("fetch", async (_url: string, init: RequestInit) => {
+      const names = (JSON.parse(String(init.body)) as { identifiers: { name: string }[] }).identifiers.map((i) => i.name);
+      asked.push(names);
+      return Response.json({
+        data: names.filter((n) => KNOWN[n.toLowerCase()]).map((n) => KNOWN[n.toLowerCase()]),
+        not_found: names.filter((n) => !KNOWN[n.toLowerCase()]).map((name) => ({ name })),
+      });
+    });
+
+    const details = await getCardDetails(["Sol Ring", "Fire // Ice"]);
+    const info = await getCardInfo(["Sol Ring"]);
+    indexed.clear();
+
+    expect(asked).toEqual([["Fire // Ice"], ["Fire"]]);
+    expect(details["Sol Ring"]).toMatchObject({ name: "Sol Ring", oracleText: "{T}: Add {C}{C}." });
+    expect(details["Fire // Ice"]).toMatchObject({ name: "Fire // Ice", colorIdentity: ["R", "U"] });
+    // Card info is only what it promises, not the rules text that comes with the details.
+    expect(info).toEqual({ "Sol Ring": { name: "Sol Ring", typeLine: "Artifact", manaCost: "{1}", colorIdentity: [], imageUrl: "https://cards.scryfall.io/sol.jpg" } });
   });
 });
 

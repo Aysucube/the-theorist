@@ -3,7 +3,7 @@ import { formatDate, formatUsd } from "@/lib/format";
 import { describeRate, usdInPhp, type UsdRate } from "@/lib/fx";
 import { findUsdToPhp } from "@/lib/sources/fx";
 import { SURGE_RULES } from "@/lib/trends/compute";
-import { readLocalTrends, refreshLocalTrends } from "@/lib/trends/local";
+import { readLocalTrends, refreshDailyFile } from "@/lib/trends/local";
 import { getSharedTrends } from "@/lib/trends/shared";
 import type { MarketTrends } from "@/lib/trends/types";
 import { SourceMessage } from "./panel";
@@ -29,7 +29,7 @@ export async function MarketTrendsSection() {
 
   // Always save today's prices after this page is sent (if Scryfall has a new
   // daily file): they build the history explorer even when the shared file is used.
-  after(() => refreshLocalTrends());
+  after(() => refreshDailyFile());
 
   const [shared, local, rate] = await Promise.all([getSharedTrends(), readLocalTrends(), findUsdToPhp()]);
   const trends =

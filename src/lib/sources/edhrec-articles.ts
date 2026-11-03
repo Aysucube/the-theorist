@@ -1,12 +1,18 @@
 // EDHREC's articles about a commander (deck techs, budget builds, upgrade
 // guides), from the search on its articles site (WordPress). They're listed
 // with EDHREC's own short summaries and links, as further reading on how the
-// commander is played. One search per commander, cached for days.
+// commander is played. One search per commander, cached for days and kept on
+// the computer.
 import { cacheLife } from "next/cache";
-import { sourceFetch } from "./http";
+import { SourceError, sourceFetch } from "./http";
+import { keptCopies } from "./kept-copies";
 
 const SEARCH = "https://edhrec.com/articles/wp-json/wp/v2/posts";
 const SHOWN = 4;
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+/** New articles come out a few times a week. */
+const keep = keptCopies("edhrec-articles", { freshMs: DAY_MS, keepMs: 30 * DAY_MS });
 
 export interface EdhrecArticle {
   title: string;
@@ -67,8 +73,12 @@ export async function getCommanderArticles(commander: string): Promise<EdhrecArt
   "use cache: remote";
   cacheLife("days");
 
-  const params = new URLSearchParams({ search: shortName(commander), per_page: "12", _fields: "title,link,excerpt,date" });
-  const res = await sourceFetch("EDHREC", `${SEARCH}?${params}`, "application/json");
-  if (!res.ok) return [];
-  return parseArticles(await res.json(), commander);
+  const search = shortName(commander);
+  const posts = await keep(search.toLowerCase(), async (): Promise<unknown> => {
+    const params = new URLSearchParams({ search, per_page: "12", _fields: "title,link,excerpt,date" });
+    const res = await sourceFetch("EDHREC", `${SEARCH}?${params}`, "application/json");
+    if (!res.ok) throw new SourceError("EDHREC", `articles: HTTP ${res.status}`);
+    return res.json();
+  });
+  return parseArticles(posts, commander);
 }

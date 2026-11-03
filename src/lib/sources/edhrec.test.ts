@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fakeFetch, fixture } from "./__fixtures__/load";
 import {
+  getCardPairings,
   getCardStats,
   getCommanderTheme,
   getCommanderStats,
@@ -111,6 +112,15 @@ describe("getCardStats / getCommanderStats", () => {
     const { fetch } = fakeFetch({ [`${JSON_BASE}/commanders/sol-ring.json`]: { status: 403 } });
     vi.stubGlobal("fetch", fetch);
     expect(await getCommanderStats("sol-ring")).toBeNull();
+  });
+
+  it("reads a page once when two lookups want it at the same time", async () => {
+    const { fetch, calls } = fakeFetch({ [`${JSON_BASE}/cards/sol-ring.json`]: fixture("edhrec/cards-sol-ring.json") });
+    vi.stubGlobal("fetch", fetch);
+    const [stats, pairings] = await Promise.all([getCardStats("sol-ring"), getCardPairings("sol-ring")]);
+    expect(calls).toHaveLength(1);
+    expect(stats?.numDecks).toBeGreaterThan(0);
+    expect(pairings?.pairings.length).toBeGreaterThan(0);
   });
 
   it("throws when EDHREC is down, so the page can say so", async () => {

@@ -1,6 +1,7 @@
 import { cacheLife } from "next/cache";
 import type { Combo, DeckCombos, SpellbookBracket, SpellbookTag } from "@/lib/types";
 import { SourceError, sourceFetch } from "./http";
+import { keptCopies } from "./kept-copies";
 
 // Commander Spellbook (https://commanderspellbook.com) is the community
 // database of Commander combos, behind the combo lists on EDHREC and Moxfield.
@@ -13,6 +14,10 @@ const SITE = "https://commanderspellbook.com";
 const TIMEOUT_MS = 45_000;
 /** "One card away" lists run to hundreds for big decks; keep the most played. */
 const MAX_ALMOST = 100;
+
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+/** A combo's steps hardly ever change; they're kept on the computer for a week, and used for a while after. */
+const keepCombo = keptCopies("spellbook-combos", { freshMs: WEEK_MS, keepMs: 8 * WEEK_MS });
 
 interface RawVariant {
   id: string;
@@ -86,10 +91,13 @@ export async function getCombo(id: string): Promise<Combo | null> {
   "use cache: remote";
   cacheLife("weeks");
 
-  const res = await sourceFetch("Commander Spellbook", `${API}/variants/${encodeURIComponent(id)}/`, "application/json");
-  if (res.status === 404) return null;
-  if (!res.ok) throw new SourceError("Commander Spellbook", `HTTP ${res.status}`);
-  return toCombo((await res.json()) as RawVariant);
+  const variant = await keepCombo(id, async (): Promise<RawVariant | null> => {
+    const res = await sourceFetch("Commander Spellbook", `${API}/variants/${encodeURIComponent(id)}/`, "application/json");
+    if (res.status === 404) return null;
+    if (!res.ok) throw new SourceError("Commander Spellbook", `HTTP ${res.status}`);
+    return (await res.json()) as RawVariant;
+  });
+  return variant && toCombo(variant);
 }
 
 // --- Bracket estimate --------------------------------------------------------------

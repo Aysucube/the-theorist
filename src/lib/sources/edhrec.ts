@@ -12,11 +12,16 @@ import type {
   EdhrecThemePage,
 } from "@/lib/types";
 import { SourceError, sourceFetch } from "./http";
+import { keptCopies } from "./kept-copies";
 
 // EDHREC has no official API. These are the JSON files its own pages load,
 // so we request one per search and cache the result for a day.
 const JSON_BASE = "https://json.edhrec.com/pages";
 const SITE = "https://edhrec.com";
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+/** EDHREC's numbers move about once a day; a page read in the last month still answers at once while it's read again. */
+const keep = keptCopies("edhrec", { freshMs: DAY_MS, keepMs: 30 * DAY_MS });
 
 interface RawCardView {
   name: string;
@@ -296,13 +301,16 @@ export function parseCommanderStats(page: RawPage, path: string): EdhrecCommande
 }
 
 /**
- * Fetches a page, following one EDHREC redirect. Returns the page with the
- * path it was finally read from, or null if EDHREC doesn't know the slug.
+ * A page, following one EDHREC redirect: the page with the path it was finally
+ * read from, or null if EDHREC doesn't know the slug. Kept on the computer, so
+ * the several lookups that read one page (a card's stats and its pairings) and
+ * the app's next start don't ask EDHREC again.
  */
-async function getPage(
-  path: string,
-  redirectsLeft = 1,
-): Promise<{ page: RawPage; path: string } | null> {
+function getPage(path: string): Promise<{ page: RawPage; path: string } | null> {
+  return keep(path, () => fetchPage(path, 1));
+}
+
+async function fetchPage(path: string, redirectsLeft: number): Promise<{ page: RawPage; path: string } | null> {
   const res = await sourceFetch("EDHREC", `${JSON_BASE}/${path}.json`, "application/json");
   // EDHREC answers 403 (not 404) for slugs it doesn't know.
   if (res.status === 403 || res.status === 404) return null;
@@ -310,7 +318,7 @@ async function getPage(
 
   const page = (await res.json()) as RawPage;
   if (page.redirect) {
-    return redirectsLeft > 0 ? getPage(page.redirect.replace(/^\//, ""), redirectsLeft - 1) : null;
+    return redirectsLeft > 0 ? fetchPage(page.redirect.replace(/^\//, ""), redirectsLeft - 1) : null;
   }
   return { page, path };
 }
@@ -375,4 +383,19 @@ export async function getCommanderStats(
 
   const result = await getPage(`commanders/${slug}`);
   return result && parseCommanderStats(result.page, result.path);
+}
+
+/** Playstyles read ahead for a commander just picked: most decks are built around one of its first few. */
+const PLAYSTYLES_AHEAD = 3;
+
+/**
+ * Reads ahead what Create Commander Deck asks for after a commander is picked:
+ * its combos and its first few playstyles, for the commander and in its colors.
+ * Nothing waits on it; failures just mean those are read when asked for.
+ */
+export async function readAheadForCommander(slug: string, themes: string[], colors: string[]): Promise<void> {
+  await Promise.allSettled([
+    getCommanderCombos(slug),
+    ...themes.slice(0, PLAYSTYLES_AHEAD).flatMap((theme) => [getCommanderTheme(slug, theme), getThemeInColors(theme, colors)]),
+  ]);
 }
