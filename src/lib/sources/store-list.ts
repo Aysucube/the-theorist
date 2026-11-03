@@ -4,10 +4,10 @@
 // store, and a copy on the computer means the app has prices from the moment it
 // starts. If a read fails, the old list stands until the next try.
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
-import path from "node:path";
 import { tcgphSlug } from "@/lib/slugs";
 import type { TcgphPrint } from "@/lib/types";
 import { reportSourceError } from "./http";
+import { dataDir } from "@/lib/data-dir";
 
 /** A store's list: the printings of each card it has, by the card's key. */
 export type StoreCatalog = Record<string, TcgphPrint[]>;
@@ -17,7 +17,7 @@ const FRESH_MS = 6 * 60 * 60 * 1000;
 /** How long to leave a store after a failed read. */
 const RETRY_MS = 10 * 60 * 1000;
 
-const DIR = path.join(process.cwd(), ".data", "stores");
+const DIR = dataDir("stores");
 
 interface Saved {
   readAt: number;
@@ -44,7 +44,7 @@ export const storeKey = (name: string) => tcgphSlug(name.split(" // ")[0]);
 
 async function readSaved(id: string): Promise<Saved | null> {
   try {
-    return JSON.parse(await readFile(path.join(DIR, `${id}.json`), "utf8")) as Saved;
+    return JSON.parse(await readFile(dataDir("stores", `${id}.json`), "utf8")) as Saved;
   } catch {
     return null;
   }
@@ -54,7 +54,7 @@ async function readSaved(id: string): Promise<Saved | null> {
 async function writeSaved(id: string, saved: Saved) {
   try {
     await mkdir(DIR, { recursive: true });
-    const file = path.join(DIR, `${id}.json`);
+    const file = dataDir("stores", `${id}.json`);
     const temp = `${file}.${process.pid}.tmp`;
     await writeFile(temp, JSON.stringify(saved));
     await rename(temp, file);

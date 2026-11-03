@@ -2,10 +2,10 @@
 // .data/saved, with the previous version kept beside it. Server only.
 import { randomUUID } from "node:crypto";
 import { copyFile, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
-import path from "node:path";
 import type { SavedDoc, SavedKey } from "./saved-shape";
+import { dataDir } from "@/lib/data-dir";
 
-const DIR = path.join(process.cwd(), ".data", "saved");
+const DIR = dataDir("saved");
 /** Waits before trying again to replace a file something else has open. */
 const BUSY_WAITS_MS = [50, 150, 400];
 
@@ -26,7 +26,7 @@ export function isSameComputer(request: Request): boolean {
 
 export async function readSaved(key: SavedKey): Promise<SavedDoc | null> {
   try {
-    const doc = JSON.parse(await readFile(path.join(DIR, `${key}.json`), "utf8")) as SavedDoc;
+    const doc = JSON.parse(await readFile(dataDir("saved", `${key}.json`), "utf8")) as SavedDoc;
     return typeof doc?.savedAt === "number" ? doc : null;
   } catch {
     return null;
@@ -52,9 +52,9 @@ async function replaceFile(from: string, to: string) {
 /** Writes the new copy whole (via a temporary file of its own, so a crash can't leave half a binder and two saves can't collide), keeping the last one. */
 export async function writeSaved(key: SavedKey, doc: SavedDoc): Promise<void> {
   await mkdir(DIR, { recursive: true });
-  const file = path.join(DIR, `${key}.json`);
+  const file = dataDir("saved", `${key}.json`);
   const temp = `${file}.${randomUUID()}.tmp`;
   await writeFile(temp, JSON.stringify(doc));
-  await copyFile(file, path.join(DIR, `${key}.previous.json`)).catch(() => {});
+  await copyFile(file, dataDir("saved", `${key}.previous.json`)).catch(() => {});
   await replaceFile(temp, file);
 }

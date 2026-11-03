@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url";
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 
 export default defineConfig({
   resolve: {
@@ -8,5 +8,7 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    // The desktop app's build output holds a copy of the site.
+    exclude: [...configDefaults.exclude, "desktop/server/**", "desktop-build/**"],
   },
 });

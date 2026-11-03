@@ -2,12 +2,12 @@
 // day in .data/price-history (every card's price, about 700 KB each), plus a
 // table of card names and images that grows as new printings show up.
 import { mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
-import path from "node:path";
 import { promisify } from "node:util";
 import { gunzip, gzip } from "node:zlib";
+import { dataDir } from "@/lib/data-dir";
 
-export const DIR = path.join(process.cwd(), ".data", "price-history");
-const CARDS_FILE = path.join(DIR, "cards.json.gz");
+export const DIR = dataDir("price-history");
+const CARDS_FILE = dataDir("price-history", "cards.json.gz");
 
 const gzipAsync = promisify(gzip);
 const gunzipAsync = promisify(gunzip);
@@ -49,16 +49,16 @@ export async function writeJson(file: string, value: unknown) {
 
 export async function saveSnapshot(date: string, prices: Prices) {
   await mkdir(DIR, { recursive: true });
-  await writeAtomically(path.join(DIR, `${date}.json.gz`), await gzipAsync(JSON.stringify(prices)));
+  await writeAtomically(dataDir("price-history", `${date}.json.gz`), await gzipAsync(JSON.stringify(prices)));
 }
 
 /** A day's prices, or null if there's no snapshot (older versions saved them uncompressed). */
 export async function readSnapshot(date: string): Promise<Prices | null> {
   try {
-    return JSON.parse((await gunzipAsync(await readFile(path.join(DIR, `${date}.json.gz`)))).toString("utf8")) as Prices;
+    return JSON.parse((await gunzipAsync(await readFile(dataDir("price-history", `${date}.json.gz`)))).toString("utf8")) as Prices;
   } catch {
     try {
-      return JSON.parse(await readFile(path.join(DIR, `${date}.json`), "utf8")) as Prices;
+      return JSON.parse(await readFile(dataDir("price-history", `${date}.json`), "utf8")) as Prices;
     } catch {
       return null;
     }
@@ -68,7 +68,7 @@ export async function readSnapshot(date: string): Promise<Prices | null> {
 /** Compresses snapshots older versions of the app saved as plain JSON (about half the space). */
 export async function compressOldSnapshots(dates: string[]) {
   for (const date of dates) {
-    const plain = path.join(DIR, `${date}.json`);
+    const plain = dataDir("price-history", `${date}.json`);
     try {
       const prices = JSON.parse(await readFile(plain, "utf8")) as Prices;
       await saveSnapshot(date, prices);
@@ -80,8 +80,8 @@ export async function compressOldSnapshots(dates: string[]) {
 }
 
 export async function deleteSnapshot(date: string) {
-  await rm(path.join(DIR, `${date}.json.gz`), { force: true });
-  await rm(path.join(DIR, `${date}.json`), { force: true });
+  await rm(dataDir("price-history", `${date}.json.gz`), { force: true });
+  await rm(dataDir("price-history", `${date}.json`), { force: true });
 }
 
 /** Names and images of Commander-legal printings seen so far. */

@@ -1,0 +1,89 @@
+{
+  "name": "the-theorist-desktop",
+  "productName": "The Theorist",
+  "version": "1.0.0",
+  "description": "MTG Commander deck and price tool for PH players",
+  "author": "The Theorist",
+  "private": true,
+  "main": "main.mjs",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "44.10.1",
+    "electron-builder": "26.18.0"
+  },
+  "build": {
+    "appId": "com.aysucube.thetheorist",
+    "productName": "The Theorist",
+    "copyright": "Card data from Scryfall and EDHREC; Magic: The Gathering is © Wizards of the Coast.",
+    "directories": {
+      "output": "dist",
+      "buildResources": "assets"
+    },
+    "files": [
+      "main.mjs",
+      "lib/**/*.mjs",
+      "splash/**",
+      "assets/icon.png",
+      "!**/*.test.*"
+    ],
+    "extraResources": [
+      {
+        "from": "server",
+        "to": "server",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "server/node_modules",
+        "to": "server/node_modules",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.png"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "The Theorist",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "The-Theorist-Setup-${version}.${ext}"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "category": "public.app-category.utilities",
+      "icon": "assets/icon.png",
+      "identity": "-",
+      "hardenedRuntime": false,
+      "artifactName": "The-Theorist-${version}-${arch}.${ext}"
+    },
+    "dmg": {
+      "title": "The Theorist"
+    }
+  }
+}

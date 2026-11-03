@@ -1,0 +1,56 @@
+name: Desktop app
+
+# Builds the installers: a Mac app can only be built on a Mac, so GitHub's Mac
+# runner makes the .dmg files and its Windows runner the setup .exe. Run it from
+# the Actions tab, or push a version tag (v1.0.0) to attach them to a release.
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            desktop/package-lock.json
+      - run: npm ci
+      - run: npm ci
+        working-directory: desktop
+      - run: npm test
+      - run: npm run desktop -- --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: the-theorist-${{ runner.os }}
+          path: |
+            desktop/dist/*.exe
+            desktop/dist/*.dmg
+          if-no-files-found: error
+      - name: Attach to the release
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          shopt -s nullglob
+          files=(desktop/dist/*.exe desktop/dist/*.dmg)
+          # Both runners get here; whichever is second finds the release made.
+          gh release create "$GITHUB_REF_NAME" --title "The Theorist $GITHUB_REF_NAME" \
+            --notes "Windows: The-Theorist-Setup. Mac: the .dmg for your Mac (arm64 for Apple Silicon, x64 for Intel). See the README for opening them the first time." \
+            2>/dev/null || true
+          gh release upload "$GITHUB_REF_NAME" "${files[@]}" --clobber

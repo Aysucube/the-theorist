@@ -6,8 +6,8 @@
 // change at a given address (a new scan gets a new version number), so each one
 // is only ever fetched once.
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
-import path from "node:path";
 import { SourceError, USER_AGENT } from "./http";
+import { dataDir } from "@/lib/data-dir";
 
 const SOURCE = "Scryfall images";
 const HOST = "https://cards.scryfall.io";
@@ -19,7 +19,7 @@ const NEXT_TRY_MS = 1_500;
 const TRIES = 5;
 const TIMEOUT_MS = 10_000;
 
-const DIR = path.join(process.cwd(), ".data", "images");
+const DIR = dataDir("images");
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -59,7 +59,7 @@ async function keep(file: string, bytes: Uint8Array) {
 export async function getCardImage(imagePath: string, query: string): Promise<Uint8Array | null> {
   if (!IMAGE_PATH.test(imagePath)) return null;
   const version = query.match(/^\?(\d+)/)?.[1];
-  const file = path.join(DIR, `${imagePath.replaceAll("/", "-")}${version ? `.${version}` : ""}`);
+  const file = dataDir("images", `${imagePath.replaceAll("/", "-")}${version ? `.${version}` : ""}`);
   const saved = await readFile(file).catch(() => null);
   if (saved) return saved;
 

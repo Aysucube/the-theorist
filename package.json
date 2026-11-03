@@ -12,7 +12,8 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "fixtures:update": "node scripts/update-fixtures.mjs"
+    "fixtures:update": "node scripts/update-fixtures.mjs",
+    "desktop": "node desktop/scripts/build.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

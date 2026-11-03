@@ -46,3 +46,9 @@ next-env.d.ts
 
 # this app's own daily price history (see src/lib/trends/local.ts)
 /.data/
+
+# the desktop app's build: the site built standalone, its copy in desktop/, and the installers
+/desktop-build/
+/desktop/node_modules/
+/desktop/server/
+/desktop/dist/

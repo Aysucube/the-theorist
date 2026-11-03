@@ -5,10 +5,10 @@
 // day; 90 days are kept for the price history explorer (history.ts). The same
 // read saves every card's details for EDHREC's lists (card-index.ts).
 import { readFile } from "node:fs/promises";
-import path from "node:path";
 import { createInterface } from "node:readline";
 import { Readable } from "node:stream";
 import { createGunzip } from "node:zlib";
+import { dataDir } from "@/lib/data-dir";
 import { savingOnComputer } from "@/lib/saved-data";
 import { awaitCardIndex, cardIndexNeeds, openCardIndex, saveCardIndex } from "@/lib/sources/card-index";
 import { reportSourceError, SourceError, USER_AGENT } from "@/lib/sources/http";
@@ -18,7 +18,6 @@ import { addDays, dateOnOrBefore, surge, topSurges, WINDOWS } from "./compute.ts
 import { seriesFor } from "./history";
 import {
   deleteSnapshot,
-  DIR,
   compressOldSnapshots,
   mergeCardMeta,
   readCardMeta,
@@ -31,7 +30,7 @@ import {
 } from "./storage";
 import type { MarketTrends, TrendCard, TrendWindow, TrendWindowData } from "./types.ts";
 
-const TRENDS_FILE = path.join(DIR, "trends.json");
+const TRENDS_FILE = dataDir("price-history", "trends.json");
 /** Local tracking covers a day and a week; the shared file adds a month. */
 const LOCAL_WINDOWS: TrendWindow[] = ["day", "week"];
 /** Days of snapshots kept for the price history explorer (each is about 700 KB, so about 65 MB in all). */

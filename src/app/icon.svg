@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none">
+  <!-- The Theorist's runic circle (src/components/theme/sigil.tsx) as an app icon: bolder lines so it reads at taskbar size. -->
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#2f7df6" stop-opacity="0.55" />
+      <stop offset="70%" stop-color="#2f7df6" stop-opacity="0.08" />
+      <stop offset="100%" stop-color="#2f7df6" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="eye" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="40%" stop-color="#8fdcff" />
+      <stop offset="100%" stop-color="#2f7df6" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+  <rect x="4" y="4" width="192" height="192" rx="44" fill="#060a14" />
+  <rect x="4" y="4" width="192" height="192" rx="44" fill="url(#glow)" />
+  <rect x="5" y="5" width="190" height="190" rx="43" stroke="#2a3a5c" stroke-width="2" />
+  <g stroke="#8fdcff" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="100" cy="100" r="84" stroke-width="4" stroke-opacity="0.6" />
+    <!-- Ticks sit between the runes. -->
+    <g stroke-width="3" stroke-opacity="0.6">
+      <line x1="100" y1="27" x2="100" y2="35" transform="rotate(30 100 100)" />
+      <line x1="100" y1="27" x2="100" y2="35" transform="rotate(90 100 100)" />
+      <line x1="100" y1="27" x2="100" y2="35" transform="rotate(150 100 100)" />
+      <line x1="100" y1="27" x2="100" y2="35" transform="rotate(210 100 100)" />
+      <line x1="100" y1="27" x2="100" y2="35" transform="rotate(270 100 100)" />
+      <line x1="100" y1="27" x2="100" y2="35" transform="rotate(330 100 100)" />
+    </g>
+    <g stroke-width="3" stroke-opacity="0.85">
+      <path d="M-4 -5H4M0 -5V5M-4 5H4" transform="translate(100 31)" />
+      <path d="M-4 -5L0 0L4 -5M0 0V5" transform="rotate(60 100 100) translate(100 31)" />
+      <path d="M-4 5L0 -5L4 5M-2 1.5H2" transform="rotate(120 100 100) translate(100 31)" />
+      <path d="M-4 -4L4 4M4 -4L-4 4" transform="rotate(180 100 100) translate(100 31)" />
+      <path d="M0 -5V5M-4 -1L0 -5L4 -1" transform="rotate(240 100 100) translate(100 31)" />
+      <path d="M-4 -5V5M-4 0H4M4 -5V5" transform="rotate(300 100 100) translate(100 31)" />
+    </g>
+    <circle cx="100" cy="100" r="56" stroke-width="3.4" stroke-opacity="0.65" />
+    <g stroke-width="3" stroke-opacity="0.7">
+      <rect x="66" y="66" width="68" height="68" />
+      <rect x="66" y="66" width="68" height="68" transform="rotate(45 100 100)" />
+    </g>
+    <path d="M100 70L126 100L100 130L74 100Z" stroke-width="4.2" fill="#8fdcff" fill-opacity="0.12" />
+  </g>
+  <circle cx="100" cy="100" r="17" fill="url(#eye)" />
+  <circle cx="100" cy="100" r="4.5" fill="#ffffff" />
+</svg>

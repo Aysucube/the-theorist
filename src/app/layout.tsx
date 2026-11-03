@@ -5,7 +5,10 @@ import { Toaster } from "sonner";
 import { SiteNav, SiteNavFallback } from "@/components/site-nav";
 import { Backdrop } from "@/components/theme/backdrop";
 import { CastEffects } from "@/components/theme/cast-effects";
+import { PortalArrival } from "@/components/theme/portal-arrival";
 import "./globals.css";
+
+const PORTAL_SCRIPT = `if(/[?&]portal=1(&|$)/.test(location.search))document.documentElement.classList.add("portal-arrival")`;
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -38,7 +41,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      // The script below may add a class before React takes over.
+      suppressHydrationWarning
     >
+      <head>
+        {/* The desktop app's first page arrives through its welcome's portal; set before the first paint (see PortalArrival). */}
+        <script dangerouslySetInnerHTML={{ __html: PORTAL_SCRIPT }} />
+      </head>
       {/* On phones the tab bar sits along the bottom, so the page keeps clear of it. */}
       <body className="flex min-h-full flex-col overflow-x-clip pb-[calc(4rem+env(safe-area-inset-bottom))] font-sans sm:pb-0">
         <Backdrop />
@@ -48,6 +57,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         </Suspense>
         {children}
         <CastEffects />
+        <PortalArrival />
         <Toaster
           theme="dark"
           position="bottom-center"

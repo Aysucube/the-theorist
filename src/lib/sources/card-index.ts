@@ -12,11 +12,12 @@ import { promisify } from "node:util";
 import { gunzip, gzip } from "node:zlib";
 import { savingOnComputer } from "@/lib/saved-data";
 import type { CardDetails } from "@/lib/types";
+import { dataDir } from "@/lib/data-dir";
 
 const gzipAsync = promisify(gzip);
 const gunzipAsync = promisify(gunzip);
 
-const FILE = path.join(process.cwd(), ".data", "cards", "details.json.gz");
+const FILE = dataDir("cards", "details.json.gz");
 /**
  * While the first index is being read, lookups wait this long for it rather
  * than race its download for the connection (the daily file is 25 MB).

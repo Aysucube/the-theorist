@@ -210,6 +210,55 @@ Things move with purpose, briefly, using strong ease-out curves:
 Animations only move, scale and fade, so they stay smooth. They're switched off when the system
 asks for reduced motion.
 
+## The desktop app
+
+The Theorist also comes as an app for Windows and Mac, with every feature of the site. It runs
+the site's own server inside the app on your computer only (nobody else on the network can reach
+it), so there's no black launcher window to keep open, and links to other sites open in your
+browser.
+
+**Download** it from the repository's **Releases** page: **The-Theorist-Setup-…exe** for Windows
+10 and 11, or the **.dmg** for a Mac (**arm64** for Apple silicon, **x64** for Intel; macOS 11 or
+newer). The app isn't signed with a paid developer certificate, so the first time:
+
+- **Windows**: if it says Windows protected your PC, click **More info**, then **Run anyway**.
+  It installs for your account (no administrator needed), adds Start menu and desktop shortcuts,
+  and opens.
+- **Mac**: open the .dmg and drag **The Theorist** into Applications. On macOS 15 (Sequoia) or
+  newer, open it once, click **Done**, then **System Settings → Privacy & Security → Open
+  Anyway**. On older macOS, right-click it and choose **Open**. If macOS says the app is damaged,
+  run `xattr -cr "/Applications/The Theorist.app"` in Terminal and open it again.
+
+**The welcome.** The app opens on its runic circle (also its icon) drawing itself in while the
+app starts, ring by ring; it then gathers into its glowing eye, and the first page opens out of
+that point like a portal. A click skips the drawing. It plays for under three seconds once the
+app is ready, and is a plain fade for anyone whose system asks for reduced motion.
+
+**Kept on your computer**, so it opens quickly and works between updates: the binder, My Decks,
+the shopping list and what's bought, the deck being built, price history, saved EDHREC pages,
+every card's details, card images, and what the app's server last looked up (a card's page,
+prices, printings), which answers after a restart instead of being asked for again. It's all in
+the app's data folder (**File → Open the App's Data Folder**: on Windows
+`%APPDATA%\The Theorist\data`, on a Mac `~/Library/Application Support/The Theorist/data`).
+Uninstalling leaves it, and installing a new version over the old keeps it.
+
+**Coming from the launcher version?** On its first start the app looks for the launcher's
+`.data` folder in the usual places (Documents, Downloads or the Desktop, in a folder called The
+Theorist) and copies your binder, decks, lists, price history and caches in. If yours is
+elsewhere, use **File → Bring Over Data from the Launcher Version…** and pick its folder. The old
+folder isn't changed, and after the move the app keeps its own copy, so use one or the other.
+
+If something goes wrong, **Help → Open the Log Folder** has the app's and its server's logs. If
+the server stops, the app starts it again and reloads the page.
+
+**Building it.** `npm run desktop` builds the site as a standalone server (`desktop/server`) and
+the installer for the computer it runs on (`desktop/dist`); `npm run desktop -- --dir` makes an
+unpacked app to try instead. A Mac app can only be built on a Mac, so the **Desktop app**
+workflow on GitHub builds both: run it from the Actions tab, or push a version tag (`v1.0.0`) to
+attach the installers to a release. The app's code is in `desktop/` (`main.mjs`, with the welcome
+in `splash/`). For a test run that leaves your own data alone, set `THEORIST_PROFILE` to a spare
+folder.
+
 ## Running it on a Windows computer (no setup)
 
 Anyone with Windows 10 or 11 and an internet connection can run the app from
@@ -291,6 +340,7 @@ Other scripts:
 | `npm run build`           | Production build                                         |
 | `npm start`               | Serve the production build                               |
 | `npm run fixtures:update` | Re-download the saved TCGph/EDHREC/Scryfall test pages   |
+| `npm run desktop`         | Build the desktop app's installer (see The desktop app)  |
 
 Run `npm run fixtures:update && npm test` now and then: if TCGph or EDHREC change
 their pages, the tests fail instead of the app quietly showing wrong prices.
@@ -436,6 +486,9 @@ A single Node.js process keeps the cache and rate limits in memory, which is
 fine for one server. Put it behind a reverse proxy (nginx, Caddy) that sets
 `X-Forwarded-For`; otherwise every visitor shares one rate-limit bucket. Running
 several instances needs a shared cache handler; see Next.js's `cacheHandlers` docs.
+The app's own handler (`cache-handlers/remote.js`) keeps entries on disk only
+when `THEORIST_SAVE_ON_COMPUTER=1`, as the launchers and the desktop app set it;
+otherwise it's memory only, like Next's own.
 
 ## Limitations
 

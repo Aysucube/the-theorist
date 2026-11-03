@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'" />
+    <title>The Theorist</title>
+    <!--
+      The welcome: the runic circle (the site's sigil, src/components/theme/sigil.tsx)
+      draws itself in, turns while the app's server starts, then gathers into its
+      eye. The first page opens out of that point (globals.css, portal-arrival).
+      main.mjs drives it through window.portal: intro (a promise), say(text) and gather().
+    -->
+    <style>
+      :root {
+        --background: #060a14;
+        --foreground: #e8eefb;
+        --muted: #8d9bb8;
+        --accent: #5ab0ff;
+        --glow: #8fdcff;
+        --size: min(54vmin, 320px);
+      }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        background: var(--background);
+        color: var(--foreground);
+        font: 16px/1.5 "Segoe UI Variable", "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+        user-select: none;
+        cursor: default;
+      }
+      .glow {
+        position: fixed;
+        inset: 0;
+        background:
+          radial-gradient(circle at 50% 50%, rgb(47 125 246 / 0.24), transparent 46%),
+          radial-gradient(circle at 50% 50%, rgb(143 220 255 / 0.08), transparent 70%);
+        opacity: 0;
+      }
+      .glow.idle {
+        animation: breathe 5s ease-in-out infinite alternate;
+      }
+      /* The sigil sits exactly at the window's center, where the first page will open. */
+      .stage {
+        position: fixed;
+        left: 50%;
+        top: 50%;
+        width: var(--size);
+        height: var(--size);
+        translate: -50% -50%;
+      }
+      svg {
+        width: 100%;
+        height: 100%;
+        overflow: visible;
+        color: var(--accent);
+      }
+      /* Only the parts that move: a transform-origin would also shift the runes' own placement. */
+      .whole,
+      .ticks,
+      .spin,
+      .runes,
+      .spin-back,
+      .star,
+      .diamond,
+      .eye,
+      .eye-glow {
+        transform-origin: 100px 100px;
+      }
+      .draw {
+        stroke-dasharray: 1;
+        stroke-dashoffset: 1;
+      }
+      .idle .spin {
+        animation: turn 70s linear infinite;
+      }
+      .idle .spin-back {
+        animation: turn 110s linear infinite reverse;
+      }
+      .idle .eye-glow {
+        animation: pulse 2.6s ease-in-out infinite alternate;
+      }
+      .words {
+        position: fixed;
+        left: 0;
+        right: 0;
+        top: calc(50% + var(--size) / 2 + 28px);
+        text-align: center;
+      }
+      h1 {
+        margin: 0;
+        font-size: 26px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        opacity: 0;
+      }
+      .status {
+        margin: 6px 0 0;
+        min-height: 1.5em;
+        font-size: 13px;
+        color: var(--muted);
+        opacity: 0;
+      }
+      /* Specks of light circling the sigil. */
+      .mote {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 0;
+        height: 0;
+        opacity: 0;
+      }
+      .mote::before {
+        content: "";
+        position: absolute;
+        width: 3px;
+        height: 3px;
+        margin: -1.5px;
+        border-radius: 50%;
+        background: var(--glow);
+        box-shadow: 0 0 8px 2px rgb(143 220 255 / 0.6);
+        translate: var(--r) 0;
+      }
+      .idle .mote {
+        animation:
+          turn var(--t) linear var(--start) infinite,
+          twinkle 3.4s ease-in-out var(--d) infinite alternate;
+      }
+      @keyframes turn {
+        to {
+          rotate: 360deg;
+        }
+      }
+      @keyframes breathe {
+        from {
+          opacity: 1;
+        }
+        to {
+          opacity: 0.72;
+        }
+      }
+      @keyframes pulse {
+        from {
+          scale: 1;
+        }
+        to {
+          scale: 1.18;
+        }
+      }
+      @keyframes twinkle {
+        from {
+          opacity: 0.15;
+        }
+        to {
+          opacity: 0.85;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .idle .spin,
+        .idle .spin-back,
+        .idle .eye-glow,
+        .idle .mote,
+        .glow.idle {
+          animation: none;
+        }
+        .mote {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="glow"></div>
+    <div class="stage">
+      <svg viewBox="0 0 200 200" fill="none" aria-hidden="true">
+        <defs>
+          <radialGradient id="eye" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#e6f7ff" />
+            <stop offset="45%" stop-color="#8fdcff" />
+            <stop offset="100%" stop-color="#2f7df6" stop-opacity="0" />
+          </radialGradient>
+        </defs>
+        <g class="whole" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <circle class="ring-outer draw" cx="100" cy="100" r="94" pathLength="1" stroke-opacity="0.45" stroke-width="1.1" />
+          <g class="ticks" stroke-opacity="0.5"></g>
+          <g class="spin">
+            <g class="runes" stroke-opacity="0.8" stroke-width="1.15">
+              <circle cx="100" cy="100" r="80" stroke-opacity="0.4" stroke-dasharray="1 5" />
+            </g>
+          </g>
+          <circle class="ring-mid draw" cx="100" cy="100" r="68" pathLength="1" stroke-opacity="0.55" />
+          <g class="spin-back">
+            <g class="star" stroke-opacity="0.6">
+              <rect x="58" y="58" width="84" height="84" />
+              <rect x="58" y="58" width="84" height="84" transform="rotate(45 100 100)" />
+            </g>
+          </g>
+          <path class="arcs" d="M100 52A48 48 0 0 1 148 100M100 148A48 48 0 0 1 52 100" stroke-opacity="0.4" stroke-dasharray="2 4" />
+          <g class="diamond">
+            <path d="M100 66L130 100L100 134L70 100Z" stroke-opacity="0.95" stroke-width="1.5" fill="currentColor" fill-opacity="0.07" />
+            <path d="M100 82L115 100L100 118L85 100Z" stroke-opacity="0.85" />
+          </g>
+        </g>
+        <g class="eye">
+          <circle class="eye-glow" cx="100" cy="100" r="13" fill="url(#eye)" />
+          <circle cx="100" cy="100" r="3.2" fill="#f2fbff" />
+        </g>
+      </svg>
+    </div>
+    <div class="words">
+      <h1>The Theorist</h1>
+      <p class="status">Opening the portal…</p>
+    </div>
+    <script>
+      const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const $ = (selector) => document.querySelector(selector);
+      const svgNs = "http://www.w3.org/2000/svg";
+
+      // The tick ring and the runes, as the site's sigil draws them.
+      const GLYPHS = ["M-3 -4H3M0 -4V4M-3 4H3", "M-3 -4L0 0L3 -4M0 0V4", "M-3 4L0 -4L3 4M-1.5 1H1.5", "M-3 -3L3 3M3 -3L-3 3", "M0 -4V4M-3 -1L0 -4L3 -1", "M-3 -4V4M-3 0H3M3 -4V4"];
+      for (let i = 0; i < 48; i++) {
+        const long = i % 4 === 0;
+        const tick = document.createElementNS(svgNs, "line");
+        Object.entries({ x1: 100, y1: long ? 7 : 9, x2: 100, y2: 13, "stroke-width": long ? 1.4 : 0.8, transform: `rotate(${7.5 * i} 100 100)` }).forEach(([k, v]) => tick.setAttribute(k, v));
+        $(".ticks").append(tick);
+      }
+      for (let i = 0; i < 12; i++) {
+        const rune = document.createElementNS(svgNs, "path");
+        rune.setAttribute("d", GLYPHS[i % GLYPHS.length]);
+        rune.setAttribute("transform", `rotate(${30 * i} 100 100) translate(100 21)`);
+        $(".runes").append(rune);
+      }
+      const motes = [
+        [118, 23, 0],
+        [126, 31, -1.2],
+        [112, 19, -2.1],
+        [134, 41, -0.6],
+        [121, 27, -2.8],
+        [130, 36, -1.7],
+      ];
+      for (const [radius, seconds, delay] of motes) {
+        const mote = document.createElement("span");
+        mote.className = "mote";
+        // Radius in the sigil's units (100 = its edge); each starts somewhere along its circle.
+        mote.style.cssText = `--r: calc(var(--size) * ${radius / 200}); --t: ${seconds}s; --d: ${delay}s; --start: ${-(Math.random() * seconds).toFixed(1)}s`;
+        $(".stage").append(mote);
+      }
+
+      const OUT = "cubic-bezier(0.16, 1, 0.3, 1)";
+      const POP = "cubic-bezier(0.34, 1.4, 0.64, 1)";
+      const DRAW = "cubic-bezier(0.65, 0, 0.35, 1)";
+      const play = (selector, keyframes, options) => $(selector).animate(keyframes, { fill: "both", easing: OUT, ...options });
+
+      function startIdle() {
+        document.querySelector("svg").classList.add("idle");
+        $(".stage").classList.add("idle");
+        $(".glow").classList.add("idle");
+      }
+
+      let opening = [];
+      if (reduce) {
+        opening = [play(".glow", [{ opacity: 0 }, { opacity: 1 }], { duration: 300 })];
+        for (const s of [".ring-outer", ".ring-mid"]) $(s).style.strokeDashoffset = "0";
+        for (const s of ["h1", ".status"]) play(s, [{ opacity: 0 }, { opacity: 1 }], { duration: 300 });
+      } else {
+        opening = [
+          play(".glow", [{ opacity: 0 }, { opacity: 1 }], { duration: 1400 }),
+          play(".ring-outer", [{ strokeDashoffset: 1, opacity: 0 }, { strokeDashoffset: 0, opacity: 1 }], { duration: 1100, easing: DRAW }),
+          play(".ticks", [{ opacity: 0, transform: "rotate(-30deg)" }, { opacity: 1, transform: "rotate(0deg)" }], { duration: 1000, delay: 150 }),
+          play(".runes", [{ opacity: 0, transform: "rotate(70deg) scale(0.9)" }, { opacity: 1, transform: "rotate(0deg) scale(1)" }], { duration: 1100, delay: 250 }),
+          play(".ring-mid", [{ strokeDashoffset: 1 }, { strokeDashoffset: 0 }], { duration: 900, delay: 350, easing: DRAW }),
+          play(".star", [{ opacity: 0, transform: "rotate(-60deg) scale(0.55)" }, { opacity: 1, transform: "rotate(0deg) scale(1)" }], { duration: 1000, delay: 450 }),
+          play(".arcs", [{ opacity: 0 }, { opacity: 1 }], { duration: 600, delay: 700 }),
+          play(".diamond", [{ opacity: 0, transform: "scale(0.3)" }, { opacity: 1, transform: "scale(1)" }], { duration: 650, delay: 750, easing: POP }),
+          play(".eye", [{ opacity: 0, transform: "scale(0)" }, { opacity: 1, transform: "scale(1.35)", offset: 0.6 }, { opacity: 1, transform: "scale(1)" }], { duration: 800, delay: 900 }),
+          play("h1", [{ opacity: 0, transform: "translateY(10px)", filter: "blur(4px)" }, { opacity: 1, transform: "translateY(0)", filter: "blur(0)" }], { duration: 800, delay: 800 }),
+          play(".status", [{ opacity: 0, transform: "translateY(6px)" }, { opacity: 1, transform: "translateY(0)" }], { duration: 700, delay: 1050 }),
+        ];
+      }
+
+      // A click or a key plays the rest of the opening at once.
+      const finishOpening = () => opening.forEach((a) => a.finish());
+      addEventListener("pointerdown", finishOpening);
+      addEventListener("keydown", finishOpening);
+
+      let saying = Promise.resolve();
+      window.portal = {
+        intro: Promise.all(opening.map((a) => a.finished)).then(() => {
+          startIdle();
+          return true;
+        }),
+
+        /** Shows what's happening under the title, fading from the last line. */
+        say(text) {
+          saying = saying.then(async () => {
+            const status = $(".status");
+            if (status.textContent === text) return;
+            if (!reduce) await status.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 140, fill: "forwards" }).finished;
+            status.textContent = text;
+            status.animate([{ opacity: 0 }, { opacity: 1 }], { duration: reduce ? 0 : 260, fill: "forwards", easing: OUT });
+          });
+          return saying;
+        },
+
+        /** The circle spins into its eye, leaving a point of light where the first page opens. */
+        async gather() {
+          removeEventListener("pointerdown", finishOpening);
+          removeEventListener("keydown", finishOpening);
+          finishOpening();
+          if (reduce) {
+            await document.body.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 300, fill: "forwards" }).finished;
+            return true;
+          }
+          const IN = "cubic-bezier(0.7, 0, 0.84, 0)";
+          const steps = [
+            play(".words", [{ opacity: 1, transform: "translateY(0)" }, { opacity: 0, transform: "translateY(8px)" }], { duration: 280, easing: "ease-in" }),
+            ...[...document.querySelectorAll(".mote")].map((mote) => mote.animate([{ opacity: getComputedStyle(mote).opacity }, { opacity: 0 }], { duration: 300, fill: "forwards" })),
+            play(".runes", [{ transform: "rotate(0deg) scale(1)" }, { transform: "rotate(260deg) scale(1)" }], { duration: 780, easing: IN }),
+            play(".whole", [{ transform: "rotate(0deg) scale(1)", opacity: 1 }, { transform: "rotate(-120deg) scale(0.04)", opacity: 0.25 }], { duration: 780, easing: IN }),
+            play(".eye", [{ transform: "scale(1)" }, { transform: "scale(1.9)", offset: 0.4 }, { transform: "scale(0.22)" }], { duration: 780, easing: "cubic-bezier(0.45, 0, 0.55, 1)" }),
+            play(".glow", [{ opacity: 1 }, { opacity: 0 }], { duration: 700, easing: "ease-in" }),
+          ];
+          await Promise.all(steps.map((a) => a.finished));
+          return true;
+        },
+      };
+    </script>
+  </body>
+</html>

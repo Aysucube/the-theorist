@@ -11,6 +11,7 @@ import { promisify } from "node:util";
 import { gunzip, gzip } from "node:zlib";
 import { savingOnComputer } from "@/lib/saved-data";
 import { reportSourceError } from "./http";
+import { dataDir } from "@/lib/data-dir";
 
 const gzipAsync = promisify(gzip);
 const gunzipAsync = promisify(gunzip);
@@ -33,8 +34,9 @@ const shared = globalThis as unknown as Record<symbol, { fetching: Map<string, P
 const state = (shared[SHARED] ??= { fetching: new Map(), tidied: new Set() });
 
 export function keptCopies(folder: string, rules: KeepRules) {
-  const dir = path.join(process.cwd(), ".data", folder);
-  const file = (key: string) => path.join(dir, `${encodeURIComponent(key)}.json.gz`);
+  const dir = dataDir(folder);
+  // Ignored by the build's file tracing, which can't tell where these lead and would copy in the files beside this one.
+  const file = (key: string) => path.join(/*turbopackIgnore: true*/ dir, `${encodeURIComponent(key)}.json.gz`);
 
   async function read<T>(key: string): Promise<Kept<T> | null> {
     try {
@@ -61,8 +63,8 @@ export function keptCopies(folder: string, rules: KeepRules) {
     if (state.tidied.has(folder)) return;
     state.tidied.add(folder);
     try {
-      for (const name of await readdir(dir)) {
-        const full = path.join(dir, name);
+      for (const name of await readdir(/*turbopackIgnore: true*/ dir)) {
+        const full = path.join(/*turbopackIgnore: true*/ dir, name);
         if (Date.now() - (await stat(full)).mtimeMs > rules.keepMs) await rm(full, { force: true });
       }
     } catch {}

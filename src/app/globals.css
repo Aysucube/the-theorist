@@ -805,3 +805,62 @@ dialog[open]::backdrop {
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/* The desktop app's first page arrives through the portal its welcome opened
+   (desktop/splash): from the bright point left at the center, the page opens
+   outward with a glowing rim. html.portal-arrival is set before the first paint
+   when the address has ?portal=1 (layout.tsx) and taken off once it has played
+   (PortalArrival). Clipped from 50vh, so it opens from the window's center. */
+@property --portal-r {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@keyframes theorist-portal-open {
+  from {
+    clip-path: circle(0.5vmax at 50% 50vh);
+  }
+  to {
+    clip-path: circle(80vmax at 50% 50vh);
+  }
+}
+@keyframes theorist-portal-rim {
+  from {
+    --portal-r: 0.5vmax;
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  to {
+    --portal-r: 80vmax;
+    opacity: 0;
+  }
+}
+html.portal-arrival body {
+  animation: theorist-portal-open 1000ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+html.portal-arrival::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgb(143 220 255 / 0) calc(var(--portal-r) - 3vmax),
+    rgb(90 176 255 / 0.35) calc(var(--portal-r) - 0.8vmax),
+    rgb(230 247 255 / 0.95) var(--portal-r),
+    rgb(143 220 255 / 0) calc(var(--portal-r) + 0.5vmax)
+  );
+  animation: theorist-portal-rim 1000ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  html.portal-arrival body {
+    animation: theorist-opacity 300ms ease-out backwards;
+  }
+  html.portal-arrival::after {
+    display: none;
+  }
+}
