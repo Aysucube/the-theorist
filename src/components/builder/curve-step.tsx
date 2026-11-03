@@ -103,7 +103,7 @@ function CutCard({ cut, suggested, owned, onRemove }: { cut: CurveCut; suggested
   const { trigger, preview } = useHoverPreview(card.name);
   return (
     <li className="flex min-w-0 flex-col gap-2">
-      <span {...trigger} tabIndex={0} className={`relative block aspect-[488/680] overflow-hidden rounded-[4.75%] bg-subtle outline-offset-4 ${suggested ? "ring-2 ring-accent ring-offset-2 ring-offset-background" : ""}`}>
+      <span {...trigger} tabIndex={0} className={`spell-card relative block aspect-[488/680] overflow-hidden rounded-[4.75%] bg-subtle outline-offset-4 ${suggested ? "ring-2 ring-accent ring-offset-2 ring-offset-background" : ""}`}>
         <span className={`block h-full ${owned ? "" : "opacity-55 grayscale"}`}>
           <LazyCardImage url={card.imageUrl} alt={card.name} />
         </span>

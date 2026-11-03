@@ -198,10 +198,14 @@ to a tab bar along the bottom.
 
 Things move with purpose, briefly, using strong ease-out curves:
 
-- **Between pages**, the page slides left as you go forward (right along the nav, or deeper) and
-  right as you come back, while the header stays put. A front-page tile's icon and title morph
-  into the header of the page it opens. These use the browser's View Transitions (React's
-  `<ViewTransition>`); browsers without them just change page.
+- **Between pages**, the new page opens from the middle of the window through an expanding ring
+  of light while the nav bar stays put, whether you got there by a link, a button or the back
+  button. A front-page tile's icon and title morph into the header of the page it opens (with the
+  browser's View Transitions, React's `<ViewTransition>`), and the same page with new content (a
+  theme, another card) crossfades.
+- **Card galleries** cast their cards like spells: as each card first comes into view, a circle of
+  runes flares over it and the card materializes out of the light, one after another. That's the
+  binder, the builder's picks, a deck's cards, printings, themes, similar cards and the market.
 - **Opening a feature** makes it pop in: panels as their data arrives, each tab's content (the
   lit tab pill glides across), disclosures, popovers, the card preview and menus.
 - **Main actions** (Add to binder, Continue, Price this list) send a ring of light from where you
@@ -229,10 +233,12 @@ newer). The app isn't signed with a paid developer certificate, so the first tim
   Anyway**. On older macOS, right-click it and choose **Open**. If macOS says the app is damaged,
   run `xattr -cr "/Applications/The Theorist.app"` in Terminal and open it again.
 
-**The welcome.** The app opens on its runic circle (also its icon) drawing itself in while the
-app starts, ring by ring; it then gathers into its glowing eye, and the first page opens out of
-that point like a portal. A click skips the drawing. It plays for under three seconds once the
-app is ready, and is a plain fade for anyone whose system asks for reduced motion.
+**The welcome.** The app opens on its summoning circle (also its icon) drawing itself in, ring by
+ring, with **Welcome, Planeswalker** beneath it while the app starts. Once it's ready the circle
+pulses gently: click it (or press Enter) and glowing circuits race from it to every edge of the
+window, lighting up where they turn; then the circle gathers into its eye and the first page opens
+out of that point like a portal. Clicking during the drawing skips it. For anyone whose system
+asks for reduced motion, it's a plain fade.
 
 **Kept on your computer**, so it opens quickly and works between updates: the binder, My Decks,
 the shopping list and what's bought, the deck being built, price history, saved EDHREC pages,

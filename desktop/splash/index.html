@@ -8,7 +8,9 @@
       The welcome: the runic circle (the site's sigil, src/components/theme/sigil.tsx)
       draws itself in, turns while the app's server starts, then gathers into its
       eye. The first page opens out of that point (globals.css, portal-arrival).
-      main.mjs drives it through window.portal: intro (a promise), say(text) and gather().
+      Once the app is ready it greets the user and waits for a click on the circle, then
+      circuits race from it to the window's edges before it gathers in.
+      main.mjs drives it through window.portal: intro (a promise), say(text) and ready().
     -->
     <style>
       :root {
@@ -50,11 +52,83 @@
         height: var(--size);
         translate: -50% -50%;
       }
-      svg {
+      .stage svg {
         width: 100%;
         height: 100%;
         overflow: visible;
         color: var(--accent);
+      }
+      /* Once the app is ready, the circle invites a click: a ring of light keeps
+         spreading from it, and it brightens under the pointer. */
+      .stage.ready {
+        cursor: pointer;
+        border-radius: 50%;
+        outline: none;
+      }
+      .stage.ready::after {
+        content: "";
+        position: absolute;
+        inset: 2%;
+        border-radius: 50%;
+        border: 1.5px solid rgb(143 220 255 / 0.6);
+        box-shadow: 0 0 24px rgb(90 176 255 / 0.35);
+        pointer-events: none;
+        animation: beckon 2.2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+      }
+      .stage.ready svg {
+        transition: filter 200ms ease-out;
+      }
+      @media (hover: hover) {
+        .stage.ready:hover svg {
+          filter: brightness(1.3) drop-shadow(0 0 14px rgb(90 176 255 / 0.5));
+        }
+      }
+      .stage.ready:focus-visible svg {
+        filter: brightness(1.3) drop-shadow(0 0 14px rgb(90 176 255 / 0.5));
+      }
+      .stage.entering::after {
+        display: none;
+      }
+      @keyframes beckon {
+        from {
+          scale: 0.97;
+          opacity: 0.9;
+        }
+        to {
+          scale: 1.22;
+          opacity: 0;
+        }
+      }
+      /* The circuits that run from the circle to the window's edges on the way in. */
+      .circuits {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        overflow: visible;
+        filter: drop-shadow(0 0 4px rgb(90 176 255 / 0.85));
+      }
+      .circuits .trace {
+        fill: none;
+        stroke: #5ab0ff;
+        stroke-width: 1.6;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-dasharray: 1;
+        stroke-dashoffset: 1;
+      }
+      .circuits .spark {
+        fill: none;
+        stroke: #e6f7ff;
+        stroke-width: 2.6;
+        stroke-linecap: round;
+        stroke-dasharray: 0.05 1.2;
+        stroke-dashoffset: 0.05;
+      }
+      .circuits .node {
+        fill: #8fdcff;
+        opacity: 0;
       }
       /* Only the parts that move: a transform-origin would also shift the runes' own placement. */
       .whole,
@@ -161,7 +235,8 @@
         .idle .spin-back,
         .idle .eye-glow,
         .idle .mote,
-        .glow.idle {
+        .glow.idle,
+        .stage.ready::after {
           animation: none;
         }
         .mote {
@@ -172,7 +247,8 @@
   </head>
   <body>
     <div class="glow"></div>
-    <div class="stage">
+    <svg class="circuits" aria-hidden="true"></svg>
+    <div class="stage" role="button" aria-label="Enter The Theorist" aria-disabled="true">
       <svg viewBox="0 0 200 200" fill="none" aria-hidden="true">
         <defs>
           <radialGradient id="eye" cx="50%" cy="50%" r="50%">
@@ -209,7 +285,7 @@
       </svg>
     </div>
     <div class="words">
-      <h1>The Theorist</h1>
+      <h1>Welcome, Planeswalker</h1>
       <p class="status">Opening the portal…</p>
     </div>
     <script>
@@ -253,7 +329,7 @@
       const play = (selector, keyframes, options) => $(selector).animate(keyframes, { fill: "both", easing: OUT, ...options });
 
       function startIdle() {
-        document.querySelector("svg").classList.add("idle");
+        $(".stage svg").classList.add("idle");
         $(".stage").classList.add("idle");
         $(".glow").classList.add("idle");
       }
@@ -279,19 +355,132 @@
         ];
       }
 
-      // A click or a key plays the rest of the opening at once.
+      const intro = Promise.all(opening.map((a) => a.finished)).then(() => {
+        startIdle();
+        return true;
+      });
       const finishOpening = () => opening.forEach((a) => a.finish());
+
+      // Clicking the circle (or pressing Enter or Space) is the way in, once the app is ready;
+      // asked for earlier, it goes in as soon as it is. Any other click plays the drawing at once.
+      const stage = $(".stage");
+      let wantIn = false;
+      let letIn = null;
+      function askIn() {
+        finishOpening();
+        wantIn = true;
+        letIn?.();
+      }
+      stage.addEventListener("click", askIn);
       addEventListener("pointerdown", finishOpening);
-      addEventListener("keydown", finishOpening);
+      addEventListener("keydown", (event) => {
+        finishOpening();
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          askIn();
+        }
+      });
+
+      /**
+       * Circuit traces from the circle's edge to the window's edges, as on a
+       * circuit board: a short spoke out of the circle, then straight runs with
+       * a jog, each lighting the points where it turns. Laid out for the
+       * window's size when it's clicked.
+       */
+      function drawCircuits() {
+        const svg = $(".circuits");
+        const width = innerWidth;
+        const height = innerHeight;
+        svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+        svg.replaceChildren();
+        const box = stage.getBoundingClientRect();
+        const cx = box.left + box.width / 2;
+        const cy = box.top + box.height / 2;
+        const radius = (box.width / 2) * 0.94;
+        const runs = [];
+        const COUNT = 14;
+        for (let i = 0; i < COUNT; i++) {
+          const angle = (i / COUNT) * Math.PI * 2 + 0.12 + (Math.random() - 0.5) * 0.16;
+          const dx = Math.cos(angle);
+          const dy = Math.sin(angle);
+          const start = [cx + dx * radius, cy + dy * radius];
+          const spoke = 18 + Math.random() * 26;
+          const out = [cx + dx * (radius + spoke), cy + dy * (radius + spoke)];
+          const points = [start, out];
+          if (Math.abs(dx) > Math.abs(dy)) {
+            const edge = dx > 0 ? width + 8 : -8;
+            const mid = out[0] + (edge - out[0]) * (0.3 + Math.random() * 0.35);
+            const jog = (dy >= 0 ? 1 : -1) * (14 + Math.random() * 46);
+            points.push([mid, out[1]], [mid + Math.sign(edge - mid) * Math.abs(jog), out[1] + jog], [edge, out[1] + jog]);
+          } else {
+            const edge = dy > 0 ? height + 8 : -8;
+            const mid = out[1] + (edge - out[1]) * (0.3 + Math.random() * 0.35);
+            const jog = (dx >= 0 ? 1 : -1) * (14 + Math.random() * 46);
+            points.push([out[0], mid], [out[0] + jog, mid + Math.sign(edge - mid) * Math.abs(jog)], [out[0] + jog, edge]);
+          }
+          const d = points.map(([x, y], n) => `${n ? "L" : "M"}${x.toFixed(1)} ${y.toFixed(1)}`).join("");
+          const trace = document.createElementNS(svgNs, "path");
+          Object.entries({ d, class: "trace", pathLength: 1 }).forEach(([k, v]) => trace.setAttribute(k, v));
+          const spark = document.createElementNS(svgNs, "path");
+          Object.entries({ d, class: "spark", pathLength: 1 }).forEach(([k, v]) => spark.setAttribute(k, v));
+          svg.append(trace, spark);
+          // The turns light up as the trace reaches them.
+          const nodes = points.slice(2, 4).map(([x, y]) => {
+            const node = document.createElementNS(svgNs, "circle");
+            Object.entries({ cx: x.toFixed(1), cy: y.toFixed(1), r: 2.6, class: "node" }).forEach(([k, v]) => node.setAttribute(k, v));
+            svg.append(node);
+            return node;
+          });
+          runs.push({ trace, spark, nodes, delay: Math.random() * 160 });
+        }
+        return runs;
+      }
+
+      async function goIn() {
+        stage.classList.add("entering");
+        stage.setAttribute("aria-disabled", "true");
+        if (reduce) {
+          await document.body.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 300, fill: "forwards" }).finished;
+          return;
+        }
+        const IN = "cubic-bezier(0.7, 0, 0.84, 0)";
+        const RUN = 720;
+        const runs = drawCircuits();
+        const surge = [
+          play(".words", [{ opacity: 1, transform: "translateY(0)" }, { opacity: 0, transform: "translateY(8px)" }], { duration: 260, easing: "ease-in" }),
+          play(".eye", [{ transform: "scale(1)" }, { transform: "scale(1.7)" }], { duration: 260, easing: OUT }),
+          ...runs.flatMap(({ trace, spark, nodes, delay }) => [
+            trace.animate([{ strokeDashoffset: 1 }, { strokeDashoffset: 0 }], { duration: RUN, delay, easing: "cubic-bezier(0.45, 0, 0.2, 1)", fill: "both" }),
+            spark.animate([{ strokeDashoffset: 0.05 }, { strokeDashoffset: -1 }], { duration: RUN, delay, easing: "cubic-bezier(0.45, 0, 0.2, 1)", fill: "both" }),
+            ...nodes.map((node, n) =>
+              node.animate([{ opacity: 0, scale: 0 }, { opacity: 1, scale: 1.8, offset: 0.5 }, { opacity: 0.9, scale: 1 }], {
+                duration: 360,
+                delay: delay + RUN * (0.45 + n * 0.18),
+                easing: OUT,
+                fill: "both",
+              }),
+            ),
+          ]),
+        ];
+        await Promise.all(surge.map((a) => a.finished));
+        // The circuits are lit; the circle draws itself into its eye, leaving a point where the first page opens.
+        const gather = [
+          $(".circuits").animate([{ opacity: 1 }, { opacity: 0 }], { duration: 640, easing: "ease-in", fill: "forwards" }),
+          ...[...document.querySelectorAll(".mote")].map((mote) => mote.animate([{ opacity: getComputedStyle(mote).opacity }, { opacity: 0 }], { duration: 300, fill: "forwards" })),
+          play(".runes", [{ transform: "rotate(0deg) scale(1)" }, { transform: "rotate(260deg) scale(1)" }], { duration: 700, easing: IN }),
+          play(".whole", [{ transform: "rotate(0deg) scale(1)", opacity: 1 }, { transform: "rotate(-120deg) scale(0.04)", opacity: 0.25 }], { duration: 700, easing: IN }),
+          play(".eye", [{ transform: "scale(1.7)" }, { transform: "scale(2.1)", offset: 0.3 }, { transform: "scale(0.22)" }], { duration: 700, easing: "cubic-bezier(0.45, 0, 0.55, 1)" }),
+          play(".glow", [{ opacity: 1 }, { opacity: 0 }], { duration: 640, easing: "ease-in" }),
+        ];
+        await Promise.all(gather.map((a) => a.finished));
+      }
 
       let saying = Promise.resolve();
       window.portal = {
-        intro: Promise.all(opening.map((a) => a.finished)).then(() => {
-          startIdle();
-          return true;
-        }),
+        /** Resolves once the circle has drawn itself in. */
+        intro,
 
-        /** Shows what's happening under the title, fading from the last line. */
+        /** Shows what's happening under the greeting, fading from the last line. */
         say(text) {
           saying = saying.then(async () => {
             const status = $(".status");
@@ -303,25 +492,19 @@
           return saying;
         },
 
-        /** The circle spins into its eye, leaving a point of light where the first page opens. */
-        async gather() {
-          removeEventListener("pointerdown", finishOpening);
-          removeEventListener("keydown", finishOpening);
-          finishOpening();
-          if (reduce) {
-            await document.body.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 300, fill: "forwards" }).finished;
-            return true;
+        /** The app is ready: the circle invites a click, then plays the way in. Resolves when it's done. */
+        async ready() {
+          await intro;
+          stage.classList.add("ready");
+          stage.tabIndex = 0;
+          stage.setAttribute("aria-disabled", "false");
+          if (!wantIn) {
+            stage.focus({ preventScroll: true });
+            await this.say("Click the circle to enter");
+            // A click while that line was fading in counts too.
+            if (!wantIn) await new Promise((resolve) => (letIn = resolve));
           }
-          const IN = "cubic-bezier(0.7, 0, 0.84, 0)";
-          const steps = [
-            play(".words", [{ opacity: 1, transform: "translateY(0)" }, { opacity: 0, transform: "translateY(8px)" }], { duration: 280, easing: "ease-in" }),
-            ...[...document.querySelectorAll(".mote")].map((mote) => mote.animate([{ opacity: getComputedStyle(mote).opacity }, { opacity: 0 }], { duration: 300, fill: "forwards" })),
-            play(".runes", [{ transform: "rotate(0deg) scale(1)" }, { transform: "rotate(260deg) scale(1)" }], { duration: 780, easing: IN }),
-            play(".whole", [{ transform: "rotate(0deg) scale(1)", opacity: 1 }, { transform: "rotate(-120deg) scale(0.04)", opacity: 0.25 }], { duration: 780, easing: IN }),
-            play(".eye", [{ transform: "scale(1)" }, { transform: "scale(1.9)", offset: 0.4 }, { transform: "scale(0.22)" }], { duration: 780, easing: "cubic-bezier(0.45, 0, 0.55, 1)" }),
-            play(".glow", [{ opacity: 1 }, { opacity: 0 }], { duration: 700, easing: "ease-in" }),
-          ];
-          await Promise.all(steps.map((a) => a.finished));
+          await goIn();
           return true;
         },
       };

@@ -227,7 +227,7 @@ function BinderCard({
       transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1], delay: Math.min(index, 12) * 0.025 }}
       className="group min-w-0"
     >
-      <div {...trigger} className="relative aspect-[488/680] overflow-hidden rounded-[4.75%] bg-subtle">
+      <div {...trigger} className="spell-card relative aspect-[488/680] overflow-hidden rounded-[4.75%] bg-subtle">
         {details === null ? (
           <span className="flex h-full items-center justify-center p-2 text-center text-[11px] text-muted">Scryfall doesn’t know this name</span>
         ) : (

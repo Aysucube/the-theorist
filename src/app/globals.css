@@ -441,9 +441,9 @@ dialog[open]::backdrop {
   }
 }
 
-/* Page transitions (React's <ViewTransition>, see page-transition.tsx). The
-   header stays put while the page slides: left going forward, right coming
-   back. The old page leaves quickly; the new one arrives a beat later. */
+/* View transitions (React's <ViewTransition>): the header stays put, the same page
+   with new content crossfades, and tiles morph into page headers. Moving to
+   another page opens it through a ring of light instead (html.page-turn, below). */
 ::view-transition {
   pointer-events: none;
 }
@@ -466,30 +466,6 @@ dialog[open]::backdrop {
 ::view-transition-new(site-tabbar) {
   animation: none;
 }
-::view-transition-old(.nav-forward),
-::view-transition-old(.nav-back) {
-  animation:
-    120ms cubic-bezier(0.23, 1, 0.32, 1) both theorist-vt-fade reverse,
-    260ms cubic-bezier(0.23, 1, 0.32, 1) both theorist-vt-slide reverse;
-}
-::view-transition-new(.nav-forward),
-::view-transition-new(.nav-back) {
-  animation:
-    180ms cubic-bezier(0.23, 1, 0.32, 1) 60ms both theorist-vt-fade,
-    260ms cubic-bezier(0.23, 1, 0.32, 1) both theorist-vt-slide;
-}
-::view-transition-old(.nav-forward) {
-  --slide-offset: -28px;
-}
-::view-transition-new(.nav-forward) {
-  --slide-offset: 28px;
-}
-::view-transition-old(.nav-back) {
-  --slide-offset: 28px;
-}
-::view-transition-new(.nav-back) {
-  --slide-offset: -28px;
-}
 /* Same page, new content (another card, another theme): a quick crossfade. */
 ::view-transition-old(.nav-fade) {
   animation: 100ms ease-out both theorist-opacity reverse;
@@ -504,24 +480,6 @@ dialog[open]::backdrop {
 }
 ::view-transition-image-pair(.morph) {
   animation-name: theorist-vt-blur;
-}
-@keyframes theorist-vt-fade {
-  from {
-    opacity: 0;
-    filter: blur(3px);
-  }
-  to {
-    opacity: 1;
-    filter: blur(0);
-  }
-}
-@keyframes theorist-vt-slide {
-  from {
-    translate: var(--slide-offset);
-  }
-  to {
-    translate: 0;
-  }
 }
 @keyframes theorist-opacity {
   from {
@@ -862,5 +820,122 @@ html.portal-arrival::after {
   }
   html.portal-arrival::after {
     display: none;
+  }
+}
+
+/* Moving to another page (PageTurn adds html.page-turn): the page opens from
+   the window's center through a ring of light, like the desktop app's first
+   page but quicker. The nav bar, outside <main> and above the ring, stays put. */
+@keyframes theorist-page-open {
+  from {
+    clip-path: circle(1vmax at 50% 42vh);
+  }
+  to {
+    clip-path: circle(85vmax at 50% 42vh);
+  }
+}
+@keyframes theorist-page-rim {
+  from {
+    --portal-r: 1vmax;
+    opacity: 1;
+  }
+  65% {
+    opacity: 1;
+  }
+  to {
+    --portal-r: 85vmax;
+    opacity: 0;
+  }
+}
+html.page-turn main {
+  animation: theorist-page-open 720ms cubic-bezier(0.33, 1, 0.68, 1) backwards;
+}
+html.page-turn::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(
+    circle at 50% calc(42vh + 3.5rem),
+    rgb(143 220 255 / 0) calc(var(--portal-r) - 2.5vmax),
+    rgb(90 176 255 / 0.4) calc(var(--portal-r) - 0.9vmax),
+    rgb(230 247 255 / 0.95) var(--portal-r),
+    rgb(143 220 255 / 0) calc(var(--portal-r) + 0.6vmax)
+  );
+  animation: theorist-page-rim 720ms cubic-bezier(0.33, 1, 0.68, 1) backwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  html.page-turn main {
+    animation: theorist-opacity 200ms ease-out backwards;
+  }
+  html.page-turn::before {
+    display: none;
+  }
+}
+
+/* Card galleries: each card arrives like a spell being cast. As it first comes
+   into view (SpellCasting sets data-cast), a circle of runes flares over it and
+   the card materializes out of the light; cards that arrive together are cast
+   one after another. Hidden until then only while SpellCasting runs. */
+html.spells .spell-card:not([data-cast]) {
+  opacity: 0;
+}
+.spell-card[data-cast] {
+  animation: theorist-spell-card 640ms cubic-bezier(0.16, 1, 0.3, 1) calc(var(--spell-i, 0) * 55ms) backwards;
+}
+.spell-card[data-cast]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0;
+  mix-blend-mode: screen;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='none' stroke='%238fdcff' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='50' cy='50' r='45' stroke-width='1.6'/%3E%3Ccircle cx='50' cy='50' r='38' stroke-width='0.9' stroke-dasharray='1.2 3.4'/%3E%3Cg stroke-width='1.4'%3E%3Cpath d='M-2.5 -3H2.5M0 -3V3M-2.5 3H2.5' transform='translate(50 18)'/%3E%3Cpath d='M-2.5 -3L0 0L2.5 -3M0 0V3' transform='rotate(45 50 50) translate(50 18)'/%3E%3Cpath d='M-2.5 3L0 -3L2.5 3M-1.2 0.8H1.2' transform='rotate(90 50 50) translate(50 18)'/%3E%3Cpath d='M-2.5 -2.5L2.5 2.5M2.5 -2.5L-2.5 2.5' transform='rotate(135 50 50) translate(50 18)'/%3E%3Cpath d='M0 -3V3M-2.5 -0.8L0 -3L2.5 -0.8' transform='rotate(180 50 50) translate(50 18)'/%3E%3Cpath d='M-2.5 -3V3M-2.5 0H2.5M2.5 -3V3' transform='rotate(225 50 50) translate(50 18)'/%3E%3Cpath d='M-2.5 -3H2.5M0 -3V3M-2.5 3H2.5' transform='rotate(270 50 50) translate(50 18)'/%3E%3Cpath d='M-2.5 -3L0 0L2.5 -3M0 0V3' transform='rotate(315 50 50) translate(50 18)'/%3E%3C/g%3E%3Cpath d='M50 30L64 50L50 70L36 50Z' stroke-width='1.4'/%3E%3Ccircle cx='50' cy='50' r='3' fill='%23e6f7ff' stroke='none'/%3E%3C/svg%3E")
+      center / 86% auto no-repeat,
+    radial-gradient(circle at 50% 50%, rgb(143 220 255 / 0.55), rgb(47 125 246 / 0.2) 40%, transparent 68%);
+  animation: theorist-spell-runes 900ms cubic-bezier(0.22, 1, 0.36, 1) calc(var(--spell-i, 0) * 55ms) both;
+}
+@keyframes theorist-spell-card {
+  from {
+    opacity: 0;
+    scale: 0.88;
+    filter: blur(6px) brightness(2.2) saturate(0.5);
+  }
+  55% {
+    opacity: 1;
+    filter: blur(0) brightness(1.3) saturate(1);
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+    filter: none;
+  }
+}
+@keyframes theorist-spell-runes {
+  from {
+    opacity: 0;
+    scale: 0.35;
+    rotate: -70deg;
+  }
+  30% {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    scale: 1.2;
+    rotate: 25deg;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  html.spells .spell-card:not([data-cast]) {
+    opacity: 1;
+  }
+  .spell-card[data-cast],
+  .spell-card[data-cast]::after {
+    animation: none;
   }
 }

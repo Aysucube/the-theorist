@@ -642,7 +642,7 @@ function Tile({
   const body = (
     <>
       <div
-        className={`relative aspect-[488/680] overflow-hidden rounded-[4.75%] bg-subtle  ${
+        className={`spell-card relative aspect-[488/680] overflow-hidden rounded-[4.75%] bg-subtle ${
           selected ? "ring-3 ring-accent/70" : ""
         }`}
       >

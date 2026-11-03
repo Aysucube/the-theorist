@@ -1,18 +1,17 @@
 import { ViewTransition, type ReactNode } from "react";
 
-// Navigation tags each page change with a type (lib/nav.ts, app-link.tsx);
-// these map the types to the slides and crossfade in globals.css.
-const SLIDE = { "nav-forward": "nav-forward", "nav-back": "nav-back", default: "none" };
+// Moving to another page opens it through a ring of light (page-turn.tsx), so
+// the page itself doesn't slide; staying on a page with new content (another
+// card, another theme) crossfades, tagged by navigation (lib/nav.ts, app-link.tsx).
 const FADE = { "nav-fade": "nav-fade", default: "none" };
 
 /**
- * Wraps a page so it slides in and out as you move around the app, and
- * crossfades when it stays put with new content (another card, another
- * theme). Goes in each page.tsx: layouts persist, so they never enter or exit.
+ * Wraps a page so it crossfades when it stays put with new content. Goes in
+ * each page.tsx: layouts persist, so they never update this way.
  */
 export function PageTransition({ children }: { children: ReactNode }) {
   return (
-    <ViewTransition enter={SLIDE} exit={SLIDE} update={FADE} default="none">
+    <ViewTransition enter="none" exit="none" update={FADE} default="none">
       {children}
     </ViewTransition>
   );

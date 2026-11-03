@@ -67,7 +67,7 @@ function Tile({ tile: t, cardName, layout, selected }: { tile: PrintingTile; car
   const picture = (
     <>
       <div
-        className={`aspect-[146/204] overflow-hidden rounded-[4.75%] bg-subtle  ${
+        className={`spell-card relative aspect-[146/204] overflow-hidden rounded-[4.75%] bg-subtle ${
           selected ? "ring-3 ring-accent/70" : ""
         }`}
       >

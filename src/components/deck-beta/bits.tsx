@@ -120,7 +120,7 @@ function GalleryItem({
   const trigger = hoverPreview ? hover.trigger : undefined;
   const body = (
     <>
-      <div className="relative aspect-[488/680] overflow-hidden rounded-[4.75%] bg-subtle transition-opacity group-hover:opacity-85">
+      <div className="spell-card relative aspect-[488/680] overflow-hidden rounded-[4.75%] bg-subtle transition-opacity group-hover:opacity-85">
         <LazyCardImage url={imageUrl} alt={name} />
         <GameChangerTag name={name} compact className="absolute top-1 left-1 shadow" />
       </div>

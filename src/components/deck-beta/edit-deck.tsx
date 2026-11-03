@@ -319,7 +319,7 @@ function DeckTile({ line, printing, onPick, onQty, onRemove }: { line: DeckLine;
   return (
     <li className="flex min-w-0 flex-col gap-1.5">
       <div {...trigger} tabIndex={0} className="min-w-0 rounded-[4.75%] outline-offset-4">
-        <div className="relative aspect-[488/680] overflow-hidden rounded-[4.75%] bg-subtle">
+        <div className="spell-card relative aspect-[488/680] overflow-hidden rounded-[4.75%] bg-subtle">
           <LazyCardImage url={printing?.imageUrl ?? card.imageUrl} alt={card.name} />
           <GameChangerTag name={card.name} className="absolute top-1.5 left-1.5 shadow" />
           {qty > 1 && <span className="absolute top-1.5 right-1.5 rounded-full bg-background/85 px-1.5 text-xs font-semibold text-white tabular-nums">×{qty}</span>}

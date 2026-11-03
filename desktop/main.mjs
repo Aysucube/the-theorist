@@ -326,10 +326,11 @@ async function start() {
     server = await startServer({ serverDir, dataDir, logFile: serverLog, onExit: onServerExit });
     clearTimeout(slow);
     note(`server ready at ${server.url}`);
-    // Warms the first page while the portal opens.
+    // Warms the first page while the circle waits to be clicked.
     void fetch(`${server.url}/`).catch(() => {});
     await intro;
-    await splash("window.portal.gather()");
+    // Greets the user and waits for a click on the circle, then plays the way in.
+    await splash("window.portal.ready()");
     if (!win) return;
     await win.loadURL(`${server.url}/?portal=1`);
   } catch (error) {

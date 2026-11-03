@@ -139,7 +139,7 @@ export function CommanderStep({
                 className="group block w-full text-left"
               >
                 <span
-                  className={`block aspect-[488/680] overflow-hidden rounded-[4.75%] bg-subtle ring-offset-4 ring-offset-background transition-shadow duration-200 ${
+                  className={`spell-card relative block aspect-[488/680] overflow-hidden rounded-[4.75%] bg-subtle ring-offset-4 ring-offset-background transition-shadow duration-200 ${
                     selected === card.name ? "ring-2 ring-accent" : ""
                   }`}
                 >
@@ -670,7 +670,7 @@ function CardRow({ title, note, cards, owned }: { title: string; note: string; c
             transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1], delay: Math.min(i, 10) * 0.03 }}
             className="w-28 shrink-0 snap-start"
           >
-            <span className="relative block aspect-[488/680] overflow-hidden rounded-[4.75%] bg-subtle">
+            <span className="spell-card relative block aspect-[488/680] overflow-hidden rounded-[4.75%] bg-subtle">
               <span className={`block h-full ${owned(card.name) > 0 ? "" : "opacity-55 grayscale"}`}>
                 <LazyCardImage url={card.imageUrl} alt={card.name} />
               </span>

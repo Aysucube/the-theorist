@@ -64,7 +64,7 @@ export function BuildCard({
           else onAdd(card);
         }}
         aria-label={added ? `Take ${card.name} out of the deck` : `Add ${card.name} to the deck${owned ? "" : " (not in your binder)"}`}
-        className="relative block aspect-[488/680] overflow-hidden rounded-[4.75%] bg-subtle text-left outline-offset-4"
+        className="spell-card relative block aspect-[488/680] overflow-hidden rounded-[4.75%] bg-subtle text-left outline-offset-4"
       >
         <span className={`block h-full w-full transition-[filter,opacity] duration-200 ${added ? "opacity-30" : owned ? "" : "opacity-55 grayscale"}`}>
           <LazyCardImage url={card.imageUrl} alt={card.name} />

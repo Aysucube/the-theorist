@@ -5,7 +5,9 @@ import { Toaster } from "sonner";
 import { SiteNav, SiteNavFallback } from "@/components/site-nav";
 import { Backdrop } from "@/components/theme/backdrop";
 import { CastEffects } from "@/components/theme/cast-effects";
+import { PageTurn } from "@/components/theme/page-turn";
 import { PortalArrival } from "@/components/theme/portal-arrival";
+import { SpellCasting } from "@/components/theme/spell-casting";
 import "./globals.css";
 
 const PORTAL_SCRIPT = `if(/[?&]portal=1(&|$)/.test(location.search))document.documentElement.classList.add("portal-arrival")`;
@@ -58,6 +60,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         {children}
         <CastEffects />
         <PortalArrival />
+        <SpellCasting />
+        {/* Knows the page only at request time on a deck's page, like the nav. */}
+        <Suspense fallback={null}>
+          <PageTurn />
+        </Suspense>
         <Toaster
           theme="dark"
           position="bottom-center"
